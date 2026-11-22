@@ -41,10 +41,24 @@ Rules must be plain code with tests, never an LLM's opinion of a drawing.
 
 Commitment point is 10:30 team formation. Leaving after the intros is fine; leaving a team mid-day is not.
 
-## Status
-- [x] Plan written (this file + docs/)
-- [ ] Starter repo (package, fault library, metric, loop script)
-- [ ] First 3 rules: tolerance Monte Carlo, drawer-bottom sag, edge-banding deduction
+## Status (2026-11-22)
+- [x] Starter repo: `fc/` (design loader runs the real generator, DXF reader, 3D frames), fault library, scoreboard
+- [x] 11 rules R01-R11 (DXF sanity, DXF vs cut list, 3D joint continuity, handedness, slide holes, banding,
+      drawer box fit + sag + Monte Carlo tolerance, front gaps after banding, screw lengths, hold-down, bit reach)
+- [x] Held-out set (25 faults) written by an independent red-team agent that never saw the rules
+- [x] `loop.py`: miner + rule writer + acceptance gate (catches target, no regression, 0 false alarms)
+- [ ] Run the loop live (needs permission to run headless `claude -p` agents)
 
-See `docs/kommode-gaps.md` (what the current checker misses) and `docs/tools-and-rules.md`
-(how professional software verifies designs, free alternatives, which rules to write ourselves).
+Score history: `score_history.jsonl`. Baseline generator alone: train 24 %, held-out 4 %.
+Now: train 100 %, held-out 64 %, 0/7 false alarms.
+
+Real bugs found in the kommode by the checker and fixed in the generator:
+1. Right side, right drawer sides and middle wall cut as identical copies of handed parts -> slide holes/marks
+   front<->back on one side, band on the back edge (R04). Now C/CH and S/SH, D face label fixed.
+2. Handle screws M4x40 left 2.4 mm in the handle (R09) -> M4x45 in params.json.
+3. Small through holes (handle Ø5, plinth Ø4.5, slide pilots) deeper than a 1/8" bit's flute (R11) ->
+   CNC spots 3 mm, drill through by hand (listed in manuelle-operasjoner.csv). Flute lengths are ESTIMATES: ask the workshop.
+
+    python3 -m fc.score            # scoreboard
+    python3 -m fc.score --show t07 # what each layer says about one fault
+    python3 loop.py --mine 6 --iters 6
