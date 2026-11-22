@@ -1,0 +1,176 @@
+<title>Cut-Ready Checker</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one shop-drawing column; score chart is the hero, then the bugs it found, the loop, the rule book. */
+:root {
+  --bg: #f3f5f2; --panel: #ffffff; --fg: #18201d; --mute: #5d6a64; --line: #d5dcd7;
+  --accent: #0d6b5a; --train: #a8701a; --base: #8a948f; --bad: #b3261e; --ok: #1f7a3f;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111614; --panel: #18201d; --fg: #e4ebe7; --mute: #93a19a; --line: #2c3833;
+  --accent: #4cc3a6; --train: #e2a64c; --base: #6e7a74; --bad: #f07c72; --ok: #6ccf8e; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111614; --panel: #18201d; --fg: #e4ebe7; --mute: #93a19a; --line: #2c3833;
+  --accent: #4cc3a6; --train: #e2a64c; --base: #6e7a74; --bad: #f07c72; --ok: #6ccf8e; color-scheme: dark }
+body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
+.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 48px; }
+h1, h2 { font-family: var(--display); font-stretch: 80%; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 800; line-height: 1.02; }
+h2 { font-size: 26px; font-weight: 700; }
+p { margin: 0; max-width: 65ch; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+.lede { font-size: 18px; color: var(--mute); }
+header { display: grid; gap: 14px; }
+.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.stat { border-top: 2px solid var(--fg); padding-top: 10px; display: grid; gap: 2px; }
+.stat b { font: 700 40px var(--display); font-stretch: 80%; font-variant-numeric: tabular-nums; }
+.stat .from { font: 13px var(--mono); color: var(--mute); }
+.stat.hero b { color: var(--accent); }
+section { display: grid; gap: 16px; }
+.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
+.chart svg { width: 100%; height: auto; display: block; }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px var(--mono); color: var(--mute); }
+.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
+.bugs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.bug { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--bad); border-radius: 4px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
+.bug h3 { margin: 0; font: 600 16px var(--body); }
+.bug .rule { font: 12px var(--mono); color: var(--mute); }
+.bug .fix { font-size: 14px; color: var(--ok); }
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: s; }
+.flow div { border: 1px solid var(--line); border-radius: 4px; padding: 12px; background: var(--panel); display: grid; gap: 4px; align-content: start; }
+.flow b { font: 600 14px var(--body); }
+.flow span { font-size: 13px; color: var(--mute); }
+.flow div::before { counter-increment: s; content: counter(s); font: 500 12px var(--mono); color: var(--accent); }
+.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
+tr:last-child td { border-bottom: 0; }
+td.id { font: 500 13px var(--mono); white-space: nowrap; }
+.pill { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
+.pill.auto { color: var(--accent); } .pill.hand { color: var(--mute); }
+.pill.yes { color: var(--ok); } .pill.no { color: var(--bad); }
+.note { font-size: 13px; color: var(--mute); }
+@media (max-width: 640px) { .stats { grid-template-columns: 1fr; } .flow { grid-template-columns: 1fr 1fr; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Self-improving DFM checker · flat-pack on a ShopBot</div>
+    <h1>Catch it before the router does.</h1>
+    <p class="lede">An 8-drawer chest, generated from parameters and cut from melamine. Spindle time costs 568 kr/h, so every mistake should be caught in the files first. The checker gets better by itself: agents invent realistic faults, other agents write rules for the ones it misses, and a rule is kept only if it passes the gate.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <div><div class="eyebrow">Scoreboard</div><h2>Share of seeded faults stopped before cutting</h2></div>
+    <div class="chart"><svg id="chart" role="img" aria-label="Catch rate over iterations"></svg>
+      <div class="legend" id="legend"></div></div>
+    <p class="note">The held-out faults were written by a separate red-team agent that never sees the rules or the loop. That line is the honest one; the training line is what the rule writers can see. Each point is one accepted change.</p>
+  </section>
+
+  <section>
+    <div><div class="eyebrow">Found in the real design</div><h2>Three bugs the generator's own check passed</h2></div>
+    <div class="bugs">
+      <div class="bug"><h3>Left and right parts were identical</h3>
+        <p>The right side, the middle wall and 8 right drawer sides were cut as copies of parts that must be mirrored. On the right side the slide marks land 30 mm further back and the edge band ends up on the back edge. The drawer would not close square.</p>
+        <div class="rule">R04 handedness · R05 slide holes · R06 banding</div>
+        <div class="fix">Fixed: mirrored parts CH and SH, middle wall face label corrected</div></div>
+      <div class="bug"><h3>Handle screws that barely bite</h3>
+        <p>M4×40 through an 18.8 mm front plus an 18.8 mm drawer end leaves 2.4 mm of thread in the handle.</p>
+        <div class="rule">R09 fasteners</div>
+        <div class="fix">Fixed: M4×45 (7.4 mm engagement)</div></div>
+      <div class="bug"><h3>Holes deeper than the bit can reach</h3>
+        <p>Ø5 handle holes, Ø4.5 plinth screws and the slide pilots need 19 mm through the board with a 1/8″ bit whose flute is typically 12.7 mm.</p>
+        <div class="rule">R11 tool reach</div>
+        <div class="fix">Fixed: CNC spots 3 mm deep, the holes are drilled through by hand</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div><div class="eyebrow">The loop</div><h2>How a rule gets in</h2></div>
+    <div class="flow">
+      <div><b>Mine</b><span>An agent writes new faults from real failure modes: hardware manuals, CNC forums, cabinet practice.</span></div>
+      <div><b>Score</b><span>Generator plus all rules run on every fault. The DXFs and the 3D assembly are checked, not intent.</span></div>
+      <div><b>Write</b><span>For one missed fault, an agent writes one plain-Python rule with a stated workshop reason.</span></div>
+      <div><b>Gate</b><span>Kept only if it catches that fault, loses nothing already caught, and raises zero false alarms on known-good designs.</span></div>
+    </div>
+    <div class="tbl"><table id="loop"><thead><tr><th>Time</th><th>Step</th><th>Fault</th><th>Rule</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div><div class="eyebrow">Rule book</div><h2 id="rulesh">Rules</h2></div>
+    <div class="tbl"><table id="rules"><thead><tr><th>Rule</th><th>What it checks</th><th>Written by</th></tr></thead><tbody></tbody></table></div>
+    <p class="note">Rules are deterministic code with thresholds, run on the files the workshop receives. No model is asked for its opinion at check time.</p>
+  </section>
+</div>
+
+<script>
+const D = /*DATA*/null;
+const $ = s => document.querySelector(s);
+const pct = (a, b) => b ? Math.round(100 * a / b) : null;
+const H = D.hist;
+const last = H[H.length - 1], first = H[0];
+const firstHeld = H.find(h => h.heldout_n) || last;
+const trainAll = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
+const genAll = h => ({ c: (h.train_gen || 0), n: (h.train_n || 0) });
+
+$('#stats').innerHTML = [
+  ['hero', pct(last.heldout_caught, last.heldout_n) + '%', 'held-out faults caught', 'generator alone: ' + pct(last.heldout_gen, last.heldout_n) + '%'],
+  ['', pct(trainAll(last).c, trainAll(last).n) + '%', 'training faults caught', 'baseline: ' + pct(first.train_gen, first.train_n) + '%'],
+  ['', last.false_pos + ' / ' + last.good_n, 'false alarms on good designs', last.rules + ' rules']
+].map(([c, b, l, f]) => `<div class="stat ${c}"><b>${b}</b><span>${l}</span><span class="from">${f}</span></div>`).join('');
+
+// chart
+(function () {
+  const W = 920, Hh = 360, m = { l: 48, r: 20, t: 16, b: 44 };
+  const x = i => m.l + (H.length < 2 ? 0 : i * (W - m.l - m.r) / (H.length - 1));
+  const y = v => m.t + (100 - v) * (Hh - m.t - m.b) / 100;
+  const css = getComputedStyle(document.documentElement);
+  const series = [
+    { name: 'Held-out (never seen by the agents)', col: 'var(--accent)', w: 3.5, v: H.map(h => h.heldout_n ? pct(h.heldout_caught, h.heldout_n) : null) },
+    { name: 'Training + mined', col: 'var(--train)', w: 2.5, v: H.map(h => pct(trainAll(h).c, trainAll(h).n)) },
+    { name: 'Generator alone (training)', col: 'var(--base)', w: 2, dash: '5 5', v: H.map(h => pct(genAll(h).c, genAll(h).n)) },
+  ];
+  let s = '';
+  for (const g of [0, 25, 50, 75, 100]) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/>
+    <text x="${m.l - 8}" y="${y(g) + 4}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--mute)">${g}%</text>`;
+  H.forEach((h, i) => {
+    const lab = h.note.startsWith('loop') ? 'loop' : h.note.startsWith('baseline') ? 'base' : 'R' + (h.rules || 0);
+    s += `<text x="${x(i)}" y="${Hh - m.b + 18}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--mute)">${lab}</text>`;
+    if (h.note.startsWith('loop')) s += `<line x1="${x(i)}" x2="${x(i)}" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--accent)" stroke-opacity=".18" stroke-width="1"/>`;
+    if (h.false_pos) s += `<text x="${x(i)}" y="${Hh - m.b + 34}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--bad)">${h.false_pos} false</text>`;
+  });
+  for (const se of series) {
+    const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+    if (!pts.length) continue;
+    s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
+    const lp = pts[pts.length - 1], lv = se.v.filter(v => v != null).slice(-1)[0];
+    s += `<circle cx="${lp[0]}" cy="${lp[1]}" r="4.5" fill="${se.col}"/>`;
+    s += `<text x="${lp[0] - 8}" y="${lp[1] - 10}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="${se.col}">${lv}%</text>`;
+  }
+  const svg = $('#chart'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
+  $('#legend').innerHTML = series.map(se => `<span><i style="background:${se.col}"></i>${se.name}</span>`).join('');
+})();
+
+// loop log
+const tb = $('#loop tbody');
+const rows = D.loop.length ? D.loop : [];
+tb.innerHTML = rows.map(e => {
+  const t = (e.t || '').slice(11, 16);
+  if (e.step === 'mine') return `<tr><td class="id">${t}</td><td>Mine</td><td colspan="2">${e.n} new faults written</td><td><span class="pill auto">mined</span></td></tr>`;
+  const res = e.accepted ? '<span class="pill yes">accepted</span>' : `<span class="pill no">rejected</span>${e.false_alarms && e.false_alarms.length ? ' false alarm' : ''}`;
+  return `<tr><td class="id">${t}</td><td>Write</td><td class="id">${e.fault}</td><td class="id">${e.rule || '–'}</td><td>${res}</td></tr>`;
+}).join('') || '<tr><td colspan="5" class="note">The loop has not run yet. Run python3 loop.py --mine 6 --iters 6.</td></tr>';
+
+// rules
+$('#rulesh').textContent = D.rules.length + ' rules';
+$('#rules tbody').innerHTML = D.rules.map(r => `<tr><td class="id">${r.id}</td><td>${r.desc}</td><td><span class="pill ${r.auto ? 'auto' : 'hand'}">${r.auto ? 'loop agent' : 'seed'}</span></td></tr>`).join('');
+</script>

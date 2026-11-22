@@ -4,6 +4,7 @@
 import json, os, re, sys
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, HERE)
+import fc.design  # noqa: E402,F401  (puts the generator on sys.path)
 from fc.core import load_rules  # noqa: E402
 
 def jl(fn):
