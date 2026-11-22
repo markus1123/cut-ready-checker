@@ -9,12 +9,15 @@ from . import design
 from .core import verdict, gen_errors, run_rules, load_rules
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETS = ['train', 'heldout', 'good']
+SETS = ['train', 'mined', 'heldout', 'good']
 
 
 def load_set(name):
     sys.path.insert(0, HERE)
-    return importlib.import_module('faults.' + name).FAULTS
+    try:
+        return importlib.import_module('faults.' + name).FAULTS
+    except ModuleNotFoundError:
+        return []
 
 
 def evaluate(names=SETS, verbose=True):
@@ -75,7 +78,7 @@ def main():
                 for m in r['msgs'][:4]:
                     print('          ', m[:160])
     print()
-    for name in ('train', 'heldout'):
+    for name in ('train', 'mined', 'heldout'):
         if s.get(name + '_n'):
             print('%-8s generator alone %2d/%-2d (%3.0f%%)   generator + rules %2d/%-2d (%3.0f%%)' % (
                 name, s[name + '_gen'], s[name + '_n'], 100 * s[name + '_gen'] / s[name + '_n'],
@@ -84,7 +87,7 @@ def main():
     if '--log' in a:
         note = a[a.index('--log') + 1] if len(a) > a.index('--log') + 1 else ''
         s.update(t=time.strftime('%Y-%m-%dT%H:%M:%S'), note=note,
-                 missed={n: [r['id'] for r in res[n] if not r['caught']] for n in ('train', 'heldout') if n in res})
+                 missed={n: [r['id'] for r in res[n] if not r['caught']] for n in ('train', 'mined', 'heldout') if n in res})
         with open(os.path.join(HERE, 'score_history.jsonl'), 'a') as f:
             f.write(json.dumps(s) + '\n')
     return s
