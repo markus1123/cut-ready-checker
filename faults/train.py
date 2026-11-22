@@ -84,4 +84,12 @@ FAULTS = [
     Fault('t32', 'Generator bug: drawer bottom 4 mm too wide',
           'Bottom bottoms out in the groove; box cannot be closed.',
           parts=lambda parts, asm, info: part(parts, 'SB').update(L=part(parts, 'SB')['L'] + 4)),
+    Fault('t33', 'Regression: right side cut as an identical copy of the left (the bug found on 2026-11-22)',
+          'Right side: band on the back edge, slide holes 30+ mm too far back; drawer cannot close square.',
+          parts=lambda parts, asm, info: part(parts, 'CH').update(ops=[dict(o) for o in part(parts, 'C')['ops']], bands=part(parts, 'C')['bands']),
+          source='found by R04 on the real kommode'),
+    Fault('t34', 'Regression: right drawer sides identical to left',
+          '8 right drawer sides get slide holes front<->back; slides cannot be mounted.',
+          parts=lambda parts, asm, info: part(parts, 'SH').update(ops=[dict(o) for o in part(parts, 'S')['ops']]),
+          source='found by R04 on the real kommode'),
 ]

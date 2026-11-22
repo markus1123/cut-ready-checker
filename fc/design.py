@@ -22,6 +22,8 @@ def base(ready=True):
     P, S = copy.deepcopy(P), copy.deepcopy(S)
     if ready:
         P['verksted']['bekreftet'] = True
+        P['verksted'].setdefault('fres_liten_skjaerlengde', 12.7)   # typical 1/8" bit: 1/2" flute
+        P['verksted'].setdefault('fres_stor_skjaerlengde', 22.2)    # typical 1/4" compression bit: 7/8" flute
         P['tykkelse_malt'].update(READY_THK)
         P['tykkelse_malt']['malt'] = True
         S.update(copy.deepcopy(READY_SLIDE))
