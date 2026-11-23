@@ -3,174 +3,301 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
 <style>
-/* Layout: one shop-drawing column; score chart is the hero, then the bugs it found, the loop, the rule book. */
+/* Layout: a single workshop-drawing column. Two charts carry the story (quality, then cost); everything else supports them. */
 :root {
-  --bg: #f3f5f2; --panel: #ffffff; --fg: #18201d; --mute: #5d6a64; --line: #d5dcd7;
-  --accent: #0d6b5a; --train: #a8701a; --base: #8a948f; --bad: #b3261e; --ok: #1f7a3f;
+  --bg: #eef1ee; --panel: #fbfcfb; --fg: #17201c; --mute: #5a6862; --faint: #8b9792; --line: #d3dbd6; --grid: #e4e9e6;
+  --accent: #0b6b58; --accent-soft: #d5ebe4; --train: #a26a12; --base: #87918c; --bad: #b42d22; --bad-soft: #f6dfdc;
+  --ok: #217a42; --warn: #9a6a00; --warn-soft: #f6ebcd;
   --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
   --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
   --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
 }
 @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
-  --bg: #111614; --panel: #18201d; --fg: #e4ebe7; --mute: #93a19a; --line: #2c3833;
-  --accent: #4cc3a6; --train: #e2a64c; --base: #6e7a74; --bad: #f07c72; --ok: #6ccf8e; color-scheme: dark } }
+  --bg: #0f1412; --panel: #161d1a; --fg: #e3eae6; --mute: #9aa8a1; --faint: #6f7c76; --line: #2a3530; --grid: #1f2925;
+  --accent: #4cc3a6; --accent-soft: #173a31; --train: #e2a64c; --base: #75817b; --bad: #f08176; --bad-soft: #3a1d1a;
+  --ok: #6fd093; --warn: #e8bb55; --warn-soft: #362c12; color-scheme: dark } }
 :root[data-theme="dark"] {
-  --bg: #111614; --panel: #18201d; --fg: #e4ebe7; --mute: #93a19a; --line: #2c3833;
-  --accent: #4cc3a6; --train: #e2a64c; --base: #6e7a74; --bad: #f07c72; --ok: #6ccf8e; color-scheme: dark }
-body { background: var(--bg); color: var(--fg); font: 15px/1.55 var(--body); }
-.wrap { max-width: 980px; margin: 0 auto; padding-block: 40px 64px;
+  --bg: #0f1412; --panel: #161d1a; --fg: #e3eae6; --mute: #9aa8a1; --faint: #6f7c76; --line: #2a3530; --grid: #1f2925;
+  --accent: #4cc3a6; --accent-soft: #173a31; --train: #e2a64c; --base: #75817b; --bad: #f08176; --bad-soft: #3a1d1a;
+  --ok: #6fd093; --warn: #e8bb55; --warn-soft: #362c12; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 1000px; margin: 0 auto; padding-block: 48px 72px;
   padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
-  display: grid; gap: 48px; }
-h1, h2 { font-family: var(--display); font-stretch: 80%; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
-h1 { font-size: clamp(34px, 6vw, 58px); font-weight: 800; line-height: 1.02; }
-h2 { font-size: 26px; font-weight: 700; }
-p { margin: 0; max-width: 65ch; }
-.eyebrow { font: 500 12px var(--mono); letter-spacing: .08em; text-transform: uppercase; color: var(--mute); }
+  display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 78%; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(38px, 7vw, 68px); font-weight: 800; line-height: .98; }
+h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; line-height: 1.1; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
 .lede { font-size: 18px; color: var(--mute); }
-header { display: grid; gap: 14px; }
-.stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
-.stat { border-top: 2px solid var(--fg); padding-top: 10px; display: grid; gap: 2px; }
-.stat b { font: 700 40px var(--display); font-stretch: 80%; font-variant-numeric: tabular-nums; }
-.stat .from { font: 13px var(--mono); color: var(--mute); }
-.stat.hero b { color: var(--accent); }
-section { display: grid; gap: 16px; }
-.chart { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 16px; }
-.chart svg { width: 100%; height: auto; display: block; }
-.legend { display: flex; flex-wrap: wrap; gap: 6px 18px; font: 13px var(--mono); color: var(--mute); }
-.legend i { display: inline-block; width: 18px; height: 3px; vertical-align: middle; margin-right: 6px; border-radius: 2px; }
-.bugs { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
-.bug { background: var(--panel); border: 1px solid var(--line); border-left: 4px solid var(--bad); border-radius: 4px; padding: 14px 16px; display: grid; gap: 6px; align-content: start; }
-.bug h3 { margin: 0; font: 600 16px var(--body); }
+.mute { color: var(--mute); }
+header { display: grid; gap: 18px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 12px; }
+.stat { border-top: 3px solid var(--fg); padding-top: 12px; display: grid; gap: 2px; align-content: start; }
+.stat b { font: 800 46px/1 var(--display); font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.stat .l { font-weight: 500; }
+.stat .from { font: 12.5px/1.4 var(--mono); color: var(--mute); }
+.stat.hero { border-color: var(--accent); } .stat.hero b { color: var(--accent); }
+section { display: grid; gap: 20px; }
+.head { display: grid; gap: 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.chart { padding: 20px 20px 16px; display: grid; gap: 14px; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart svg text { font-family: var(--mono); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 13px var(--mono); color: var(--mute); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { display: inline-block; width: 22px; height: 0; border-top: 3px solid; }
+.sw.dash { border-top-style: dashed; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.read { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 28px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; }
+.read div { display: grid; gap: 2px; }
+.read b { font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.bugs { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.bug { padding: 18px; display: grid; gap: 8px; align-content: start; border-left: 4px solid var(--bad); }
+.bug.open { border-left-color: var(--warn); }
+.tag { justify-self: start; font: 500 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: var(--bad-soft); color: var(--bad); }
+.bug.open .tag { background: var(--warn-soft); color: var(--warn); }
+.bug p { font-size: 14.5px; }
 .bug .rule { font: 12px var(--mono); color: var(--mute); }
-.bug .fix { font-size: 14px; color: var(--ok); }
-.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; counter-reset: s; }
-.flow div { border: 1px solid var(--line); border-radius: 4px; padding: 12px; background: var(--panel); display: grid; gap: 4px; align-content: start; }
-.flow b { font: 600 14px var(--body); }
-.flow span { font-size: 13px; color: var(--mute); }
-.flow div::before { counter-increment: s; content: counter(s); font: 500 12px var(--mono); color: var(--accent); }
-.tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 4px; background: var(--panel); }
+.bug .fix { font-size: 14px; color: var(--ok); font-weight: 500; }
+.bug.open .fix { color: var(--warn); }
+.cmp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.opt { padding: 18px; display: grid; gap: 10px; align-content: start; }
+.opt.best { border: 2px solid var(--accent); }
+.opt .price { font: 800 38px/1 var(--display); font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.opt .delta { font: 500 13px var(--mono); }
+.opt dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13.5px; }
+.opt dt { color: var(--mute); } .opt dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.opt ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mute); }
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.flow div { padding: 16px; display: grid; gap: 6px; align-content: start; border: 1px solid var(--line); background: var(--panel); margin-left: -1px; }
+.flow div:first-child { border-radius: 8px 0 0 8px; margin-left: 0; } .flow div:last-child { border-radius: 0 8px 8px 0; }
+.flow b { font: 700 18px var(--display); font-stretch: 80%; }
+.flow b::after { content: " →"; color: var(--faint); }
+.flow div:last-child b::after { content: " ↺"; color: var(--accent); }
+.flow span { font-size: 13.5px; color: var(--mute); }
+.tbl { overflow-x: auto; }
 table { border-collapse: collapse; width: 100%; font-size: 14px; }
-th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
-th { font: 500 12px var(--mono); text-transform: uppercase; letter-spacing: .06em; color: var(--mute); }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 11.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--mute); }
 tr:last-child td { border-bottom: 0; }
 td.id { font: 500 13px var(--mono); white-space: nowrap; }
-.pill { font: 500 11px var(--mono); padding: 2px 7px; border-radius: 99px; border: 1px solid currentColor; white-space: nowrap; }
-.pill.auto { color: var(--accent); } .pill.hand { color: var(--mute); }
-.pill.yes { color: var(--ok); } .pill.no { color: var(--bad); }
-.note { font-size: 13px; color: var(--mute); }
-@media (max-width: 640px) { .stats { grid-template-columns: 1fr; } .flow { grid-template-columns: 1fr 1fr; } }
+.pill { font: 500 11px var(--mono); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.auto { background: var(--accent-soft); color: var(--accent); } .pill.hand { border: 1px solid var(--line); color: var(--mute); }
+.pill.yes { background: var(--accent-soft); color: var(--ok); } .pill.no { background: var(--bad-soft); color: var(--bad); }
+.foot { font-size: 13px; color: var(--mute); border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
+@media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } .cmp { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr 1fr; } .flow div { margin: 0 0 -1px 0; border-radius: 0 !important; } }
 </style>
 
 <div class="wrap">
   <header>
-    <div class="eyebrow">Self-improving DFM checker · flat-pack on a ShopBot</div>
+    <div class="eyebrow">Self-improving checker · 8-drawer chest · ShopBot Alpha PRS, Fellesverkstedet Oslo</div>
     <h1>Catch it before the router does.</h1>
-    <p class="lede">An 8-drawer chest, generated from parameters and cut from melamine. Spindle time costs 568 kr/h, so every mistake should be caught in the files first. The checker gets better by itself: agents invent realistic faults, other agents write rules for the ones it misses, and a rule is kept only if it passes the gate.</p>
+    <p class="lede">A chest of drawers generated from parameters and cut from melamine sheets. Machine time costs 568 kr an hour, so mistakes have to be caught in the files. Agents invent realistic faults, other agents write rules for the ones it misses, and an optimizer cuts cost without ever leaving what the checker allows.</p>
     <div class="stats" id="stats"></div>
   </header>
 
   <section>
-    <div><div class="eyebrow">Scoreboard</div><h2>Share of seeded faults stopped before cutting</h2></div>
-    <div class="chart"><svg id="chart" role="img" aria-label="Catch rate over iterations"></svg>
-      <div class="legend" id="legend"></div></div>
-    <p class="note">The held-out faults were written by a separate red-team agent that never sees the rules or the loop. That line is the honest one; the training line is what the rule writers can see. Each point is one accepted change.</p>
+    <div class="head"><div class="eyebrow">1 · Quality</div><h2>How many faults are stopped before cutting</h2></div>
+    <div class="card chart">
+      <svg id="score" role="img" aria-label="Catch rate per checker version"></svg>
+      <div class="legend">
+        <span><i class="sw" style="border-color:var(--accent)"></i>Held-out faults (never seen by the agents)</span>
+        <span><i class="sw" style="border-color:var(--train)"></i>Training faults (seen by the rule writers)</span>
+        <span><i class="sw dash" style="border-color:var(--base)"></i>Generator's own check, no rules</span>
+      </div>
+      <div class="read">
+        <div><b>Horizontal axis</b>Versions of the checker, in the order they happened today. Each step is one change to the rule book: the first point is the generator alone, the last is after the loop's latest accepted rule.</div>
+        <div><b>Vertical axis</b>Share of deliberately broken designs (wrong hole, wrong depth, part off the sheet…) that the checker stops before they reach the machine.</div>
+        <div><b>Why two lines</b>The rule writers can see the training faults, so that line climbs to 100 %. The held-out faults were written by a separate agent and never shown to them. That line measures whether the rules generalise.</div>
+      </div>
+    </div>
   </section>
 
   <section>
-    <div><div class="eyebrow">Found in the real design</div><h2>Three bugs the generator's own check passed</h2></div>
+    <div class="head"><div class="eyebrow">2 · Found in the real chest</div><h2>What the generator's own check let through</h2></div>
     <div class="bugs">
-      <div class="bug"><h3>Left and right parts were identical</h3>
-        <p>The right side, the middle wall and 8 right drawer sides were cut as copies of parts that must be mirrored. On the right side the slide marks land 30 mm further back and the edge band ends up on the back edge. The drawer would not close square.</p>
-        <div class="rule">R04 handedness · R05 slide holes · R06 banding</div>
-        <div class="fix">Fixed: mirrored parts CH and SH, middle wall face label corrected</div></div>
-      <div class="bug"><h3>Handle screws that barely bite</h3>
-        <p>M4×40 through an 18.8 mm front plus an 18.8 mm drawer end leaves 2.4 mm of thread in the handle.</p>
-        <div class="rule">R09 fasteners</div>
-        <div class="fix">Fixed: M4×45 (7.4 mm engagement)</div></div>
-      <div class="bug"><h3>Holes deeper than the bit can reach</h3>
-        <p>Ø5 handle holes, Ø4.5 plinth screws and the slide pilots need 19 mm through the board with a 1/8″ bit whose flute is typically 12.7 mm.</p>
-        <div class="rule">R11 tool reach</div>
-        <div class="fix">Fixed: CNC spots 3 mm deep, the holes are drilled through by hand</div></div>
+      <div class="card bug"><span class="tag">Fixed</span><h3>Left and right parts were identical</h3>
+        <p>The right side, middle wall and 8 right drawer sides were copies of parts that must be mirrored. Slide marks landed 30 mm too far back and the edge band ended up on the back edge. The drawers would not have closed square.</p>
+        <div class="rule">Caught by R04 handedness, R05 slide holes, R06 banding</div>
+        <div class="fix">Mirrored parts added (CH, SH)</div></div>
+      <div class="card bug"><span class="tag">Fixed</span><h3>Holes deeper than the bit reaches</h3>
+        <p>Ø5 handle holes, Ø4.5 plinth screws and slide pilots go 19 mm through, deeper than a short 1/8″ bit can cut.</p>
+        <div class="rule">Caught by R11 tool reach</div>
+        <div class="fix">CNC spots 3 mm, drilled through by hand</div></div>
+      <div class="card bug"><span class="tag">Fixed</span><h3>Handle screws that barely bite</h3>
+        <p>M4×40 through 37.6 mm of board leaves 2.4 mm of thread in the handle.</p>
+        <div class="rule">Caught by R09 fasteners</div>
+        <div class="fix">Changed to M4×45</div></div>
+      <div class="card bug open"><span class="tag">Open decision</span><h3>Drawers wider than the slide allows</h3>
+        <p>Hettich's mounting sheet for the KA 4532 says 550 mm maximum. With two columns the boxes are 747 mm.</p>
+        <div class="rule">Found by the manual-reading agent · R18</div>
+        <div class="fix">Three columns or a heavier slide (priced below)</div></div>
     </div>
   </section>
 
   <section>
-    <div><div class="eyebrow">The loop</div><h2>How a rule gets in</h2></div>
+    <div class="head"><div class="eyebrow">3 · Cost</div><h2>Cheaper, without leaving what the checker allows</h2>
+      <p class="mute">Hill climbing with random restarts over the hidden board choices, two or three columns, and nesting order. The look (oak fronts, top and sides) stays fixed. Every candidate is generated and run through all rules; anything that fails is thrown out.</p></div>
+    <div class="card chart">
+      <svg id="cost" role="img" aria-label="Optimizer cost per evaluated design"></svg>
+      <div class="legend">
+        <span><i class="sw" style="border-color:var(--accent)"></i>Best valid design so far, any drawer width</span>
+        <span><i class="sw" style="border-color:var(--train)"></i>Best valid, within Hettich's 550 mm</span>
+        <span><i class="dot" style="background:var(--faint)"></i>Candidate that passed the checker</span>
+        <span><i class="dot" style="background:var(--bad)"></i>Candidate the checker rejected</span>
+      </div>
+      <div class="read">
+        <div><b>Horizontal axis</b>Candidate designs tried by the optimizer, in order. Each one is a full generate → nest → check run (well under a second).</div>
+        <div><b>Vertical axis</b>Total cost in kroner: whole sheets bought, spindle time at 568 kr/h (formula time × 1.5), and hardware per drawer.</div>
+        <div><b>What to look for</b>The lines only step down. Red dots are cheaper-looking designs the checker refused, for example 18 mm board that breaks the Minifix joints.</div>
+      </div>
+    </div>
+    <div class="cmp" id="cmp"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">4 · The loop</div><h2>How a rule earns its place</h2></div>
     <div class="flow">
-      <div><b>Mine</b><span>An agent writes new faults from real failure modes: hardware manuals, CNC forums, cabinet practice.</span></div>
-      <div><b>Score</b><span>Generator plus all rules run on every fault. The DXFs and the 3D assembly are checked, not intent.</span></div>
-      <div><b>Write</b><span>For one missed fault, an agent writes one plain-Python rule with a stated workshop reason.</span></div>
-      <div><b>Gate</b><span>Kept only if it catches that fault, loses nothing already caught, and raises zero false alarms on known-good designs.</span></div>
+      <div><b>Mine</b><span>An agent writes new faults from real failure modes: Hettich and Häfele manuals, CNC forums, cabinet practice.</span></div>
+      <div><b>Score</b><span>Generator plus every rule runs on each fault. The checks read the DXF files and the 3D assembly, not the intent.</span></div>
+      <div><b>Write</b><span>For one missed fault, an agent writes one plain-Python rule with a workshop reason.</span></div>
+      <div><b>Gate</b><span>Kept only if it catches that fault, loses nothing already caught, and raises zero false alarms on good designs.</span></div>
     </div>
-    <div class="tbl"><table id="loop"><thead><tr><th>Time</th><th>Step</th><th>Fault</th><th>Rule</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+    <div class="card tbl"><table id="loop"><thead><tr><th>Time</th><th>Step</th><th>Fault</th><th>Rule</th><th>Gate</th></tr></thead><tbody></tbody></table></div>
   </section>
 
   <section>
-    <div><div class="eyebrow">Rule book</div><h2 id="rulesh">Rules</h2></div>
-    <div class="tbl"><table id="rules"><thead><tr><th>Rule</th><th>What it checks</th><th>Written by</th></tr></thead><tbody></tbody></table></div>
-    <p class="note">Rules are deterministic code with thresholds, run on the files the workshop receives. No model is asked for its opinion at check time.</p>
+    <div class="head"><div class="eyebrow">5 · Rule book</div><h2 id="rulesh">Rules</h2>
+      <p class="mute">Deterministic code with thresholds, run on the files the workshop receives. No model gives an opinion at check time.</p></div>
+    <div class="card tbl"><table id="rules"><thead><tr><th>Rule</th><th>What it checks</th><th>Written by</th></tr></thead><tbody></tbody></table></div>
   </section>
+
+  <div class="foot">
+    <span>Board prices are partly estimates until quotes arrive; hardware is estimated at 320 kr per drawer. Spindle time is the feed × length formula times 1.5.</span>
+    <span id="stamp"></span>
+  </div>
 </div>
 
 <script>
-const D = {"hist": [{"t": "2026-11-22T15:36:57", "note": "baseline: generator's own check() only", "train_n": 23, "train_caught": 6, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 0}, {"t": "2026-11-22T15:39:01", "note": "R01 DXF sheet sanity + R02 DXF vs cut list", "train_n": 23, "train_caught": 13, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 2}, {"t": "2026-11-22T15:41:06", "note": "R03 joint continuity + R04 handedness; generator fixed (mirrored C/CH, S/SH, D face)", "train_n": 25, "train_caught": 16, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 4}, {"t": "2026-11-22T15:43:00", "note": "R05 slides, R06 bands, R07 drawer box+sag+MC, R08 fronts, R09 screws, R10 hold-down, R11 bit reach; generator: spot+hand-drill, M4x45", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 1, "good_n": 7, "rules": 11}, {"t": "2026-11-22T15:43:15", "note": "R08 fix: false alarm on 3-col design", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 11}, {"t": "2026-11-22T15:52:00", "note": "loop: r12_auto_m01 for m01", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 1, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 12}, {"t": "2026-11-22T15:53:04", "note": "loop: r13_auto_m02 for m02", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 2, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 13}, {"t": "2026-11-22T15:54:09", "note": "loop: r14_auto_m03 for m03", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 3, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 14}, {"t": "2026-11-22T15:55:13", "note": "loop: r15_auto_m04 for m04", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 4, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 15}, {"t": "2026-11-22T15:56:53", "note": "loop: r16_auto_m05 for m05", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 5, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 16}, {"t": "2026-11-22T15:58:03", "note": "loop: r17_auto_m06 for m06", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 17}], "loop": [{"t": "2026-11-22T15:50:40", "step": "mine", "fault": null, "rule": null, "accepted": null, "false_alarms": null, "lost": null, "n": 6}, {"t": "2026-11-22T15:51:57", "step": "write", "fault": "m01", "rule": "r12_auto_m01", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:52:59", "step": "write", "fault": "m02", "rule": "r13_auto_m02", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:54:05", "step": "write", "fault": "m03", "rule": "r14_auto_m03", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:55:10", "step": "write", "fault": "m04", "rule": "r15_auto_m04", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:56:50", "step": "write", "fault": "m05", "rule": "r16_auto_m05", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:57:59", "step": "write", "fault": "m06", "rule": "r17_auto_m06", "accepted": true, "false_alarms": [], "lost": [], "n": null}], "rules": [{"id": "R01", "desc": "DXF sheet sanity: mm units, parts inside the sheet, spacing >= bit, cut depth vs measured board", "auto": false}, {"id": "R02", "desc": "DXF vs cut list: part count, outline size, and every hole/groove at the right place, diameter, depth", "auto": false}, {"id": "R03", "desc": "Joint continuity in 3D: every connector hole has a coaxial partner hole in the part it touches", "auto": false}, {"id": "R04", "desc": "Handedness: a part used as a mirror image (left vs right) must be symmetric, or be cut as a mirrored copy", "auto": false}, {"id": "R05", "desc": "Slide holes on carcass walls and drawer sides match the slide pattern (depth from front, height), both sides", "auto": false}, {"id": "R06", "desc": "Front-facing edges of carcass parts and all front edges are edge-banded, on the edge that really faces front", "auto": false}, {"id": "R07", "desc": "Drawer box from the real parts: fits the slides, grooves line up, bottom fits and does not sag", "auto": false}, {"id": "R08", "desc": "Front gaps after edge banding >= 1.5 mm; fronts do not stick out past the carcass", "auto": false}, {"id": "R09", "desc": "Handle screws reach >= 5 mm into the handle thread and do not bottom out", "auto": false}, {"id": "R10", "desc": "Parts narrower than 60 mm (or smaller than 0.02 m2) need tabs, which the files do not have", "auto": false}, {"id": "R11", "desc": "Every CNC hole/pocket/groove depth fits the flute length of the bit that must cut it", "auto": false}, {"id": "R12", "desc": "Minifix housing distance from the edge is a standard system (B24/B34) and matches the bolt-hole depth", "auto": true}, {"id": "R13", "desc": "Dowel joints: face + edge hole depth = a standard dowel length + 1-4 mm glue space", "auto": true}, {"id": "R14", "desc": "Boards with grain (wood decor/veneer) are nested with rotation locked: every part keeps its grain direction", "auto": true}, {"id": "R15", "desc": "Slide screws (length - slide metal thickness) leave >= 1 mm of board before the opposite face", "auto": true}, {"id": "R16", "desc": "Slide cabinet-member and drawer-member holes line up front-to-front (closed drawer), <= 8 mm apart", "auto": true}, {"id": "R17", "desc": "Edges that are joined (another panel sits on them, or they carry edge bores) must not be edge-banded", "auto": true}], "mined": [{"id": "m01", "title": "Minifix housing 34 mm from the edge with B24 bolts (24 mm system)"}, {"id": "m02", "title": "Dowel holes 12 mm (face) + 15 mm (edge) = 27 mm for 8x35 dowels"}, {"id": "m03", "title": "Oak decor board marked \"no grain direction\" -> nester rotates parts 90\u00b0"}, {"id": "m04", "title": "Slide screws 20 mm long into 18.8 mm carcass sides"}, {"id": "m05", "title": "Slide hole pattern from the INSET drawing (+19 mm) on an overlay kommode"}, {"id": "m06", "title": "Edge band added on the top edge of the sides (joint edge) without shortening the part"}]};
+const D = {"hist": [{"t": "2026-11-22T15:36:57", "note": "baseline: generator's own check() only", "train_n": 23, "train_caught": 6, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 0, "label": "Generator only"}, {"t": "2026-11-22T15:39:01", "note": "R01 DXF sheet sanity + R02 DXF vs cut list", "train_n": 23, "train_caught": 13, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 2, "label": "+ DXF checks"}, {"t": "2026-11-22T15:41:06", "note": "R03 joint continuity + R04 handedness; generator fixed (mirrored C/CH, S/SH, D face)", "train_n": 25, "train_caught": 16, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 4, "label": "+ 3D joints"}, {"t": "2026-11-22T15:43:00", "note": "R05 slides, R06 bands, R07 drawer box+sag+MC, R08 fronts, R09 screws, R10 hold-down, R11 bit reach; generator: spot+hand-drill, M4x45", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 1, "good_n": 7, "rules": 11, "label": "+ 7 rules"}, {"t": "2026-11-22T15:43:15", "note": "R08 fix: false alarm on 3-col design", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 11, "label": "False-alarm fix"}, {"t": "2026-11-22T15:52:00", "note": "loop: r12_auto_m01 for m01", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 1, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 12, "label": "Loop R12"}, {"t": "2026-11-22T15:53:04", "note": "loop: r13_auto_m02 for m02", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 2, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 13, "label": "Loop R13"}, {"t": "2026-11-22T15:54:09", "note": "loop: r14_auto_m03 for m03", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 3, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 14, "label": "Loop R14"}, {"t": "2026-11-22T15:55:13", "note": "loop: r15_auto_m04 for m04", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 4, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 15, "label": "Loop R15"}, {"t": "2026-11-22T15:56:53", "note": "loop: r16_auto_m05 for m05", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 5, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 16, "label": "Loop R16"}, {"t": "2026-11-22T15:58:03", "note": "loop: r17_auto_m06 for m06", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 17, "label": "Loop R17"}, {"t": "2026-11-22T16:52:11", "note": "R18 Hettich drawer width (warn, from manual)", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 18, "label": "R18 Hettich dr"}], "loop": [{"t": "2026-11-22T15:50:40", "step": "mine", "fault": null, "rule": null, "accepted": null, "false_alarms": null, "lost": null, "n": 6}, {"t": "2026-11-22T15:51:57", "step": "write", "fault": "m01", "rule": "r12_auto_m01", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:52:59", "step": "write", "fault": "m02", "rule": "r13_auto_m02", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:54:05", "step": "write", "fault": "m03", "rule": "r14_auto_m03", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:55:10", "step": "write", "fault": "m04", "rule": "r15_auto_m04", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:56:50", "step": "write", "fault": "m05", "rule": "r16_auto_m05", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:57:59", "step": "write", "fault": "m06", "rule": "r17_auto_m06", "accepted": true, "false_alarms": [], "lost": [], "n": null}], "rules": [{"id": "R01", "desc": "DXF sheet sanity: mm units, parts inside the sheet, spacing >= bit, cut depth vs measured board", "auto": false}, {"id": "R02", "desc": "DXF vs cut list: part count, outline size, and every hole/groove at the right place, diameter, depth", "auto": false}, {"id": "R03", "desc": "Joint continuity in 3D: every connector hole has a coaxial partner hole in the part it touches", "auto": false}, {"id": "R04", "desc": "Handedness: a part used as a mirror image (left vs right) must be symmetric, or be cut as a mirrored copy", "auto": false}, {"id": "R05", "desc": "Slide holes on carcass walls and drawer sides match the slide pattern (depth from front, height), both sides", "auto": false}, {"id": "R06", "desc": "Front-facing edges of carcass parts and all front edges are edge-banded, on the edge that really faces front", "auto": false}, {"id": "R07", "desc": "Drawer box from the real parts: fits the slides, grooves line up, bottom fits and does not sag", "auto": false}, {"id": "R08", "desc": "Front gaps after edge banding >= 1.5 mm; fronts do not stick out past the carcass", "auto": false}, {"id": "R09", "desc": "Handle screws reach >= 5 mm into the handle thread and do not bottom out", "auto": false}, {"id": "R10", "desc": "Parts narrower than 60 mm (or smaller than 0.02 m2) need tabs, which the files do not have", "auto": false}, {"id": "R11", "desc": "Every CNC hole/pocket/groove depth fits the flute length of the bit that must cut it", "auto": false}, {"id": "R12", "desc": "Minifix housing distance from the edge is a standard system (B24/B34) and matches the bolt-hole depth", "auto": true}, {"id": "R13", "desc": "Dowel joints: face + edge hole depth = a standard dowel length + 1-4 mm glue space", "auto": true}, {"id": "R14", "desc": "Boards with grain (wood decor/veneer) are nested with rotation locked: every part keeps its grain direction", "auto": true}, {"id": "R15", "desc": "Slide screws (length - slide metal thickness) leave >= 1 mm of board before the opposite face", "auto": true}, {"id": "R16", "desc": "Slide cabinet-member and drawer-member holes line up front-to-front (closed drawer), <= 8 mm apart", "auto": true}, {"id": "R17", "desc": "Edges that are joined (another panel sits on them, or they carry edge bores) must not be edge-banded", "auto": true}, {"id": "R18", "desc": "Drawer box width within the slide maker's maximum (KA 4532: 550 mm)", "auto": false}], "mined": [{"id": "m01", "title": "Minifix housing 34 mm from the edge with B24 bolts (24 mm system)"}, {"id": "m02", "title": "Dowel holes 12 mm (face) + 15 mm (edge) = 27 mm for 8x35 dowels"}, {"id": "m03", "title": "Oak decor board marked \"no grain direction\" -> nester rotates parts 90\u00b0"}, {"id": "m04", "title": "Slide screws 20 mm long into 18.8 mm carcass sides"}, {"id": "m05", "title": "Slide hole pattern from the INSET drawing (+19 mm) on an overlay kommode"}, {"id": "m06", "title": "Edge band added on the top edge of the sides (joint edge) without shortening the part"}], "opt_hist": [{"n": 1, "strict": false, "cost": 7982, "ok": true, "best": 7982}, {"n": 2, "strict": false, "cost": 9782, "ok": true, "best": 7982}, {"n": 3, "strict": false, "cost": 9432, "ok": true, "best": 7982}, {"n": 4, "strict": false, "cost": 9948, "ok": true, "best": 7982}, {"n": 5, "strict": false, "cost": 9732, "ok": true, "best": 7982}, {"n": 6, "strict": false, "cost": 7982, "ok": true, "best": 7982}, {"n": 7, "strict": false, "cost": 8063, "ok": true, "best": 7982}, {"n": 8, "strict": false, "cost": 8672, "ok": true, "best": 7982}, {"n": 9, "strict": false, "cost": 9142, "ok": true, "best": 7982}, {"n": 10, "strict": false, "cost": 9694, "ok": true, "best": 7982}, {"n": 11, "strict": false, "cost": 9242, "ok": true, "best": 7982}, {"n": 12, "strict": false, "cost": 8965, "ok": false, "best": 7982}, {"n": 13, "strict": false, "cost": 8262, "ok": true, "best": 7982}, {"n": 14, "strict": false, "cost": 8582, "ok": true, "best": 7982}, {"n": 15, "strict": false, "cost": 8246, "ok": true, "best": 7982}, {"n": 16, "strict": false, "cost": 8672, "ok": true, "best": 7982}, {"n": 17, "strict": false, "cost": 9432, "ok": true, "best": 7982}, {"n": 18, "strict": false, "cost": 9153, "ok": true, "best": 7982}, {"n": 19, "strict": false, "cost": 7998, "ok": true, "best": 7982}, {"n": 20, "strict": false, "cost": 9882, "ok": false, "best": 7982}, {"n": 21, "strict": false, "cost": 9242, "ok": true, "best": 7982}, {"n": 22, "strict": false, "cost": 9952, "ok": true, "best": 7982}, {"n": 23, "strict": false, "cost": 9142, "ok": true, "best": 7982}, {"n": 24, "strict": false, "cost": 9938, "ok": false, "best": 7982}, {"n": 25, "strict": false, "cost": 9682, "ok": true, "best": 7982}, {"n": 26, "strict": false, "cost": 9668, "ok": false, "best": 7982}, {"n": 27, "strict": false, "cost": 9242, "ok": true, "best": 7982}, {"n": 28, "strict": false, "cost": 9782, "ok": true, "best": 7982}, {"n": 29, "strict": false, "cost": 9942, "ok": true, "best": 7982}, {"n": 30, "strict": false, "cost": 9878, "ok": false, "best": 7982}, {"n": 31, "strict": false, "cost": 10148, "ok": false, "best": 7982}, {"n": 32, "strict": false, "cost": 10092, "ok": false, "best": 7982}, {"n": 33, "strict": false, "cost": 9642, "ok": true, "best": 7982}, {"n": 34, "strict": false, "cost": 9878, "ok": false, "best": 7982}, {"n": 35, "strict": false, "cost": 9642, "ok": true, "best": 7982}, {"n": 36, "strict": false, "cost": 9522, "ok": true, "best": 7982}, {"n": 37, "strict": false, "cost": 9942, "ok": true, "best": 7982}, {"n": 38, "strict": false, "cost": 9992, "ok": true, "best": 7982}, {"n": 39, "strict": false, "cost": 9642, "ok": true, "best": 7982}, {"n": 40, "strict": false, "cost": 9538, "ok": true, "best": 7982}, {"n": 41, "strict": false, "cost": 8192, "ok": true, "best": 7982}, {"n": 42, "strict": false, "cost": 9919, "ok": true, "best": 7982}, {"n": 43, "strict": false, "cost": 9942, "ok": true, "best": 7982}, {"n": 44, "strict": false, "cost": 7912, "ok": true, "best": 7912}, {"n": 45, "strict": false, "cost": 8512, "ok": true, "best": 7912}, {"n": 46, "strict": false, "cost": 8176, "ok": true, "best": 7912}, {"n": 47, "strict": false, "cost": 9362, "ok": true, "best": 7912}, {"n": 48, "strict": false, "cost": 9612, "ok": true, "best": 7912}, {"n": 49, "strict": false, "cost": 8602, "ok": true, "best": 7912}, {"n": 50, "strict": false, "cost": 8192, "ok": true, "best": 7912}, {"n": 51, "strict": false, "cost": 7993, "ok": true, "best": 7912}, {"n": 52, "strict": false, "cost": 8602, "ok": true, "best": 7912}, {"n": 53, "strict": false, "cost": 9639, "ok": true, "best": 7912}, {"n": 54, "strict": false, "cost": 9712, "ok": true, "best": 7912}, {"n": 55, "strict": false, "cost": 9072, "ok": true, "best": 7912}, {"n": 56, "strict": false, "cost": 9242, "ok": true, "best": 7912}, {"n": 57, "strict": false, "cost": 9242, "ok": true, "best": 7912}, {"n": 58, "strict": false, "cost": 9712, "ok": true, "best": 7912}, {"n": 59, "strict": false, "cost": 9072, "ok": true, "best": 7912}, {"n": 60, "strict": false, "cost": 9882, "ok": true, "best": 7912}, {"n": 61, "strict": false, "cost": 9362, "ok": true, "best": 7912}, {"n": 62, "strict": false, "cost": 9868, "ok": false, "best": 7912}, {"n": 63, "strict": false, "cost": 9172, "ok": true, "best": 7912}, {"n": 64, "strict": false, "cost": 7912, "ok": true, "best": 7912}, {"n": 65, "strict": false, "cost": 9598, "ok": false, "best": 7912}, {"n": 66, "strict": false, "cost": 9878, "ok": true, "best": 7912}, {"n": 67, "strict": false, "cost": 9812, "ok": false, "best": 7912}, {"n": 68, "strict": false, "cost": 8895, "ok": false, "best": 7912}, {"n": 69, "strict": false, "cost": 7928, "ok": true, "best": 7912}, {"n": 70, "strict": false, "cost": 9662, "ok": true, "best": 7912}, {"n": 71, "strict": false, "cost": 9083, "ok": true, "best": 7912}, {"n": 72, "strict": false, "cost": 11538, "ok": true, "best": 7912}, {"n": 73, "strict": false, "cost": 11688, "ok": false, "best": 7912}, {"n": 74, "strict": false, "cost": 11754, "ok": false, "best": 7912}, {"n": 75, "strict": false, "cost": 11588, "ok": true, "best": 7912}, {"n": 76, "strict": false, "cost": 13348, "ok": true, "best": 7912}, {"n": 77, "strict": false, "cost": 9826, "ok": true, "best": 7912}, {"n": 78, "strict": false, "cost": 9837, "ok": true, "best": 7912}, {"n": 79, "strict": false, "cost": 9643, "ok": true, "best": 7912}, {"n": 80, "strict": false, "cost": 9579, "ok": false, "best": 7912}, {"n": 81, "strict": false, "cost": 9693, "ok": true, "best": 7912}, {"n": 82, "strict": false, "cost": 9743, "ok": true, "best": 7912}, {"n": 83, "strict": false, "cost": 9842, "ok": true, "best": 7912}, {"n": 84, "strict": false, "cost": 10449, "ok": true, "best": 7912}, {"n": 85, "strict": false, "cost": 8583, "ok": true, "best": 7912}, {"n": 86, "strict": false, "cost": 7893, "ok": true, "best": 7893}, {"n": 87, "strict": false, "cost": 9643, "ok": true, "best": 7893}, {"n": 88, "strict": false, "cost": 8876, "ok": false, "best": 7893}, {"n": 89, "strict": false, "cost": 9153, "ok": true, "best": 7893}, {"n": 90, "strict": false, "cost": 9693, "ok": true, "best": 7893}, {"n": 91, "strict": false, "cost": 7909, "ok": true, "best": 7893}, {"n": 92, "strict": false, "cost": 8076, "ok": true, "best": 7893}, {"n": 93, "strict": false, "cost": 9064, "ok": true, "best": 7893}, {"n": 94, "strict": false, "cost": 9223, "ok": true, "best": 7893}, {"n": 95, "strict": false, "cost": 8493, "ok": true, "best": 7893}, {"n": 96, "strict": false, "cost": 8583, "ok": true, "best": 7893}, {"n": 97, "strict": false, "cost": 9343, "ok": true, "best": 7893}, {"n": 98, "strict": false, "cost": 9693, "ok": true, "best": 7893}, {"n": 99, "strict": false, "cost": 9859, "ok": true, "best": 7893}, {"n": 100, "strict": false, "cost": 9863, "ok": true, "best": 7893}, {"n": 101, "strict": false, "cost": 7893, "ok": true, "best": 7893}, {"n": 102, "strict": false, "cost": 9620, "ok": true, "best": 7893}, {"n": 103, "strict": false, "cost": 9579, "ok": false, "best": 7893}, {"n": 104, "strict": false, "cost": 9153, "ok": true, "best": 7893}, {"n": 105, "strict": false, "cost": 9849, "ok": false, "best": 7893}, {"n": 106, "strict": false, "cost": 9793, "ok": false, "best": 7893}, {"n": 107, "strict": false, "cost": 9593, "ok": true, "best": 7893}, {"n": 108, "strict": false, "cost": 7812, "ok": true, "best": 7812}, {"n": 109, "strict": false, "cost": 7812, "ok": true, "best": 7812}, {"n": 110, "strict": false, "cost": 9262, "ok": true, "best": 7812}, {"n": 111, "strict": false, "cost": 8092, "ok": true, "best": 7812}, {"n": 112, "strict": false, "cost": 8795, "ok": false, "best": 7812}, {"n": 113, "strict": false, "cost": 9262, "ok": true, "best": 7812}, {"n": 114, "strict": false, "cost": 9612, "ok": true, "best": 7812}, {"n": 115, "strict": false, "cost": 9072, "ok": true, "best": 7812}, {"n": 116, "strict": false, "cost": 9768, "ok": false, "best": 7812}, {"n": 117, "strict": false, "cost": 9562, "ok": true, "best": 7812}, {"n": 118, "strict": false, "cost": 8502, "ok": true, "best": 7812}, {"n": 119, "strict": false, "cost": 9612, "ok": true, "best": 7812}, {"n": 120, "strict": false, "cost": 8983, "ok": true, "best": 7812}, {"n": 121, "strict": false, "cost": 9498, "ok": false, "best": 7812}, {"n": 122, "strict": false, "cost": 8076, "ok": true, "best": 7812}, {"n": 123, "strict": false, "cost": 9539, "ok": true, "best": 7812}, {"n": 124, "strict": false, "cost": 8412, "ok": true, "best": 7812}, {"n": 125, "strict": false, "cost": 9778, "ok": true, "best": 7812}, {"n": 126, "strict": false, "cost": 9712, "ok": false, "best": 7812}, {"n": 127, "strict": false, "cost": 8502, "ok": true, "best": 7812}, {"n": 128, "strict": false, "cost": 7828, "ok": true, "best": 7812}, {"n": 129, "strict": false, "cost": 9072, "ok": true, "best": 7812}, {"n": 130, "strict": false, "cost": 7893, "ok": true, "best": 7812}, {"n": 131, "strict": false, "cost": 9512, "ok": true, "best": 7812}, {"n": 132, "strict": false, "cost": 9142, "ok": true, "best": 7812}, {"n": 133, "strict": false, "cost": 9782, "ok": true, "best": 7812}, {"n": 134, "strict": false, "cost": 9072, "ok": true, "best": 7812}, {"n": 135, "strict": false, "cost": 9142, "ok": true, "best": 7812}, {"n": 136, "strict": false, "cost": 11590, "ok": true, "best": 7812}, {"n": 137, "strict": false, "cost": 11780, "ok": true, "best": 7812}, {"n": 138, "strict": false, "cost": 10314, "ok": true, "best": 7812}, {"n": 139, "strict": false, "cost": 10854, "ok": true, "best": 7812}, {"n": 140, "strict": false, "cost": 10578, "ok": true, "best": 7812}, {"n": 141, "strict": false, "cost": 10504, "ok": true, "best": 7812}, {"n": 142, "strict": false, "cost": 8602, "ok": true, "best": 7812}, {"n": 143, "strict": false, "cost": 8866, "ok": true, "best": 7812}, {"n": 144, "strict": false, "cost": 9142, "ok": true, "best": 7812}, {"n": 145, "strict": false, "cost": 7912, "ok": true, "best": 7812}, {"n": 146, "strict": false, "cost": 8192, "ok": true, "best": 7812}, {"n": 147, "strict": false, "cost": 9083, "ok": true, "best": 7812}, {"n": 148, "strict": false, "cost": 9712, "ok": true, "best": 7812}, {"n": 149, "strict": false, "cost": 9812, "ok": false, "best": 7812}, {"n": 150, "strict": false, "cost": 9242, "ok": true, "best": 7812}, {"n": 151, "strict": false, "cost": 9868, "ok": false, "best": 7812}, {"n": 152, "strict": false, "cost": 8176, "ok": true, "best": 7812}, {"n": 153, "strict": false, "cost": 8602, "ok": true, "best": 7812}, {"n": 154, "strict": false, "cost": 9712, "ok": true, "best": 7812}, {"n": 155, "strict": false, "cost": 9612, "ok": true, "best": 7812}, {"n": 156, "strict": false, "cost": 9878, "ok": true, "best": 7812}, {"n": 157, "strict": false, "cost": 9072, "ok": true, "best": 7812}, {"n": 158, "strict": false, "cost": 8512, "ok": true, "best": 7812}, {"n": 159, "strict": false, "cost": 9362, "ok": true, "best": 7812}, {"n": 160, "strict": false, "cost": 7993, "ok": true, "best": 7812}, {"n": 161, "strict": false, "cost": 8895, "ok": false, "best": 7812}, {"n": 162, "strict": false, "cost": 9882, "ok": true, "best": 7812}, {"n": 163, "strict": false, "cost": 7928, "ok": true, "best": 7812}, {"n": 164, "strict": false, "cost": 9362, "ok": true, "best": 7812}, {"n": 165, "strict": false, "cost": 8602, "ok": true, "best": 7812}, {"n": 166, "strict": false, "cost": 9598, "ok": false, "best": 7812}, {"n": 167, "strict": false, "cost": 9072, "ok": true, "best": 7812}, {"n": 168, "strict": false, "cost": 7912, "ok": true, "best": 7812}, {"n": 169, "strict": false, "cost": 9242, "ok": true, "best": 7812}, {"n": 170, "strict": false, "cost": 9639, "ok": true, "best": 7812}, {"n": 171, "strict": false, "cost": 9662, "ok": true, "best": 7812}, {"n": 172, "strict": false, "cost": 9172, "ok": true, "best": 7812}, {"n": 1, "strict": true, "cost": 7982, "ok": false, "best": null}, {"n": 2, "strict": true, "cost": 9782, "ok": false, "best": null}, {"n": 3, "strict": true, "cost": 9432, "ok": false, "best": null}, {"n": 4, "strict": true, "cost": 9948, "ok": false, "best": null}, {"n": 5, "strict": true, "cost": 9732, "ok": false, "best": null}, {"n": 6, "strict": true, "cost": 7982, "ok": false, "best": null}, {"n": 7, "strict": true, "cost": 8063, "ok": false, "best": null}, {"n": 8, "strict": true, "cost": 8672, "ok": false, "best": null}, {"n": 9, "strict": true, "cost": 9142, "ok": false, "best": null}, {"n": 10, "strict": true, "cost": 9694, "ok": true, "best": 9694}, {"n": 11, "strict": true, "cost": 10384, "ok": true, "best": 9694}, {"n": 12, "strict": true, "cost": 9974, "ok": true, "best": 9694}, {"n": 13, "strict": true, "cost": 11594, "ok": false, "best": 9694}, {"n": 14, "strict": true, "cost": 9710, "ok": true, "best": 9694}, {"n": 15, "strict": true, "cost": 11144, "ok": true, "best": 9694}, {"n": 16, "strict": true, "cost": 12259, "ok": true, "best": 9694}, {"n": 17, "strict": true, "cost": 10384, "ok": true, "best": 9694}, {"n": 18, "strict": true, "cost": 11144, "ok": true, "best": 9694}, {"n": 19, "strict": true, "cost": 11442, "ok": true, "best": 9694}, {"n": 20, "strict": true, "cost": 11660, "ok": true, "best": 9694}, {"n": 21, "strict": true, "cost": 10854, "ok": true, "best": 9694}, {"n": 22, "strict": true, "cost": 11494, "ok": true, "best": 9694}, {"n": 23, "strict": true, "cost": 11444, "ok": true, "best": 9694}, {"n": 24, "strict": true, "cost": 11413, "ok": true, "best": 9694}, {"n": 25, "strict": true, "cost": 9775, "ok": true, "best": 9694}, {"n": 26, "strict": true, "cost": 10954, "ok": true, "best": 9694}, {"n": 27, "strict": true, "cost": 10954, "ok": true, "best": 9694}, {"n": 28, "strict": true, "cost": 11660, "ok": false, "best": 9694}, {"n": 29, "strict": true, "cost": 11494, "ok": true, "best": 9694}, {"n": 30, "strict": true, "cost": 10954, "ok": true, "best": 9694}, {"n": 31, "strict": true, "cost": 12664, "ok": true, "best": 9694}, {"n": 32, "strict": true, "cost": 9958, "ok": true, "best": 9694}, {"n": 33, "strict": true, "cost": 9694, "ok": true, "best": 9694}, {"n": 34, "strict": true, "cost": 11664, "ok": false, "best": 9694}, {"n": 35, "strict": true, "cost": 11394, "ok": false, "best": 9694}, {"n": 36, "strict": true, "cost": 7982, "ok": false, "best": 9694}, {"n": 37, "strict": true, "cost": 10854, "ok": true, "best": 9694}, {"n": 38, "strict": true, "cost": 11796, "ok": true, "best": 9694}, {"n": 39, "strict": true, "cost": 11344, "ok": false, "best": 9694}, {"n": 40, "strict": true, "cost": 11796, "ok": true, "best": 9694}, {"n": 41, "strict": true, "cost": 11676, "ok": true, "best": 9694}, {"n": 42, "strict": true, "cost": 12096, "ok": true, "best": 9694}, {"n": 43, "strict": true, "cost": 12146, "ok": true, "best": 9694}, {"n": 44, "strict": true, "cost": 11796, "ok": true, "best": 9694}, {"n": 45, "strict": true, "cost": 11660, "ok": true, "best": 9694}, {"n": 46, "strict": true, "cost": 9948, "ok": false, "best": 9694}, {"n": 47, "strict": true, "cost": 12080, "ok": true, "best": 9694}, {"n": 48, "strict": true, "cost": 11940, "ok": true, "best": 9694}, {"n": 49, "strict": true, "cost": 12664, "ok": true, "best": 9694}, {"n": 50, "strict": true, "cost": 11590, "ok": true, "best": 9694}, {"n": 51, "strict": true, "cost": 11372, "ok": true, "best": 9694}, {"n": 52, "strict": true, "cost": 12082, "ok": false, "best": 9694}, {"n": 53, "strict": true, "cost": 11103, "ok": true, "best": 9694}, {"n": 54, "strict": true, "cost": 11593, "ok": true, "best": 9694}, {"n": 55, "strict": true, "cost": 11543, "ok": false, "best": 9694}, {"n": 56, "strict": true, "cost": 11453, "ok": true, "best": 9694}, {"n": 57, "strict": true, "cost": 11668, "ok": true, "best": 9694}, {"n": 58, "strict": true, "cost": 8776, "ok": false, "best": 9694}, {"n": 59, "strict": true, "cost": 11809, "ok": false, "best": 9694}, {"n": 60, "strict": true, "cost": 12453, "ok": true, "best": 9694}, {"n": 61, "strict": true, "cost": 9843, "ok": true, "best": 9694}, {"n": 62, "strict": true, "cost": 10392, "ok": true, "best": 9694}, {"n": 63, "strict": true, "cost": 9788, "ok": true, "best": 9694}, {"n": 64, "strict": true, "cost": 10478, "ok": true, "best": 9694}, {"n": 65, "strict": true, "cost": 11588, "ok": true, "best": 9694}, {"n": 66, "strict": true, "cost": 9958, "ok": true, "best": 9694}, {"n": 67, "strict": true, "cost": 11588, "ok": true, "best": 9694}, {"n": 68, "strict": true, "cost": 11758, "ok": false, "best": 9694}, {"n": 69, "strict": true, "cost": 11538, "ok": true, "best": 9694}, {"n": 70, "strict": true, "cost": 9524, "ok": true, "best": 9524}, {"n": 71, "strict": true, "cost": 9694, "ok": true, "best": 9524}, {"n": 72, "strict": true, "cost": 11224, "ok": false, "best": 9524}, {"n": 73, "strict": true, "cost": 10784, "ok": true, "best": 9524}, {"n": 74, "strict": true, "cost": 11334, "ok": true, "best": 9524}, {"n": 75, "strict": true, "cost": 11274, "ok": true, "best": 9524}, {"n": 76, "strict": true, "cost": 10784, "ok": true, "best": 9524}, {"n": 77, "strict": true, "cost": 11324, "ok": true, "best": 9524}, {"n": 78, "strict": true, "cost": 10112, "ok": true, "best": 9524}, {"n": 79, "strict": true, "cost": 10083, "ok": true, "best": 9524}, {"n": 80, "strict": true, "cost": 9605, "ok": true, "best": 9524}, {"n": 81, "strict": true, "cost": 7812, "ok": false, "best": 9524}, {"n": 82, "strict": true, "cost": 10330, "ok": true, "best": 9524}, {"n": 83, "strict": true, "cost": 10214, "ok": true, "best": 9524}, {"n": 84, "strict": true, "cost": 9540, "ok": true, "best": 9524}, {"n": 85, "strict": true, "cost": 11490, "ok": false, "best": 9524}, {"n": 86, "strict": true, "cost": 11494, "ok": false, "best": 9524}, {"n": 87, "strict": true, "cost": 11424, "ok": false, "best": 9524}, {"n": 88, "strict": true, "cost": 10929, "ok": true, "best": 9524}, {"n": 89, "strict": true, "cost": 10854, "ok": true, "best": 9524}, {"n": 90, "strict": true, "cost": 9624, "ok": true, "best": 9524}, {"n": 91, "strict": true, "cost": 9804, "ok": true, "best": 9524}, {"n": 92, "strict": true, "cost": 9788, "ok": true, "best": 9524}, {"n": 93, "strict": true, "cost": 11324, "ok": true, "best": 9524}, {"n": 94, "strict": true, "cost": 10974, "ok": true, "best": 9524}, {"n": 95, "strict": true, "cost": 9054, "ok": true, "best": 9054}, {"n": 96, "strict": true, "cost": 10854, "ok": true, "best": 9054}, {"n": 97, "strict": true, "cost": 10083, "ok": true, "best": 9054}, {"n": 98, "strict": true, "cost": 10214, "ok": true, "best": 9054}, {"n": 99, "strict": true, "cost": 9744, "ok": true, "best": 9054}, {"n": 100, "strict": true, "cost": 10504, "ok": true, "best": 9054}, {"n": 101, "strict": true, "cost": 11710, "ok": false, "best": 9054}, {"n": 102, "strict": true, "cost": 10504, "ok": true, "best": 9054}, {"n": 103, "strict": true, "cost": 11334, "ok": true, "best": 9054}, {"n": 104, "strict": true, "cost": 9624, "ok": true, "best": 9054}, {"n": 105, "strict": true, "cost": 9135, "ok": true, "best": 9054}, {"n": 106, "strict": true, "cost": 11644, "ok": false, "best": 9054}, {"n": 107, "strict": true, "cost": 10804, "ok": true, "best": 9054}, {"n": 108, "strict": true, "cost": 9334, "ok": true, "best": 9054}, {"n": 109, "strict": true, "cost": 10330, "ok": true, "best": 9054}, {"n": 110, "strict": true, "cost": 10854, "ok": true, "best": 9054}, {"n": 111, "strict": true, "cost": 10112, "ok": true, "best": 9054}, {"n": 112, "strict": true, "cost": 9524, "ok": true, "best": 9054}, {"n": 113, "strict": true, "cost": 7342, "ok": false, "best": 9054}, {"n": 114, "strict": true, "cost": 10929, "ok": true, "best": 9054}, {"n": 115, "strict": true, "cost": 10384, "ok": true, "best": 9054}, {"n": 116, "strict": true, "cost": 10314, "ok": true, "best": 9054}, {"n": 117, "strict": true, "cost": 9070, "ok": true, "best": 9054}, {"n": 118, "strict": true, "cost": 10314, "ok": true, "best": 9054}, {"n": 119, "strict": true, "cost": 11714, "ok": false, "best": 9054}, {"n": 120, "strict": true, "cost": 9318, "ok": true, "best": 9054}, {"n": 121, "strict": true, "cost": 11444, "ok": false, "best": 9054}, {"n": 122, "strict": true, "cost": 9694, "ok": true, "best": 9054}, {"n": 123, "strict": true, "cost": 9509, "ok": false, "best": 9054}, {"n": 124, "strict": true, "cost": 9202, "ok": false, "best": 9054}, {"n": 125, "strict": true, "cost": 9789, "ok": false, "best": 9054}, {"n": 126, "strict": true, "cost": 9083, "ok": false, "best": 9054}, {"n": 127, "strict": true, "cost": 8983, "ok": false, "best": 9054}, {"n": 128, "strict": true, "cost": 9153, "ok": false, "best": 9054}, {"n": 129, "strict": true, "cost": 9590, "ok": false, "best": 9054}, {"n": 130, "strict": true, "cost": 9773, "ok": false, "best": 9054}, {"n": 131, "strict": true, "cost": 9598, "ok": false, "best": 9054}, {"n": 132, "strict": true, "cost": 9028, "ok": false, "best": 9054}, {"n": 133, "strict": true, "cost": 9779, "ok": false, "best": 9054}, {"n": 134, "strict": true, "cost": 9723, "ok": false, "best": 9054}, {"n": 135, "strict": true, "cost": 9273, "ok": false, "best": 9054}, {"n": 136, "strict": true, "cost": 10304, "ok": false, "best": 9054}, {"n": 137, "strict": true, "cost": 11783, "ok": false, "best": 9054}, {"n": 138, "strict": true, "cost": 9525, "ok": false, "best": 9054}, {"n": 139, "strict": true, "cost": 9668, "ok": false, "best": 9054}, {"n": 140, "strict": true, "cost": 9623, "ok": false, "best": 9054}, {"n": 141, "strict": true, "cost": 8513, "ok": false, "best": 9054}, {"n": 142, "strict": true, "cost": 9083, "ok": false, "best": 9054}, {"n": 143, "strict": true, "cost": 8806, "ok": false, "best": 9054}, {"n": 144, "strict": true, "cost": 10308, "ok": false, "best": 9054}, {"n": 145, "strict": true, "cost": 7823, "ok": false, "best": 9054}, {"n": 146, "strict": true, "cost": 9623, "ok": false, "best": 9054}, {"n": 147, "strict": true, "cost": 9498, "ok": false, "best": 9054}, {"n": 148, "strict": true, "cost": 9273, "ok": false, "best": 9054}, {"n": 149, "strict": true, "cost": 8938, "ok": false, "best": 9054}, {"n": 150, "strict": true, "cost": 9573, "ok": false, "best": 9054}, {"n": 151, "strict": true, "cost": 12292, "ok": false, "best": 9054}, {"n": 152, "strict": true, "cost": 12510, "ok": false, "best": 9054}, {"n": 153, "strict": true, "cost": 11652, "ok": true, "best": 9054}, {"n": 154, "strict": true, "cost": 11652, "ok": true, "best": 9054}, {"n": 155, "strict": true, "cost": 12292, "ok": false, "best": 9054}, {"n": 156, "strict": true, "cost": 12192, "ok": true, "best": 9054}, {"n": 157, "strict": true, "cost": 11870, "ok": true, "best": 9054}, {"n": 158, "strict": true, "cost": 8792, "ok": false, "best": 9054}, {"n": 159, "strict": true, "cost": 11722, "ok": true, "best": 9054}, {"n": 160, "strict": true, "cost": 12192, "ok": true, "best": 9054}, {"n": 161, "strict": true, "cost": 11552, "ok": true, "best": 9054}, {"n": 162, "strict": true, "cost": 12192, "ok": true, "best": 9054}, {"n": 163, "strict": true, "cost": 9819, "ok": true, "best": 9054}, {"n": 164, "strict": true, "cost": 9804, "ok": true, "best": 9054}, {"n": 165, "strict": true, "cost": 9819, "ok": true, "best": 9054}, {"n": 166, "strict": true, "cost": 9788, "ok": true, "best": 9054}, {"n": 167, "strict": true, "cost": 9804, "ok": true, "best": 9054}, {"n": 168, "strict": true, "cost": 11238, "ok": true, "best": 9054}, {"n": 169, "strict": true, "cost": 9318, "ok": true, "best": 9054}, {"n": 170, "strict": true, "cost": 10578, "ok": true, "best": 9054}, {"n": 171, "strict": true, "cost": 10594, "ok": true, "best": 9054}, {"n": 172, "strict": true, "cost": 10478, "ok": true, "best": 9054}, {"n": 173, "strict": true, "cost": 9054, "ok": true, "best": 9054}, {"n": 174, "strict": true, "cost": 10854, "ok": true, "best": 9054}, {"n": 175, "strict": true, "cost": 10214, "ok": true, "best": 9054}, {"n": 176, "strict": true, "cost": 10314, "ok": true, "best": 9054}, {"n": 177, "strict": true, "cost": 10330, "ok": true, "best": 9054}, {"n": 178, "strict": true, "cost": 11710, "ok": false, "best": 9054}, {"n": 179, "strict": true, "cost": 9334, "ok": true, "best": 9054}, {"n": 180, "strict": true, "cost": 10504, "ok": true, "best": 9054}, {"n": 181, "strict": true, "cost": 9524, "ok": true, "best": 9054}, {"n": 182, "strict": true, "cost": 10112, "ok": true, "best": 9054}, {"n": 183, "strict": true, "cost": 9694, "ok": true, "best": 9054}, {"n": 184, "strict": true, "cost": 10854, "ok": true, "best": 9054}, {"n": 185, "strict": true, "cost": 9624, "ok": true, "best": 9054}, {"n": 186, "strict": true, "cost": 11334, "ok": true, "best": 9054}, {"n": 187, "strict": true, "cost": 10083, "ok": true, "best": 9054}, {"n": 188, "strict": true, "cost": 10504, "ok": true, "best": 9054}, {"n": 189, "strict": true, "cost": 10804, "ok": true, "best": 9054}, {"n": 190, "strict": true, "cost": 11714, "ok": false, "best": 9054}, {"n": 191, "strict": true, "cost": 10384, "ok": true, "best": 9054}, {"n": 192, "strict": true, "cost": 9135, "ok": true, "best": 9054}, {"n": 193, "strict": true, "cost": 9744, "ok": true, "best": 9054}, {"n": 194, "strict": true, "cost": 11644, "ok": false, "best": 9054}, {"n": 195, "strict": true, "cost": 11444, "ok": false, "best": 9054}, {"n": 196, "strict": true, "cost": 10314, "ok": true, "best": 9054}, {"n": 197, "strict": true, "cost": 10929, "ok": true, "best": 9054}, {"n": 198, "strict": true, "cost": 9318, "ok": true, "best": 9054}, {"n": 199, "strict": true, "cost": 9070, "ok": true, "best": 9054}, {"n": 200, "strict": true, "cost": 7342, "ok": false, "best": 9054}], "opt": {"today": {"x": {"korpus": "fritzoe-kaindl-1570-hvit-19", "skuff": "fritzoe-kaindl-1570-hvit-19", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 2}, "ok": true, "cost": 7982, "why": [], "sheets": 3882, "cnc_min": 150, "cnc_kr": 1420, "hardware": 2680, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 40, "roles": ["front", "ytre"]}, {"navn": "Spon melamin Kaindl 1570 PE hvit", "ark": 1, "kr": 1330, "used": 56, "roles": ["korpus", "skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "t": "2026-11-22T16:49:45", "free_look": false, "loose": {"best": {"x": {"korpus": "fritzoe-koskimel-hvit-19", "skuff": "fritzoe-koskimel-hvit-19", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 2}, "ok": true, "cost": 7812, "why": [], "sheets": 3712, "cnc_min": 150, "cnc_kr": 1420, "hardware": 2680, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 40, "roles": ["front", "ytre"]}, {"navn": "Spon melamin Koskimel SF hvit", "ark": 1, "kr": 1160, "used": 65, "roles": ["korpus", "skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 172}, "strict": {"best": {"x": {"korpus": "fritzoe-kaindl-eik-dew-19", "skuff": "fritzoe-fimaplast-hvit-19-2440", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 3}, "ok": true, "cost": 9054, "why": [], "sheets": 3242, "cnc_min": 183, "cnc_kr": 1732, "hardware": 4080, "drawers": 12, "box_width": 483, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 64, "roles": ["front", "ytre", "korpus"]}, {"navn": "Spon melamin Fimaplast SR209 78E hvit (2440\u00d71220)", "ark": 1, "kr": 690, "used": 82, "roles": ["skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 70, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 200}}};
 const $ = s => document.querySelector(s);
 const pct = (a, b) => b ? Math.round(100 * a / b) : null;
-const H = D.hist;
-const last = H[H.length - 1], first = H[0];
-const firstHeld = H.find(h => h.heldout_n) || last;
-const trainAll = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
-const genAll = h => ({ c: (h.train_gen || 0), n: (h.train_n || 0) });
+const kr = v => v == null ? '–' : Math.round(v).toLocaleString('nb-NO').replace(/ /g, ' ') + ' kr';
+const NS = 'http://www.w3.org/2000/svg';
+const H = D.hist, last = H[H.length - 1], first = H[0];
+const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
+const O = D.opt;
 
 $('#stats').innerHTML = [
   ['hero', pct(last.heldout_caught, last.heldout_n) + '%', 'held-out faults caught', 'generator alone: ' + pct(last.heldout_gen, last.heldout_n) + '%'],
-  ['', pct(trainAll(last).c, trainAll(last).n) + '%', 'training faults caught', 'baseline: ' + pct(first.train_gen, first.train_n) + '%'],
-  ['', last.false_pos + ' / ' + last.good_n, 'false alarms on good designs', last.rules + ' rules']
-].map(([c, b, l, f]) => `<div class="stat ${c}"><b>${b}</b><span>${l}</span><span class="from">${f}</span></div>`).join('');
+  ['', pct(train(last).c, train(last).n) + '%', 'training faults caught', 'generator alone: ' + pct(first.train_gen, first.train_n) + '%'],
+  ['', String(last.false_pos), 'false alarms', 'on ' + last.good_n + ' known-good designs'],
+  ['', String(last.rules), 'rules', D.rules.filter(r => r.auto).length + ' written by the loop']
+].map(([c, b, l, f]) => `<div class="stat ${c}"><b>${b}</b><span class="l">${l}</span><span class="from">${f}</span></div>`).join('');
 
-// chart
-(function () {
-  const W = 920, Hh = 360, m = { l: 48, r: 20, t: 16, b: 44 };
-  const x = i => m.l + (H.length < 2 ? 0 : i * (W - m.l - m.r) / (H.length - 1));
-  const y = v => m.t + (100 - v) * (Hh - m.t - m.b) / 100;
-  const css = getComputedStyle(document.documentElement);
-  const series = [
-    { name: 'Held-out (never seen by the agents)', col: 'var(--accent)', w: 3.5, v: H.map(h => h.heldout_n ? pct(h.heldout_caught, h.heldout_n) : null) },
-    { name: 'Training + mined', col: 'var(--train)', w: 2.5, v: H.map(h => pct(trainAll(h).c, trainAll(h).n)) },
-    { name: 'Generator alone (training)', col: 'var(--base)', w: 2, dash: '5 5', v: H.map(h => pct(genAll(h).c, genAll(h).n)) },
-  ];
+function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   let s = '';
-  for (const g of [0, 25, 50, 75, 100]) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--line)" stroke-width="1"/>
-    <text x="${m.l - 8}" y="${y(g) + 4}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="12" fill="var(--mute)">${g}%</text>`;
+  for (const g of yTicks) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--grid)" stroke-width="1"/>
+    <text x="${m.l - 10}" y="${y(g) + 4}" text-anchor="end" font-size="12" fill="var(--mute)">${yFmt(g)}</text>`;
+  s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Hh - m.b}" y2="${Hh - m.b}" stroke="var(--line)" stroke-width="1.5"/>`;
+  s += `<text transform="translate(16 ${(m.t + Hh - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--mute)">${yTitle}</text>`;
+  s += `<text x="${(m.l + W - m.r) / 2}" y="${Hh - 6}" text-anchor="middle" font-size="12" fill="var(--mute)">${xTitle}</text>`;
+  return s;
+}
+
+// --- score chart
+(function () {
+  const W = 960, Hh = 420, m = { l: 74, r: 28, t: 24, b: 92 };
+  const x = i => m.l + 14 + i * (W - m.l - m.r - 28) / Math.max(1, H.length - 1);
+  const y = v => m.t + (100 - v) * (Hh - m.t - m.b) / 100;
+  let s = axes(W, Hh, m, [0, 25, 50, 75, 100], g => g + '%', y, 'Faults stopped before cutting', 'Checker version (each step = one change to the rule book, in time order)');
   H.forEach((h, i) => {
-    const lab = h.note.startsWith('loop') ? 'loop' : h.note.startsWith('baseline') ? 'base' : 'R' + (h.rules || 0);
-    s += `<text x="${x(i)}" y="${Hh - m.b + 18}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--mute)">${lab}</text>`;
-    if (h.note.startsWith('loop')) s += `<line x1="${x(i)}" x2="${x(i)}" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--accent)" stroke-opacity=".18" stroke-width="1"/>`;
-    if (h.false_pos) s += `<text x="${x(i)}" y="${Hh - m.b + 34}" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="11" fill="var(--bad)">${h.false_pos} false</text>`;
+    const loop = h.label.startsWith('Loop');
+    if (loop) s += `<rect x="${x(i) - 6}" y="${m.t}" width="12" height="${Hh - m.b - m.t}" fill="var(--accent)" fill-opacity=".07"/>`;
+    s += `<text transform="translate(${x(i) + 4} ${Hh - m.b + 14}) rotate(35)" font-size="11.5" fill="${loop ? 'var(--accent)' : 'var(--mute)'}">${h.label}</text>`;
   });
+  const series = [
+    { col: 'var(--base)', w: 2, dash: '6 5', v: H.map(h => pct(h.train_gen, h.train_n)) },
+    { col: 'var(--train)', w: 2.5, v: H.map(h => pct(train(h).c, train(h).n)) },
+    { col: 'var(--accent)', w: 3.5, v: H.map(h => h.heldout_n ? pct(h.heldout_caught, h.heldout_n) : null) },
+  ];
   for (const se of series) {
-    const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v)]).filter(Boolean);
+    const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v), v, i]).filter(Boolean);
     if (!pts.length) continue;
-    s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" points="${pts.map(p => p.join(',')).join(' ')}"/>`;
-    const lp = pts[pts.length - 1], lv = se.v.filter(v => v != null).slice(-1)[0];
-    s += `<circle cx="${lp[0]}" cy="${lp[1]}" r="4.5" fill="${se.col}"/>`;
-    s += `<text x="${lp[0] - 8}" y="${lp[1] - 10}" text-anchor="end" font-family="IBM Plex Mono, monospace" font-size="13" font-weight="500" fill="${se.col}">${lv}%</text>`;
+    s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
+    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
+    const lp = pts[pts.length - 1];
+    s += `<text x="${lp[0] + 8}" y="${lp[1] + (se.col.includes('train') ? -8 : 16)}" font-size="13" font-weight="500" fill="${se.col}">${lp[2]}%</text>`;
   }
-  const svg = $('#chart'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
-  $('#legend').innerHTML = series.map(se => `<span><i style="background:${se.col}"></i>${se.name}</span>`).join('');
+  // annotate the start of the held-out line
+  const hi = H.findIndex(h => h.heldout_n);
+  if (hi >= 0) s += `<text x="${x(hi) - 6}" y="${y(pct(H[hi].heldout_caught, H[hi].heldout_n)) + 22}" text-anchor="end" font-size="11.5" fill="var(--accent)">held-out set added here</text>`;
+  const svg = $('#score'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
 })();
 
-// loop log
-const tb = $('#loop tbody');
-const rows = D.loop.length ? D.loop : [];
-tb.innerHTML = rows.map(e => {
+// --- cost chart
+(function () {
+  const E = D.opt_hist || [];
+  if (!E.length) { $('#cost').outerHTML = '<p class="mute">Run python3 optimize.py to fill this chart.</p>'; return; }
+  const runs = [false, true].map(st => E.filter(e => e.strict === st));
+  const nMax = Math.max(...runs.map(r => r.length));
+  const costs = E.map(e => e.cost).filter(v => v != null);
+  const lo = Math.floor(Math.min(...costs) / 1000) * 1000, hi = Math.ceil(Math.max(...costs) / 1000) * 1000;
+  const W = 960, Hh = 400, m = { l: 84, r: 28, t: 20, b: 52 };
+  const x = n => m.l + 8 + (n - 1) * (W - m.l - m.r - 16) / Math.max(1, nMax - 1);
+  const y = v => m.t + (hi - v) * (Hh - m.t - m.b) / (hi - lo);
+  const ticks = []; const step = (hi - lo) > 6000 ? 2000 : 1000; for (let v = lo; v <= hi; v += step) ticks.push(v);
+  let s = axes(W, Hh, m, ticks, v => (v / 1000).toLocaleString('nb-NO') + ' 000', y, 'Total cost (kr)', 'Candidate designs tried by the optimizer');
+  for (const n of [1, 50, 100, 150, 200].filter(n => n <= nMax)) s += `<text x="${x(n)}" y="${Hh - m.b + 18}" text-anchor="middle" font-size="11.5" fill="var(--mute)">${n}</text>`;
+  runs.forEach((r, k) => r.forEach((e, i) => {
+    if (e.cost == null) return;
+    s += `<circle cx="${x(i + 1) + (k ? 2 : -2)}" cy="${y(e.cost)}" r="3" fill="${e.ok ? 'var(--faint)' : 'var(--bad)'}" fill-opacity="${e.ok ? .45 : .8}"><title>${e.ok ? 'passed' : 'rejected by checker'}: ${kr(e.cost)}</title></circle>`;
+  }));
+  runs.forEach((r, k) => {
+    const pts = r.map((e, i) => e.best == null ? null : [x(i + 1), y(e.best), e.best]).filter(Boolean);
+    if (!pts.length) return;
+    const col = k ? 'var(--train)' : 'var(--accent)';
+    s += `<polyline fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
+    const lp = pts[pts.length - 1];
+    s += `<circle cx="${lp[0]}" cy="${lp[1]}" r="5" fill="${col}"/><text x="${lp[0] - 8}" y="${lp[1] - 10}" text-anchor="end" font-size="13" font-weight="500" fill="${col}">${kr(lp[2])}</text>`;
+  });
+  if (O && O.today) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(O.today.cost)}" y2="${y(O.today.cost)}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="3 4"/>
+    <text x="${m.l + 6}" y="${y(O.today.cost) - 6}" font-size="11.5" fill="var(--fg)">today's design ${kr(O.today.cost)}</text>`;
+  const svg = $('#cost'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
+})();
+
+// --- comparison cards
+(function () {
+  if (!O) return;
+  const t = O.today, a = O.loose && O.loose.best, b = O.strict && O.strict.best;
+  const card = (r, title, cls, note) => !r ? '' : `<div class="card opt ${cls}">
+    <div class="eyebrow">${title}</div>
+    <div class="price">${kr(r.cost)}</div>
+    <div class="delta" style="color:${r === t ? 'var(--mute)' : r.cost <= t.cost ? 'var(--ok)' : 'var(--warn)'}">${r === t ? 'current params.json' : (r.cost <= t.cost ? '−' : '+') + kr(Math.abs(r.cost - t.cost)) + ' vs today'}</div>
+    <dl><dt>Sheets</dt><dd>${kr(r.sheets)}</dd><dt>Spindle time</dt><dd>${r.cnc_min} min · ${kr(r.cnc_kr)}</dd>
+      <dt>Hardware</dt><dd>${kr(r.hardware)}</dd><dt>Drawers</dt><dd>${r.drawers} × ${r.box_width} mm wide</dd></dl>
+    <ul>${r.materials.map(mm => `<li>${mm.navn.replace(/\s*\(.*\)$/, '')}: ${mm.ark} sheet, ${mm.used}% used</li>`).join('')}</ul>
+    <p style="font-size:13px">${note}</p></div>`;
+  $('#cmp').innerHTML = card(t, 'Today', '', 'Two columns. Drawers exceed Hettich’s 550 mm.')
+    + card(a, 'Cheapest, any width', '', 'Same layout, cheaper white board that still fits one sheet.')
+    + card(b, 'Cheapest within Hettich', 'best', 'Three columns. The carcass moves onto the oak sheet, which was only 40% used.');
+})();
+
+// --- loop log
+$('#loop tbody').innerHTML = (D.loop || []).map(e => {
   const t = (e.t || '').slice(11, 16);
   if (e.step === 'mine') return `<tr><td class="id">${t}</td><td>Mine</td><td colspan="2">${e.n} new faults written</td><td><span class="pill auto">mined</span></td></tr>`;
-  const res = e.accepted ? '<span class="pill yes">accepted</span>' : `<span class="pill no">rejected</span>${e.false_alarms && e.false_alarms.length ? ' false alarm' : ''}`;
-  return `<tr><td class="id">${t}</td><td>Write</td><td class="id">${e.fault}</td><td class="id">${e.rule || '–'}</td><td>${res}</td></tr>`;
-}).join('') || '<tr><td colspan="5" class="note">The loop has not run yet. Run python3 loop.py --mine 6 --iters 6.</td></tr>';
+  const rule = D.rules.find(r => e.rule && e.rule.startsWith(r.id.toLowerCase().replace('r', 'r')));
+  const g = e.accepted ? '<span class="pill yes">accepted</span>' : '<span class="pill no">rejected</span>';
+  return `<tr><td class="id">${t}</td><td>Write rule</td><td class="id">${e.fault}</td><td class="id">${e.rule || '–'}</td><td>${g}</td></tr>`;
+}).join('') || '<tr><td colspan="5" class="mute">The loop has not run yet.</td></tr>';
 
-// rules
+// --- rules
 $('#rulesh').textContent = D.rules.length + ' rules';
 $('#rules tbody').innerHTML = D.rules.map(r => `<tr><td class="id">${r.id}</td><td>${r.desc}</td><td><span class="pill ${r.auto ? 'auto' : 'hand'}">${r.auto ? 'loop agent' : 'seed'}</span></td></tr>`).join('');
+$('#stamp').textContent = 'Last score ' + (last.t || '').replace('T', ' ').slice(0, 16) + (O ? ' · optimizer run ' + O.t.replace('T', ' ').slice(0, 16) : '');
 </script>

@@ -24,7 +24,20 @@ try:
     mined = [dict(id=f.id, title=f.title) for f in fm.FAULTS]
 except Exception:
     mined = []
-data = dict(hist=hist, loop=loop, rules=rules, mined=mined)
+def short(n):
+    if n.startswith('baseline'): return 'Generator only'
+    if n.startswith('R01'): return '+ DXF checks'
+    if n.startswith('R03'): return '+ 3D joints'
+    if n.startswith('R05'): return '+ 7 rules'
+    if n.startswith('R08 fix'): return 'False-alarm fix'
+    m = re.match(r'loop: r(\d+)_auto', n)
+    if m: return 'Loop R' + m.group(1)
+    return n[:14]
+for h in hist:
+    h['label'] = short(h['note'] or '')
+opt_hist = jl('optimize_history.jsonl')
+opt = json.load(open(os.path.join(HERE, 'optimize_result.json'))) if os.path.exists(os.path.join(HERE, 'optimize_result.json')) else None
+data = dict(hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
 tpl = open(os.path.join(HERE, 'demo', 'template.html')).read()
 open(os.path.join(HERE, 'demo', 'index.html'), 'w').write(tpl.replace('/*DATA*/null', json.dumps(data)))
 print('wrote demo/index.html', len(hist), 'scores', len(loop), 'loop steps', len(rules), 'rules')
