@@ -103,7 +103,7 @@ const I = D.info;
 const s = D.status, st = document.getElementById('status');
 const ready = !s.err.length && !s.block.length;
 const list = (t, a, c) => a.length ? `<h2>${t}</h2><ul class="${c}">${a.map(x => `<li>${x.replace(/</g,'&lt;')}</li>`).join('')}</ul>` : '';
-st.innerHTML = `<h2 style="margin-top:16px">Sjekk av lagret plan (params.json)</h2><div class="big ${ready ? 'ok' : 'err'}">Klar til fresing: ${ready ? 'JA' : 'NEI'}</div>` +
+st.innerHTML = `<h2 style="margin-top:16px">Sjekk av lagret plan</h2><div class="big ${ready ? 'ok' : 'err'}">Klar til fresing: ${ready ? 'JA' : 'NEI'}</div>` +
   list('Feil', s.err, 'err') + list('Blokkert – mangler input', s.block, 'warn') + list('Advarsler', s.warn, 'warn') + list('OK', s.ok, 'ok');
 const kv = [['Korpus', `${I.W} × ${I.DEP} × ${I.HS}`], ['Tykkelse k/f/s/b', `${I.T} / ${I.tf} / ${I.ts} / ${I.tb}`], ['Åpning', I.Wo],
   ['Skuffeboks', `${I.bw} × ${I.Ls} × ${I.bh}`], ['Front', `${I.fw} × ${I.fh}`], ['Totalhøyde', Math.round(I.total_h)]];
@@ -235,8 +235,8 @@ for (const grp of Object.keys(CHOICE)) {
 }
 
 // ---- sheet products from materialer.json: pick per role -> 3D colour + re-nest + price, live.
-//      The nesting below is a line-for-line port of nestlib.py (split_sheet, Bin, _pack1, pack, plan),
-//      so the numbers match what `python3 kommode.py` writes for the same choice.
+//      The nesting below is a line-for-line port of the generator's sheet nesting,
+//      so the numbers match the generator's output for the same choice.
 const M = D.mat, KAT = Object.fromEntries(M.katalog.map(m => [m.id, m]));
 const ROLE_OF = { K: 'front', A: 'ytre', C: 'ytre', CH: 'ytre', B: 'korpus', D: 'korpus', H: 'korpus', S: 'skuff', SH: 'skuff', E1: 'skuff', E2: 'skuff', SB: 'skuffebunn', G: 'bakplate' };
 const THK = { front: 'front', ytre: 'korpus', korpus: 'korpus', skuff: 'skuff', skuffebunn: 'skuffebunn', bakplate: 'bakplate' };
@@ -350,7 +350,7 @@ function renderCost() {
   const E = evaluate(valg), d = E.total - BASE.total;
   const same = M.roles.every(r => valg[r] === M.valg[r]);
   costEl.innerHTML = `<h1 style="margin-bottom:2px">Plater: ${E.est ? '~' : ''}${kr(E.total)} kr</h1>
-    <div class="sub" style="color:var(--mute);font-size:12px">${same ? 'Samme som lagret plan i params.json.' :
+    <div class="sub" style="color:var(--mute);font-size:12px">${same ? 'Samme som lagret plan.' :
       `Lagret plan: ${BASE.est ? '~' : ''}${kr(BASE.total)} kr → <b class="${d > 0 ? 'err' : 'ok'}">${d > 0 ? '+' : ''}${kr(d)} kr</b>`}
       &nbsp;· hele plater, uten kantlist/kapping/frakt. ~ = anslag.</div>
     ${E.issues.length ? `<ul class="err">${E.issues.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
@@ -360,7 +360,6 @@ function renderCost() {
       <td class="n">${r.sheets} × ${r.anslag ? '~' : ''}${kr(r.price)}<div class="sub">brukt ${Math.round(r.use * 100)} %</div></td>
       <td class="n"><b>${r.anslag ? '~' : ''}${kr(r.sum)}</b></td></tr>`).join('')}</table>
     <details><summary>Bruk dette valget (DXF-er, rapport)</summary>
-      <p class="sub" style="color:var(--mute);font-size:12px">Erstatt "materialvalg" i params.json med dette og kjør <code>python3 kommode.py</code>.</p>
       <textarea readonly id="snip">"materialvalg": ${JSON.stringify(Object.fromEntries(M.roles.map(r => [r, valg[r]])), null, 2)},</textarea>
       <button id="cp">Kopier</button> <button id="rs">Tilbake til lagret plan</button></details>`;
   document.getElementById('cp').onclick = () => { const t = document.getElementById('snip'); t.select(); navigator.clipboard?.writeText(t.value).catch(() => {}); };

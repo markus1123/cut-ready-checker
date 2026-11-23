@@ -88,3 +88,7 @@ if os.path.isdir(os.path.join(RADIO, 'web')):
     p = p.replace(HERO, HERO + RADIO_SEC, 1)
 open(os.path.join(OUT, 'index.html'), 'w', encoding='utf-8').write(p)
 print('wrote', OUT)
+
+# --- public demo page: strip local paths / script names (fails loudly if any are left)
+import runpy
+runpy.run_path(os.path.join(HERE, 'demo', 'public_clean.py'), run_name='__main__')
