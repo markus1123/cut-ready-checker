@@ -6,3 +6,4 @@
 {"t": "2026-11-23T12:00:57", "note": "loop: g07_auto_gm02 for gm02", "rules": 7, "train": 0.535, "transfer": 0.54, "heldout": 0.042, "fp": 2, "noise_flag": 0.194}
 {"t": "2026-11-23T12:18:33", "note": "loop: g08_auto_gm03 for gm03", "rules": 8, "train": 0.618, "transfer": 0.624, "heldout": 0.049, "fp": 2, "noise_flag": 0.197}
 {"t": "2026-11-23T12:59:09", "note": "loop: g10_auto_gm04 for gm04", "rules": 9, "train": 0.556, "transfer": 0.56, "heldout": 0.083, "fp": 2, "noise_flag": 0.204}
+{"t": "2026-11-23T13:21:28", "note": "loop: g11_auto_gm05 for gm05", "rules": 10, "train": 0.622, "transfer": 0.627, "heldout": 0.09, "fp": 2, "noise_flag": 0.204}

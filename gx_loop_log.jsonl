@@ -8,3 +8,4 @@
 {"step": "write", "target": "gm03", "rule": "g08_auto_gm03", "accepted": true, "train": 0.618, "transfer": 0.624, "heldout": 0.049, "fp_heldout": 2, "secs": 1056, "t": "2026-11-23T12:18:33"}
 {"step": "mine", "ok": true, "agent": "ide its own sheet border. That isn't caused by my change, but a sheet-border check will flag that good design too.\n\n`faults/gx_mined.py` was changed by something else while I was editing it. All six entries, gm01 to gm06, are still in it. I didn't run the loop or open anything under `fc/gx/rules/`.\n", "t": "2026-11-23T12:21:10"}
 {"step": "write", "target": "gm04", "rule": "g09_auto_gm04", "accepted": false, "why": ["noise flag rate 20% -> 23%"], "secs": 868, "t": "2026-11-23T12:40:33"}
+{"step": "write", "target": "gm04", "rule": "g10_auto_gm04", "accepted": true, "train": 0.556, "transfer": 0.56, "heldout": 0.083, "fp_heldout": 2, "secs": 1117, "t": "2026-11-23T12:59:09"}
