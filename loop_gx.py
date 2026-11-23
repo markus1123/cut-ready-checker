@@ -78,12 +78,14 @@ Hard constraints (an automatic gate checks them, the rule is thrown away otherwi
 Tools: `GX_K=6 python3 -m fc.gx.score` (quick, ~2 min), `python3 -m fc.gx.score --show {tid}` (missed mutants and what
 rules say), `python3 -m fc.gx.score --fp` (flagged good designs). In Python: `from fc.gx import corpus;
 gs = list(corpus.designs('good_train'))` gives the built designs (parsed, cached).
-Do NOT edit other rules, fault files, model.py, corpus.py or score.py. Do NOT open faults/gx_heldout.py or anything
+Do NOT edit other rules, fault files, model.py, corpus.py or score.py. Another loop works on the kommode checker in this
+repo: do not touch or read fc/rules/, faults/heldout*.py, faults/retired*.py, faults/variants.py, loop.py.
+Do NOT open faults/gx_heldout.py or anything
 under corpus/raw except through fc.gx.model. Never execute files from corpus/raw. Finish with a one-line summary."""
 
 MINE = """You are the fault MINER for a checker of CNC-cut flat-pack furniture files from any designer (this directory).
 Read fc/gx/model.py, fc/gx/mutate.py, faults/gx_train.py, faults/gx_mined.py (if it exists), docs/rules-from-manuals.md and
-docs/tools-and-rules.md. Do NOT open fc/gx/rules/ or faults/gx_heldout.py.
+docs/tools-and-rules.md. Do NOT open fc/gx/rules/ or faults/gx_heldout.py (nor the other loop's faults/heldout*.py, retired*.py, variants.py).
 Add {n} NEW fault types to faults/gx_mined.py (create it like faults/gx_train.py with FAULTS = [...]; keep existing
 entries; ids gm01, gm02, ... continuing). Each must be a real, documented way CNC plywood / flat-pack furniture fails
 (manufacturer guides, CNC forum failure stories, Opendesk/WikiHouse design guides, hardware mounting instructions,

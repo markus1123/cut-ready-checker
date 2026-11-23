@@ -1,1 +1,4 @@
 {"step": "start", "train": 0.407, "transfer": 0.426, "heldout": 0.014, "fp": {"n": 2, "train": 0, "heldout": 2, "train_ids": []}, "t": "2026-11-23T10:52:18"}
+{"step": "write", "target": "gt06", "rule": "g05_auto_gt06", "accepted": true, "train": 0.528, "transfer": 0.565, "heldout": 0.035, "fp_heldout": 2, "secs": 616, "t": "2026-11-23T11:02:34"}
+{"step": "end", "train": 0.528, "transfer": 0.565, "heldout": 0.035, "fp": 2, "t": "2026-11-23T11:02:34"}
+{"step": "start", "train": 0.528, "transfer": 0.565, "heldout": 0.035, "fp": {"n": 2, "train": 0, "heldout": 2, "train_ids": []}, "t": "2026-11-23T11:09:49"}
