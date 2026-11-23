@@ -7,7 +7,7 @@ from . import design
 from .core import gen_errors, run_rules, load_rules
 from .score import load_set, HERE
 
-SETS = ['train', 'mined', 'heldout', 'good']
+SETS = ['train', 'mined', 'retired', 'heldout', 'good']
 
 
 def main():

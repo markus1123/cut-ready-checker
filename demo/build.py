@@ -12,7 +12,7 @@ def jl(fn):
     return [json.loads(l) for l in open(p)] if os.path.exists(p) else []
 
 hist = [{k: h.get(k) for k in ('t', 'note', 'train_n', 'train_caught', 'train_gen', 'mined_n', 'mined_caught',
-                                'heldout_n', 'heldout_caught', 'heldout_gen', 'false_pos', 'good_n', 'rules')} for h in jl('score_history.jsonl')]
+                                'heldout_n', 'heldout_caught', 'heldout_gen', 'false_pos', 'good_n', 'rules', 'retired_n', 'retired_caught', 'heldout_v')} for h in jl('score_history.jsonl')]
 loop = [{k: e.get(k) for k in ('t', 'step', 'fault', 'rule', 'accepted', 'false_alarms', 'lost', 'n')} for e in jl('loop_log.jsonl')]
 rules = []
 for rid, fn in sorted(load_rules().items()):
@@ -31,6 +31,7 @@ def short(n):
     if n.startswith('R05'): return '+ 7 rules'
     if n.startswith('R08 fix'): return 'False-alarm fix'
     if n.startswith('R19'): return '+ 8 manual rules'
+    if n.startswith('R27'): return '+ 5 general rules'
     if n.startswith('R18'): return '+ R18 slide width'
     m = re.match(r'loop: r(\d+)_auto', n)
     if m: return 'Loop R' + m.group(1)

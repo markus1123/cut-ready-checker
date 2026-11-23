@@ -141,10 +141,10 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
     <div class="explain">
       <div class="card"><span class="n">1</span><h3>Break it on purpose</h3>
         <p>We write <i>faults</i>: small, realistic mistakes injected into a good design – a slide hole 12 mm too low, a pocket drilled through the face, an inch/mm mix-up in the file. Each fault is a test question with a known answer: “this must not be cut”.</p>
-        <span class="term">34 practice · 6 loop-made · 25 unseen test · 7 known-good</span></div>
+        <span class="term">65 practice (incl. 25 from the retired first test) · 25 unseen test · 7 known-good</span></div>
       <div class="card"><span class="n">2</span><h3>Rules are plain code</h3>
         <p>A rule is a short Python check with a number and a reason from the workshop or a manufacturer: “Minifix housing in 19 mm board is 14.0 mm deep (Häfele p 7.13)”. No AI judges a design at check time – the same files always get the same answer.</p>
-        <span class="term">26 rules · each one tested against every fault</span></div>
+        <span class="term">31 rules · each one tested against every fault</span></div>
       <div class="card"><span class="n">3</span><h3>The loop (RSI)</h3>
         <p>Recursive self-improvement, kept small and safe: one agent <b>mines</b> new faults from real failure modes, another <b>writes</b> a rule for one the checker misses, and a fixed <b>gate</b> keeps the rule only if it catches that fault, breaks nothing that was already caught, and raises zero false alarms on the known-good designs.</p>
         <span class="term">6 of 6 loop rules accepted · every one is a git commit</span></div>
@@ -161,10 +161,10 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
     <div class="head"><div class="eyebrow">1 · Quality</div><h2>How many faults are stopped before cutting</h2></div>
     <div class="card gloss">
       <div><b>Fault</b>A deliberately broken version of the chest: one realistic mistake, like a hole in the wrong place or a file in inches instead of mm. If the checker lets it through, it would be cut wrong.</div>
-      <div><b><i class="sw" style="border-color:var(--train)"></i>Practice faults <span class="mute">(“training set”, 34 + 6)</span></b>Faults the rule-writing agents were allowed to read while writing rules. Scoring well here is expected – like doing well on homework you have seen. 6 of them were made up by the loop's own agent (“mined”).</div>
-      <div><b><i class="sw" style="border-color:var(--accent)"></i>Unseen test faults <span class="mute">(“held-out set”, 25)</span></b>Faults written by a separate agent and never shown to the rule writers. This is the honest score: it shows whether the rules catch new mistakes, not just the ones they were written for.</div>
+      <div><b><i class="sw" style="border-color:var(--train)"></i>Practice faults <span class="mute">(“training set”)</span></b>Faults the rule-writing agents were allowed to read while writing rules. Scoring well here is expected – like doing well on homework you have seen. Some were made up by the loop's own agent (“mined”); 25 are the first unseen test, retired into practice once we had studied its misses.</div>
+      <div><b><i class="sw" style="border-color:var(--accent)"></i>Unseen test faults <span class="mute">(“held-out set”, 25)</span></b>Faults written by a separate agent and never shown to the rule writers. When we fix what a test missed, that test is used up, so a fresh agent writes a new one. This is the honest score: it shows whether the rules catch new mistakes, not just the ones they were written for.</div>
       <div><b><i class="sw dash" style="border-color:var(--base)"></i>Generator's own check</b>The checks the furniture generator already had before this project. It is the baseline: what would have been caught without any of our rules.</div>
-      <div><b>Rule</b>A short piece of code that checks one thing in the cutting files, with a reason from a workshop or a manufacturer manual. 26 so far.</div>
+      <div><b>Rule</b>A short piece of code that checks one thing in the cutting files, with a reason from a workshop or a manufacturer manual. 31 so far.</div>
       <div><b>Stopped / caught</b>A rule raised an “error”, so the job would not be sent to the machine. A “warning” only flags something for a person to look at, so it does not count as caught.</div>
     </div>
     <div class="card chart">
@@ -184,7 +184,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
 
   <section>
     <div class="head"><div class="eyebrow">2 · What the runs taught us</div><h2>Which rule catches which fault</h2>
-      <p class="mute">Every fault we have, run against every layer of the checker separately. Press play to watch the rule book grow in the order it was built – first the hand-written seed rules, then the six the loop wrote, then the eight taken from manufacturer manuals – and see which faults each addition picks up.</p></div>
+      <p class="mute">Every fault we have, run against every layer of the checker separately. Press play to watch the rule book grow in the order it was built – first the hand-written seed rules, then the six the loop wrote, then the eight taken from manufacturer manuals, then five general rules – and see which faults each addition picks up.</p></div>
     <div class="card chart">
       <div class="scrub"><button id="play" type="button">▶ Play</button>
         <input id="ver" type="range" min="1" value="1" aria-label="Checker version">
@@ -196,6 +196,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
         <span><i class="dot" style="background:var(--seed);border-radius:2px"></i>Seed rule (written by hand at the start)</span>
         <span><i class="dot" style="background:var(--loop);border-radius:2px"></i>Written by the loop agent</span>
         <span><i class="dot" style="background:var(--manual);border-radius:2px"></i>From manufacturer manuals</span>
+        <span><i class="dot" style="background:var(--train);border-radius:2px"></i>General rules (after the first test)</span>
         <span><i class="dot" style="background:var(--faint);opacity:.35;border-radius:2px"></i>Also catches it (backup)</span>
         <span><i class="dot" style="border:1.5px dashed var(--faint);border-radius:2px"></i>Will catch it, not added yet</span>
       </div>
@@ -311,7 +312,7 @@ const EN = [[/Spon melamin /, 'Melamine chipboard '], [/eik aviva dew/, 'oak Avi
 const en = t => EN.reduce((a, [re, b]) => a.replace(re, b), t || '');
 const NS = 'http://www.w3.org/2000/svg';
 const H = D.hist, last = H[H.length - 1], first = H[0];
-const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
+const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0) + (h.retired_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) + (h.retired_n || 0) });
 const O = D.opt;
 
 $('#stats').innerHTML = [
@@ -345,19 +346,24 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const series = [
     { col: 'var(--base)', w: 2, dash: '6 5', v: H.map(h => pct(h.train_gen, h.train_n)) },
     { col: 'var(--train)', w: 2.5, v: H.map(h => pct(train(h).c, train(h).n)) },
-    { col: 'var(--accent)', w: 3.5, v: H.map(h => h.heldout_n ? pct(h.heldout_caught, h.heldout_n) : null) },
+    ...[...new Set(H.filter(h => h.heldout_n).map(h => h.heldout_v || 1))].map((ver, i, all) => ({
+      col: 'var(--accent)', w: 3.5, dash: i < all.length - 1 ? '2 4' : null, keepDots: true,
+      v: H.map(h => h.heldout_n && (h.heldout_v || 1) === ver ? pct(h.heldout_caught, h.heldout_n) : null) })),
   ];
   for (const se of series) {
     const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v), v, i]).filter(Boolean);
     if (!pts.length) continue;
     s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
-    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
+    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash && !se.keepDots ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
     const lp = pts[pts.length - 1];
     s += `<text x="${lp[0] + 8}" y="${lp[1] + (se.col.includes('train') ? -8 : 16)}" font-size="13" font-weight="500" fill="${se.col}">${lp[2]}%</text>`;
   }
   // annotate the start of the held-out line
   const hi = H.findIndex(h => h.heldout_n);
   if (hi >= 0) s += `<text x="${x(hi) + 4}" y="${y(pct(H[hi].heldout_caught, H[hi].heldout_n)) + 22}" text-anchor="start" font-size="11.5" fill="var(--accent)">← unseen test written here (no score before)</text>`;
+  const h2 = H.findIndex(h => (h.heldout_v || 1) > 1);
+  if (h2 >= 0) s += `<line x1="${x(h2) - 0.5 * (x(1) - x(0))}" x2="${x(h2) - 0.5 * (x(1) - x(0))}" y1="${m.t}" y2="${Hh - m.b}" stroke="var(--accent)" stroke-dasharray="3 3" stroke-opacity=".6"/>
+    <text x="${x(h2) - 0.5 * (x(1) - x(0)) - 6}" y="${y(pct(H[h2].heldout_caught, H[h2].heldout_n)) + 34}" text-anchor="end" font-size="11.5" fill="var(--accent)">new unseen test from here →</text>`;
   const svg = $('#score'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
 })();
 
@@ -415,11 +421,11 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const A = D.attr; if (!A) return;
   const meta = Object.fromEntries(D.rules.map(r => [r.id, r]));
   const layers = ['gen', ...A.rules];
-  const origin = r => r === 'gen' ? 'gen' : meta[r] && meta[r].auto ? 'loop' : (+r.slice(1) >= 18 ? 'manual' : 'seed');
-  const col = { gen: 'var(--base)', seed: 'var(--seed)', loop: 'var(--loop)', manual: 'var(--manual)' };
+  const origin = r => r === 'gen' ? 'gen' : meta[r] && meta[r].auto ? 'loop' : (+r.slice(1) >= 27 ? 'general' : +r.slice(1) >= 18 ? 'manual' : 'seed');
+  const col = { gen: 'var(--base)', seed: 'var(--seed)', loop: 'var(--loop)', manual: 'var(--manual)', general: 'var(--train)' };
   const name = r => r === 'gen' ? 'Generator’s own check' : r + ' · ' + (meta[r] ? meta[r].desc : '');
-  const SETS = [['train', 'Practice'], ['mined', 'Loop-made'], ['heldout', 'Unseen test']];
-  const SUB = { train: 'the rule writers could read these', mined: 'invented by the loop\u2019s own agent', heldout: 'never shown to the rule writers \u2013 the honest score' };
+  const SETS = [['train', 'Practice'], ['mined', 'Loop-made'], ['retired', 'Old test'], ['heldout', 'Unseen test']];
+  const SUB = { train: 'the rule writers could read these', mined: 'invented by the loop\u2019s own agent', retired: 'the first unseen test \u2013 seen after scoring, now practice', heldout: 'never shown to the rule writers \u2013 the honest score' };
   const catchers = f => layers.filter(l => l === 'gen' ? f.gen : f.rules.includes(l));
   const firstIdx = f => { const c = catchers(f); return c.length ? layers.indexOf(c[0]) : 999; };
   const groups = SETS.map(([k, lab]) => ({ k, lab, rows: A.rows.filter(r => r.set === k).sort((a, b) => firstIdx(a) - firstIdx(b) || a.id.localeCompare(b.id)) }));
@@ -487,7 +493,7 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
     const l = layers[v - 1], o = origin(l);
     const gained = all.filter(f => catchers(f).map(c => layers.indexOf(c)).filter(on)[0] === v - 1);
     $('#vlab').textContent = `step ${v} of ${layers.length}`;
-    const who = { seed: 'a hand-written rule', loop: 'a rule written by the loop agent', manual: 'a rule taken from a manufacturer manual' }[o];
+    const who = { seed: 'a hand-written rule', loop: 'a rule written by the loop agent', manual: 'a rule taken from a manufacturer manual', general: 'a general rule written after studying the first test\u2019s misses' }[o];
     $('#now').innerHTML = l === 'gen'
       ? `<b>Step 1: the generator alone</b> – only the checks it already had built in, before any rules were added.`
       : `<b>Step ${v}: <span style="color:${col[o]}">${l}</span> added</b>, ${who}. It checks: ${meta[l] ? meta[l].desc : ''}.<br>`
@@ -529,15 +535,15 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const narrow = loopRules.filter(l => total[l] <= 1).length;
   $('#lessons').innerHTML = `
     <div class="card lesson"><span class="eyebrow">Generalisation</span><span class="big">${hoCaught}/${ho.length}</span>
-      <p>unseen test faults stopped by rules that never saw them. First caught by: seed rules ${by('seed')}, generator ${by('gen')}, loop ${by('loop')}, manuals ${by('manual')}. Loop rules back up ${loopHelp} of them.</p></div>
+      <p>unseen test faults stopped by rules that never saw them. First caught by: seed rules ${by('seed')}, generator ${by('gen')}, loop ${by('loop')}, manuals ${by('manual')}, general rules ${by('general')}. Loop rules back up ${loopHelp} of them.</p></div>
     <div class="card lesson" style="border-color:var(--warn)"><span class="eyebrow" style="color:var(--warn)">Single points of failure</span><span class="big">${single}</span>
       <p>faults caught by exactly one layer. Delete that rule and they slip through. ${deep} ${deep === 1 ? 'fault is' : 'faults are'} caught by three or more layers. Most of the checker is one rule deep.</p></div>
     <div class="card lesson" style="border-color:var(--loop)"><span class="eyebrow" style="color:var(--loop)">Loop rules stay narrow</span><span class="big">${narrow}/${loopRules.length}</span>
       <p>loop-written rules catch only the one fault they were written for. Together they stop ${loopHelp} held-out ${loopHelp === 1 ? 'fault' : 'faults'}. The gate checks “caught the target, broke nothing” but not “caught anything else”, so it accepts rules that are correct but specific. Next step: make the gate reward rules that also catch unseen faults.</p></div>
     <div class="card lesson" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Blind spots</span><span class="big">${miss.length}</span>
       <p>unseen test faults nothing stops yet:</p><ul>${miss.map(f => `<li>${f.title.replace(/</g, '&lt;')}</li>`).join('')}</ul></div>
-    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">Lesson about the tests</span><span class="big">h19</span>
-      <p>When the Minifix depth was corrected to 14.0 mm, one held-out fault quietly stopped doing anything – it edited a file layer named after the old 13.5 mm depth. The score dropped for the wrong reason. The harness now refuses any fault that changes nothing.</p></div>`;
+    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">A test gets used up</span><span class="big">25/25 → ${hoCaught}/${ho.length}</span>
+      <p>We studied the first unseen test's 7 misses and wrote 5 general rules (R27–R31: colliding holes, overlapping parts, level slides, missing parts, groove walls). They catch all 7 – but a test you have studied no longer measures anything, so it was retired into practice. A fresh agent then wrote a new test aimed at mistakes nobody had listed: ${hoCaught}/${ho.length}. Most of its misses are in the exported cutting files themselves – the next family of rules to write. (Earlier lesson: one fault silently stopped working after a fix; the harness now refuses faults that change nothing.)</p></div>`;
 })();
 
 // --- region comparison

@@ -14,7 +14,7 @@ This repo is the checker that reads those files and refuses to send a bad job, a
 1. **Fault library = the exam.** Realistic mistakes injected into a good design (`faults/`): a slide hole 12 mm too low,
    a pocket drilled through the face, an inch/mm mix-up in the DXF header, a right side cut as a copy of the left.
    Sets: `train` (rule writers may read), `mined` (written by the loop's miner agent), `heldout` (written by a separate
-   red-team agent, never shown to rule writers), `good` (known-good variants: any error there is a false alarm).
+   red-team agent, never shown to rule writers; replaced by a fresh one once its misses are studied, the old one moves to `retired`), `good` (known-good variants: any error there is a false alarm).
 2. **Rules are plain code** (`fc/rules/`). Each is a deterministic Python check with a threshold and a reason from a
    workshop or a manufacturer manual. No model judges a design at check time.
    The checker reads the actual DXF files and a 3D model of the assembly (frames per part, chirality, coaxial holes).
@@ -26,19 +26,25 @@ This repo is the checker that reads those files and refuses to send a bad job, a
 
 ## Results (end of day)
 
-| Set | Generator's own check | Generator + 26 rules |
+| Set | Generator's own check | Generator + 31 rules |
 |---|---|---|
-| Training | 6/34 | 34/34 |
-| Mined by the loop | 0/6 | 6/6 |
-| Held-out (never seen) | 1/25 | **18/25** |
+| Practice (34 written by hand + 6 mined by the loop) | 6/40 | 40/40 |
+| First unseen test (retired after its misses were studied) | 1/25 | 25/25 |
+| **Second unseen test** (fresh blind agent, aimed at mistakes not yet listed) | 6/25 | **15/25** |
 | False alarms on known-good designs | – | 0/7 |
+
+How the unseen test was used: the first blind test scored 18/25 (72%). Its 7 misses fell into three families
+(colliding holes, parts that do not line up, missing parts), so five *general* rules were written (R27–R31) rather
+than one per fault. They catch all 7 with no false alarms, but a studied test measures nothing, so it was retired
+into practice and a fresh agent wrote a second blind test: 15/25. Most of its misses are in the exported DXF files
+themselves (open or self-crossing contours, wrong layers, swapped sheets) – the next family of rules.
 
 Real bugs found in the chest before cutting: mirrored parts generated as identical copies, holes deeper than the bit's
 flute, handle screws that barely bite, Minifix housings drilled for the wrong board thickness, slide screws nearly
 through 16 mm drawer sides, groove feed too fast for a 1/8" bit, drawers wider than the slide maker allows.
 
-Honest caveats: 4 of the 6 loop-written rules catch only the fault they were written for (the gate does not reward
-generality yet); the held-out titles were seen once by the main agent after they were written; most prices are estimates.
+Honest caveats: 3 of the 6 loop-written rules catch only the fault they were written for (the gate does not reward
+generality yet); the unseen tests are faults an AI imagined, not records of real failed cuts; most prices are estimates.
 
 ## Run it
 

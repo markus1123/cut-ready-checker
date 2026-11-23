@@ -9,7 +9,7 @@ from . import design
 from .core import verdict, gen_errors, run_rules, load_rules
 
 HERE = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SETS = ['train', 'mined', 'heldout', 'good']
+SETS = ['train', 'mined', 'retired', 'heldout', 'good']   # retired = an old held-out set whose faults have been seen
 
 
 def load_set(name):
@@ -47,6 +47,10 @@ def summarize(res):
             s[name + '_gen'] = sum(r['gen'] for r in rows)
             s[name + '_caught'] = sum(r['caught'] for r in rows)
     s['rules'] = len(load_rules())
+    try:
+        s['heldout_v'] = getattr(importlib.import_module('faults.heldout'), 'VERSION', 1)
+    except ModuleNotFoundError:
+        pass
     return s
 
 
@@ -78,7 +82,7 @@ def main():
                 for m in r['msgs'][:4]:
                     print('          ', m[:160])
     print()
-    for name in ('train', 'mined', 'heldout'):
+    for name in ('train', 'mined', 'retired', 'heldout'):
         if s.get(name + '_n'):
             print('%-8s generator alone %2d/%-2d (%3.0f%%)   generator + rules %2d/%-2d (%3.0f%%)' % (
                 name, s[name + '_gen'], s[name + '_n'], 100 * s[name + '_gen'] / s[name + '_n'],
@@ -87,7 +91,7 @@ def main():
     if '--log' in a:
         note = a[a.index('--log') + 1] if len(a) > a.index('--log') + 1 else ''
         s.update(t=time.strftime('%Y-%m-%dT%H:%M:%S'), note=note,
-                 missed={n: [r['id'] for r in res[n] if not r['caught']] for n in ('train', 'mined', 'heldout') if n in res})
+                 missed={n: [r['id'] for r in res[n] if not r['caught']] for n in ('train', 'mined', 'retired', 'heldout') if n in res})
         with open(os.path.join(HERE, 'score_history.jsonl'), 'a') as f:
             f.write(json.dumps(s) + '\n')
     return s

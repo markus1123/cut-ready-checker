@@ -1,357 +1,342 @@
-"""HELD-OUT seeded faults (red team). Written without looking at fc/rules or faults/train.py.
-
-Each fault is a real way a flat-pack CNC job goes wrong. ~1/3 designer/input errors (params), ~1/3 generator
-bugs (parts), ~1/3 export/nesting/file faults (dxf)."""
+"""Held-out set 2: blind red-team faults (x01-x25). Written without looking at the checker."""
 import re
 from fc.core import Fault
 
 
-# ------------------------------------------------------------------------------------------- helpers
+# ------------------------------------------------------------------------------------------ helpers
 def _p(parts, code):
     return [p for p in parts if p['code'] == code][0]
 
 
-def _sheet(files, needle):
-    return [k for k in sorted(files) if needle in k][0]
+def _sheets(files, pat=None):
+    ks = sorted(files)
+    return [k for k in ks if (pat is None or re.search(pat, k))]
 
 
-def _split(text):
-    """-> (head lines incl. 'ENTITIES', [entity blocks as line lists], tail lines from ENDSEC)."""
-    L = text.split('\n')
-    i = next(k for k in range(0, len(L) - 1, 2) if L[k] == '2' and L[k + 1] == 'ENTITIES') + 2
-    head, blocks, cur, j = L[:i], [], None, i
-    while j < len(L) - 1:
-        c, v = L[j], L[j + 1]
-        if c == '0' and v in ('POLYLINE', 'CIRCLE', 'TEXT', 'ENDSEC'):
-            if v == 'ENDSEC':
-                break
-            cur = [c, v]; blocks.append(cur)
-        else:
-            cur += [c, v]
-        j += 2
-    return head, blocks, L[j:]
+def _busiest(files, layer_pat):
+    """The sheet file with the most entities on a layer matching layer_pat."""
+    best, n = None, -1
+    for k in sorted(files):
+        c = len(re.findall(r'\n8\n' + layer_pat, files[k]))
+        if c > n:
+            best, n = k, c
+    if n <= 0:
+        raise ValueError('no sheet with layer ' + layer_pat)
+    return best
 
 
-def _join(head, blocks, tail):
-    out = list(head)
-    for b in blocks:
-        out += b
-    return '\n'.join(out + tail)
+def _polys(lines, layer_pat):
+    """Yield (start, [vertex line indices of the 10/20 codes]) for POLYLINEs on a matching layer."""
+    out = []
+    i = 0
+    n = len(lines)
+    while i < n - 3:
+        if lines[i] == '0' and lines[i + 1] == 'POLYLINE' and lines[i + 2] == '8' and re.match(layer_pat, lines[i + 3]):
+            verts, j = [], i + 2
+            while not (lines[j] == '0' and lines[j + 1] == 'SEQEND'):
+                if lines[j] == '0' and lines[j + 1] == 'VERTEX':
+                    k, xi, yi = j + 2, None, None
+                    while lines[k] != '0':
+                        if lines[k] == '10': xi = k + 1
+                        if lines[k] == '20': yi = k + 1
+                        k += 2
+                    verts.append((xi, yi))
+                    j = k
+                else:
+                    j += 2
+            out.append((i, verts))
+            i = j
+        i += 2
+    return out
 
 
-def _layer(b):
-    return b[b.index('8') + 1] if '8' in b[::2] else ''
+def _kontur_layer(text):
+    m = re.search(r'\n8\n(10_KONTUR[^\n]*)\n', text)
+    if not m:
+        raise ValueError('no contour layer')
+    return m.group(1)
 
 
-def _xy(b):
-    """All (x, y) points of a block (vertices for polylines, centre/insert for circle/text)."""
-    pts, x = [], None
-    for k in range(0, len(b) - 1, 2):
-        if b[k] == '10':
-            x = float(b[k + 1])
-        elif b[k] == '20' and x is not None:
-            pts.append((x, float(b[k + 1]))); x = None
-    if b[1] == 'POLYLINE':
-        pts = pts[1:]  # first 10/20 is the polyline's dummy origin
-    return pts
+# ------------------------------------------------------------------------------------------ params
+def x01(P, S):
+    # drawer box height typed as the front height + a bit -> taller than the row pitch
+    F = P['front']
+    fh = (P['ytre']['hoyde_side'] - 2 * F['kant_topp_bunn'] - (P['rader'] - 1) * F['fuge']) / P['rader']
+    P['skuff']['hoyde'] = round(fh + F['fuge'] + 12)
 
 
-def _map(b, fx=None, fy=None, fr=None):
-    b = list(b)
-    for k in range(0, len(b) - 1, 2):
-        if b[k] == '10' and fx: b[k + 1] = '%.3f' % fx(float(b[k + 1]))
-        if b[k] == '20' and fy: b[k + 1] = '%.3f' % fy(float(b[k + 1]))
-        if b[k] == '40' and fr: b[k + 1] = '%.3f' % fr(float(b[k + 1]))
-    if b[1] == 'POLYLINE':  # keep the dummy origin at 0,0
-        i = b.index('10'); b[i + 1] = '0'; b[i + 3] = '0'
-    return b
+def x02(P, S):
+    P['ytre']['topp_overheng_front'] = -abs(P['ytre']['topp_overheng_front'] or 21)
 
 
-def _bbox(b):
-    pts = _xy(b)
-    return min(p[0] for p in pts), min(p[1] for p in pts), max(p[0] for p in pts), max(p[1] for p in pts)
+def x03(P, S):
+    src = P['_valg']['skuffebunn']
+    P['materialvalg']['skuff'] = src['id']
+    P['_valg']['skuff'] = dict(src)
+    P['tykkelse_malt']['skuff'] = P['tykkelse_malt']['skuffebunn']
+    P['tykkelse_nominell']['skuff'] = P['tykkelse_nominell']['skuffebunn']
 
 
-def _inside(b, bb, tol=0.5):
-    return all(bb[0] - tol <= x <= bb[2] + tol and bb[1] - tol <= y <= bb[3] + tol for x, y in _xy(b))
+def x04(P, S):
+    P['verksted']['marg_platekant'] = 0
 
 
-def _part_blocks(blocks, label_prefix):
-    """The contour of the part whose label starts with label_prefix, and every entity lying inside it."""
-    txt = [b for b in blocks if b[1] == 'TEXT' and b[b.index('1', 2) + 1].startswith(label_prefix)][0]
-    tx, ty = _xy(txt)[0]
-    cont = [b for b in blocks if b[1] == 'POLYLINE' and _layer(b).startswith('10_KONTUR')
-            and _bbox(b)[0] <= tx <= _bbox(b)[2] and _bbox(b)[1] <= ty <= _bbox(b)[3]][0]
-    bb = _bbox(cont)
-    return [b for b in blocks if not _layer(b).startswith('00_') and _inside(b, bb)]
+def x05(P, S):
+    P['verksted']['fres_liten_skjaerlengde'] = 38.0   # overall length of the 1/8" bit typed as flute length
 
 
-def _text_idx(b):
-    for k in range(2, len(b) - 1, 2):
-        if b[k] == '1':
-            return k + 1
+def x06(P, S):
+    P['korpus']['bunnlist_hoyde'] = P['ytre']['beinhoyde'] + 12
 
 
-# ------------------------------------------------------------------------------- designer / input errors
-def h01(P, S):
-    # slide holes on the right face of the middle wall typed with a +3 mm vertical offset
-    S['korpus_hull_alternativ'] = [[x, 3] for x, _ in S['korpus_hull_alternativ']]
+def x07(P, S):
+    P['skuff']['bunn_spill_per_side'] = P['skuff']['not_dybde'] + 1   # 9 typed for 0.9
 
 
-def h02(P, S):
-    P['front']['fuge'] = 0
+def x08(P, S):
+    S['pilot_d'] = 6.0
 
 
-def h03(P, S):
-    P['korpus']['bunnlist_y'] = [70, 281]
+def x09(P, S):
+    P['skuff']['senter_over_frontsenter'] = -70   # meant -7
 
 
-def h04(P, S):
-    # fixing screws moved onto the handle bolt line (box y=60 is the front's vertical centre)
-    P['skuff']['front_skrue_x_inn'] = 259
-    P['skuff']['front_skrue_y'] = [60, 90]
+# ------------------------------------------------------------------------------------------ parts
+def x10(parts, asm, info):
+    for o in _p(parts, 'K')['ops']:
+        if 'x' in o and 'y' in o:
+            o['x'], o['y'] = o['y'], o['x']
 
 
-def h05(P, S):
-    P['skuff']['not_fra_underkant'] = 3
+def x11(parts, asm, info):
+    ch = _p(parts, 'CH')
+    swap = {'kant:overkant': 'kant:underkant', 'kant:underkant': 'kant:overkant'}
+    ops = []
+    for o in _p(parts, 'C')['ops']:
+        o = dict(o)
+        if 'y' in o:
+            o['y'] = round(ch['B'] - o['y'], 2)
+        if o['kind'] == 'edge' and o['face'] in swap:
+            o['face'] = swap[o['face']]
+        ops.append(o)
+    ch['ops'] = ops
 
 
-def h06(P, S):
-    P['skuff']['not_klaring'] = -0.3
-
-
-def h07(P, S):
-    P['tykkelse_malt']['skuff'] = 15.8   # nominal stays 19: the 16 mm offcut was measured, not the drawer board
-
-
-def h08(P, S):
-    P['korpus']['plugg_inn_fra_kant'] = 60   # dowel 10 mm c/c from the Minifix bolt at 50
-
-
-def h09(P, S):
-    for r in ('front', 'ytre'):
-        P['_valg'][r] = dict(P['_valg'][r], retning=False)
-
-
-# --------------------------------------------------------------------------------------- generator bugs
-def h10(parts, asm, info):
-    c = _p(parts, 'C')
-    for o in c['ops']:
-        if 'kinne' in o['note']:
-            o['x'] = round(c['L'] - o['x'], 2)
-
-
-def h11(parts, asm, info):
-    for o in _p(parts, 'S')['ops']:
-        if 'Skinne-pilot' in o['note']:
-            o['y'] = round(o['y'] + 12, 2)
-
-
-def h12(parts, asm, info):
-    a = _p(parts, 'A')
-    for o in a['ops']:
-        if o['kind'] == 'hole':
-            o['y'] = round(o['y'] - info['OV'], 2)
-
-
-def h13(parts, asm, info):
-    b = _p(parts, 'B')
-    for o in b['ops']:
-        if 'Minifix-hus' in o['note']:
-            o['x'] = 34 if o['x'] < b['L'] / 2 else round(b['L'] - 34, 2)
-
-
-def h14(parts, asm, info):
+def x12(parts, asm, info):
     d = _p(parts, 'D')
-    d['B'] = round(d['B'] + info['T'], 2)
+    a = sorted({o['x'] for o in d['ops'] if o.get('screw_face') == 'F1'})
+    b = sorted({o['x'] for o in d['ops'] if o.get('screw_face') == 'F2'})
+    m = dict(zip(b, a))
     for o in d['ops']:
-        if 'mot topp' in o.get('note', ''):
+        if o.get('screw_face') == 'F2':
+            o['x'] = m[o['x']]
+
+
+def x13(parts, asm, info):
+    sh = _p(parts, 'SH')
+    sh['ops'] = [o for o in sh['ops'] if o['kind'] != 'groove']
+
+
+def x14(parts, asm, info):
+    for o in _p(parts, 'B')['ops']:
+        if o['kind'] == 'through':
             o['y'] = round(o['y'] + info['T'], 2)
 
 
-def h15(parts, asm, info):
-    sb = _p(parts, 'SB')
-    sb['L'] = round(sb['L'] + 2, 2); sb['B'] = round(sb['B'] + 2, 2)
+def x15(parts, asm, info):
+    k = _p(parts, 'K')
+    k['L'] = round(info['W'], 2)
 
 
-def h16(parts, asm, info):
-    for code in ('E1', 'E2', 'SB'):
-        p = _p(parts, code)
-        half = p['L'] / 2
-        p['L'] = round(p['L'] + 2, 2)
-        for o in p['ops']:
-            if 'x' in o and o['x'] > half:
-                o['x'] = round(o['x'] + 2, 2)
+def x16(parts, asm, info):
+    _p(parts, 'SB')['mat'] = _p(parts, 'S')['mat']
 
 
-def h17(parts, asm, info):
-    _p(parts, 'K')['qty'] -= 1
+def x17(parts, asm, info):
+    for o in _p(parts, 'A')['ops']:
+        if o.get('face') == 'F1':
+            o['face'] = 'F2'
 
 
-# ---------------------------------------------------------------------------------- export / file faults
-def h18(files):
-    k = _sheet(files, 'plate3_')
-    h, bl, t = _split(files[k])
-    files[k] = _join(h, [_map(b, lambda v: v / 25.4, lambda v: v / 25.4, lambda v: v / 25.4) for b in bl], t)
+# ------------------------------------------------------------------------------------------ dxf
+def x18(files):
+    for k in files:
+        files[k] = re.sub(r'(\n0\nPOLYLINE\n8\n10_KONTUR[^\n]*\n66\n1\n70\n)1\n', r'\g<1>0\n', files[k])
 
 
-def h19(files):
-    k = _sheet(files, 'plate1_')
-    files[k] = re.sub(r'03_LOMME_D15_Z[0-9P]+', '03_LOMME_D15_Z18P8', files[k])
+def x19(files):
+    k = _busiest(files, '10_KONTUR')
+    files[k] = re.sub(r'(?m)^10_KONTUR[^\n]*$', '0', files[k])
 
 
-def h20(files):
-    k = _sheet(files, 'plate3_')
-    files[k] = files[k].replace('10_KONTUR_UTVENDIG_Z18P8', '10_KONTUR_UTVENDIG_Z16')
+def x20(files):
+    k = _busiest(files, '99_TEKST')
+    lay = _kontur_layer(files[k])
+    files[k] = files[k].replace('\n0\nTEXT\n8\n99_TEKST\n', '\n0\nTEXT\n8\n%s\n' % lay)
 
 
-def h21(files):
-    k = _sheet(files, 'plate4_')
-    h, bl, t = _split(files[k])
-    gone = _part_blocks(bl, 'E2 ')
-    files[k] = _join(h, [b for b in bl if not any(b is g for g in gone)], t)
+def x21(files):
+    k = _busiest(files, '04_NOT')
+    lines = files[k].split('\n')
+    polys = _polys(lines, r'04_NOT')
+    if not polys:
+        raise ValueError('no groove')
+    for _, v in polys:
+        xs = [float(lines[a]) for a, _ in v]; ys = [float(lines[b]) for _, b in v]
+        cx, cy = (min(xs) + max(xs)) / 2, (min(ys) + max(ys)) / 2
+        w, h = max(xs) - min(xs), max(ys) - min(ys)
+        pts = [(cx - h / 2, cy - w / 2), (cx + h / 2, cy - w / 2), (cx + h / 2, cy + w / 2), (cx - h / 2, cy + w / 2)]
+        for (a, b), (x, y) in zip(v, pts):
+            lines[a], lines[b] = '%.3f' % x, '%.3f' % y
+    files[k] = '\n'.join(lines)
 
 
-def h22(files):
-    k = _sheet(files, 'plate1_')
-    h, bl, t = _split(files[k])
-    W = float(re.search(r'_(\d+)x(\d+)\.dxf$', k).group(1))
-    conts = [b for b in bl if _layer(b).startswith('10_KONTUR')]
-    right = max(conts, key=lambda b: _bbox(b)[2])
-    bb = _bbox(right)
-    dx = W + 40 - bb[2]
-    grp = [b for b in bl if not _layer(b).startswith('00_') and _inside(b, bb)]
-    bl = [_map(b, fx=lambda v: v + dx) if any(b is g for g in grp) else b for b in bl]
-    files[k] = _join(h, bl, t)
+def x22(files):
+    k = _busiest(files, '03_LOMME')
+    files[k] = re.sub(r'(?m)^03_LOMME_D[^_\n]+_Z([^\n]+)$', r'01_BOR_D5_Z\1', files[k])
 
 
-def h23(files):
-    k = _sheet(files, 'plate1_')
-    H = float(re.search(r'_(\d+)x(\d+)\.dxf$', k).group(2))
-    h, bl, t = _split(files[k])
-    files[k] = _join(h, [b if _layer(b).startswith('00_') else _map(b, fy=lambda v: H - v) for b in bl], t)
+def x23(files):
+    k = _busiest(files, '10_KONTUR')
+    files[k] = re.sub(r'KONTUR_UT\w*?(_Z)', r'KONTUR_INNVENDIG\1', files[k])
 
 
-def h24(files):
-    k = _sheet(files, 'plate1_')
-    h, bl, t = _split(files[k])
-    files[k] = _join(h, [_map(b, fr=lambda r: 2 * r) if b[1] == 'CIRCLE' and _layer(b).startswith('01_BOR') else b
-                         for b in bl], t)
+def x24(files):
+    # the largest part on the busiest sheet: vertices 3 and 4 swapped -> bow-tie contour
+    k = _busiest(files, '10_KONTUR')
+    lines = files[k].split('\n')
+    polys = _polys(lines, r'10_KONTUR')
+    def area(v):
+        xs = [float(lines[a]) for a, _ in v]; ys = [float(lines[b]) for _, b in v]
+        return (max(xs) - min(xs)) * (max(ys) - min(ys))
+    _, v = max(polys, key=lambda t: area(t[1]))
+    (a2, b2), (a3, b3) = v[2], v[3]
+    lines[a2], lines[a3] = lines[a3], lines[a2]
+    lines[b2], lines[b3] = lines[b3], lines[b2]
+    files[k] = '\n'.join(lines)
 
 
-def h25(files):
-    k = _sheet(files, 'plate4_')
-    h, bl, t = _split(files[k])
-    tx = [b for b in bl if b[1] == 'TEXT']
-    a = [b for b in tx if b[_text_idx(b)].startswith('E1 ')][0]
-    c = [b for b in tx if b[_text_idx(b)].startswith('E2 ')][0]
-    ia, ic = _text_idx(a), _text_idx(c)
-    a[ia], c[ic] = c[ic], a[ia]
-    files[k] = _join(h, bl, t)
+def x25(files):
+    # two sheet files of the same size but different board: contents swapped on export/upload
+    groups = {}
+    for k in sorted(files):
+        m = re.match(r'^[a-z]+\d+_(.+)_(\d+x\d+)\.dxf$', k)
+        if m:
+            groups.setdefault(m.group(2), []).append((m.group(1), k))
+    for size, lst in sorted(groups.items()):
+        mats = {}
+        for mat, k in lst:
+            mats.setdefault(mat, k)
+        # prefer an oak/decor sheet vs a plain one with the same thickness class
+        ks = list(mats.values())
+        thick = [k for k in ks if re.search(r'KONTUR[^\n]*_Z1\d', files[k])]
+        if len(thick) >= 2:
+            a, b = thick[0], thick[1]
+            files[a], files[b] = files[b], files[a]
+            return
+    raise ValueError('no pair of same-size sheets in different boards')
 
 
 FAULTS = [
-    # designer / input
-    Fault('h01', 'Slide holes on middle wall 3 mm higher than on the opposite side',
-          'Each drawer hangs on two slides; if the carcass members are not at the same height the box is twisted, '
-          'the ball cages bind and the drawer racks or drops off one rail. Hettich/Blum: both runners in one plane, tolerance <=0.5 mm.',
-          params=h01, source='Hettich KA/Quadro mounting instructions; System 32 line-boring practice'),
-    Fault('h02', 'Zero gap (fuge) between drawer fronts',
-          'Fronts touch: edge banding rubs, ABS chips, fronts cannot open past each other and any 0.5 mm swelling '
-          'or slide sag locks the stack. Overlay fronts need 2-3 mm reveals.',
-          params=h02, source='Kitchen/overlay front reveal rules (Blum: 2-3 mm gap)'),
-    Fault('h03', 'Plinth strip placed on top of the leg mounting positions',
-          'Bunnlist at y=70..89 runs straight through the 40x40 leg plates at y=60..100 near both ends: legs cannot '
-          'be screwed on, or the strip must be notched by hand.',
-          params=h03, source='Leg/plinth layout under carcass bottoms (Ikea/Hafele leg plates)'),
-    Fault('h04', 'Front fixing screws placed exactly on the handle bolt line',
-          'The 4x30 screw through the drawer end sits where the handle M4 bolt has to pass (front centre, 96 mm off '
-          'centre): the bolt hits the screw, the handle cannot be fitted.',
-          params=h04, source='Drawer front attachment practice: keep fixing screws clear of handle bores'),
-    Fault('h05', 'Bottom groove only 3 mm above lower edge of drawer parts',
-          'A 3 mm strip of particleboard under a 6.4 mm groove breaks off when the router passes or when the loaded '
-          'HDF bottom pushes down. Typical minimum 8-12 mm.',
-          params=h05, source='Drawer box construction (groove 10-12 mm up), particleboard edge strength'),
-    Fault('h06', 'Groove clearance typed with a minus sign: groove narrower than the HDF',
-          'Groove 5.6 mm for a 5.9 mm bottom: the bottom cannot be slid in; forcing it splits the groove lips.',
-          params=h06, source='Sign/typo error in parameters; groove must be board + 0.3-0.5 mm'),
-    Fault('h07', 'Drawer board thickness measured on the wrong (16 mm) sheet',
-          'Measured 15.8 on a nominal 19 board: every drawer end is 6 mm too long, boxes are too wide for the slide '
-          'clearance, grooves and confirmat positions are wrong. A >3 mm deviation is a measurement mix-up, not tolerance.',
-          params=h07, source='Measuring the wrong offcut/sample; sheet-goods thickness tolerance is +-0.3 mm'),
-    Fault('h08', 'Dowel only 10 mm from the Minifix bolt',
-          'Ø8 dowel at 60 next to Ø5 Minifix bolt at 50: 3.5 mm web between bores on the face and on the end edge; '
-          'the particleboard between them crumbles and neither fitting holds.',
-          params=h08, source='Hafele/Hettich connector spacing: keep >=32 mm (System 32) between connector and dowel'),
-    Fault('h09', 'Oak decor grain flag lost: fronts/top/sides nested rotated',
-          'Kaindl Eik Dew has a grain direction; with retning=False the nester rotates parts freely - here the right '
-          'side CH is nested turned 90 deg, so its grain runs vertically while the left side runs horizontally. '
-          'Visible on the finished piece, cannot be fixed after cutting.',
-          params=h09, source='Decor/veneer grain direction in nesting software (grain lock)'),
-    # generator bugs
-    Fault('h10', 'Side panel slide holes referenced from the back edge',
-          'Slide pilots on the left side C at DEP-x instead of x from the front (C now looks like the mirrored CH): the '
-          'left runners sit ~36 mm further back than the middle-wall runners, the drawer cannot be mounted square and '
-          'the front will not close flush.',
-          parts=h10, source='Wrong reference edge / origin in CNC programs (front-edge reference for slides)'),
-    Fault('h11', 'Drawer-side slide holes 12 mm too low on the box',
-          'Box-member holes on the left drawer sides (S) are 12 mm off the box centre while the right sides (SH) are '
-          'correct: every box hangs tilted, the bottom drawer drags on the carcass bottom and fronts are skewed.',
-          parts=h11, source='Box-member mounting height vs cabinet-member height (Hettich/Blum)'),
-    Fault('h12', 'Top dowel/Minifix holes miss the front overhang offset',
-          'Holes in the top ignore the 21 mm overhang: the top sits flush with the carcass front, so the 18.8 mm '
-          'drawer fronts stand proud of the top and the top hangs 24 mm over the back.',
-          parts=h12, source='Offset/reference error between mating parts (top vs side edge bores)'),
-    Fault('h13', 'Minifix cam housings in the bottom at 34 mm instead of 24 mm',
-          'The cam must sit at the bolt-head distance (24 mm for this bolt). At 34 mm the bolt head does not reach '
-          'the cam: no clamping, the carcass joint is loose.',
-          parts=h13, source='Hafele Minifix 15 drilling data (dimension B = 24 mm)'),
-    Fault('h14', 'Middle wall cut full side height (bottom thickness not subtracted)',
-          'Middle wall stands on the bottom but is cut 653 mm: 18.8 mm too tall, the top cannot come down onto the '
-          'sides and all Minifix joints at the top stay open.',
-          parts=h14, source='Classic carcass arithmetic error (forgot one board thickness)'),
-    Fault('h15', 'Drawer bottom 2 mm too large in both directions',
-          'Bottom is 1 mm per side deeper than the groove bottoms: the box cannot be closed, or is forced out of '
-          'square / bows the sides.',
-          parts=h15, source='Panel-in-groove sizing (groove depth minus play)'),
-    Fault('h16', 'Drawer box 2 mm too wide for the slides',
-          'Ends/bottom 2 mm long: 1 mm less than the 12.7 mm slide clearance per side. Ball-bearing slides tolerate '
-          '+-0.2 mm; the drawer jams or the slide must be forced.',
-          parts=h16, source='Hettich KA 4532 / Accuride: side clearance 12.7 +0.2/-0'),
-    Fault('h17', 'Only 7 drawer fronts generated for 8 drawers',
-          'Off-by-one in quantity: cut list and sheets both say 7, one drawer has no front. Found at assembly, a '
-          'second oak sheet run for one part.',
-          parts=h17, source='Off-by-one quantity bugs in cut lists'),
-    # export / file faults
-    Fault('h18', 'Sheet exported in inches but header still says mm',
-          'All coordinates on the drawer-parts sheet are 25.4x too small while $INSUNITS=4 (mm). The CAM imports '
-          'tiny parts; if scaled by guess, everything is off.',
-          dxf=h18, source='DXF unit mismatch (VCarve/ShopBot import scale)'),
-    Fault('h19', 'Minifix housing pockets drilled through the oak sides',
-          'Layer depth for Ø15 cam housings written as Z18.8 (full thickness) instead of Z13.5: Ø15 holes through the '
-          'visible outside of both side panels.',
-          dxf=h19, source='Layer-encoded depth errors in CAM templates'),
-    Fault('h20', 'Contour depth set for 16 mm board on 18.8 mm sheet',
-          'Profile depth Z16 leaves 2.8 mm uncut: parts are not freed, have to be broken/cut out by hand, edges '
-          'chip and the parts may shift during later ops.',
-          dxf=h20, source='Reusing a toolpath template from a thinner material'),
-    Fault('h21', 'One drawer back (E2) missing from its sheet',
-          'Sheet has 7 E2 while the cut list says 8: one box has no back, second machine run.',
-          dxf=h21, source='Part count on sheet vs cut list mismatch (manual nest edit)'),
-    Fault('h22', 'Part placed beyond the sheet edge',
-          'The rightmost part on the oak sheet extends 40 mm past the 2440 mm sheet: the bit cuts air or the '
-          'clamps/bed, part comes out short.',
-          dxf=h22, source='Manual nest edits / bed size mismatch'),
-    Fault('h23', 'Oak sheet exported mirrored (Y flipped)',
-          'All hole patterns are mirrored inside their parts (origin top-left vs bottom-left): top dowels at the wrong '
-          'distance from the front, slide holes top/bottom swapped on the sides.',
-          dxf=h23, source='Mirror/flip on DXF export or wrong CAM origin corner'),
-    Fault('h24', 'Blind holes exported with radius = diameter',
-          'Circles on 01_BOR layers are twice the size: Ø5 Minifix bolt bores become Ø10, Ø8 dowels Ø16 - nothing '
-          'holds, and the CAM may pocket them.',
-          dxf=h24, source='Radius/diameter confusion in DXF writers'),
-    Fault('h25', 'Labels swapped between a front end (E1) and a back end (E2)',
-          'The part labelled E1 has no front fixing holes and the one labelled E2 has them: built into the wrong '
-          'position, the front cannot be screwed on.',
-          dxf=h25, source='Mislabelled parts on nested sheets'),
+    Fault('x01', 'Drawer box height typed from the front height: box taller than the row pitch',
+          'Each drawer box is taller than the distance between slide rows, so the boxes of neighbouring rows collide; '
+          'the drawers cannot be installed together and the cut drawer sides/ends are scrap.',
+          params=x01, source='designer typed front height (+ clearance) into the box-height field'),
+    Fault('x02', 'Top overhang entered with a minus sign: top shallower than the carcass',
+          'The top is cut ~40 mm short in depth, so it stops 21 mm behind the front edge of the sides and does not cover '
+          'the back panel; the oak top is scrap and the carcass cannot be finished.',
+          params=x02, source='sign error on an offset field (overhang vs setback)'),
+    Fault('x03', 'Drawer boxes assigned to 6 mm hardboard instead of 19 mm chipboard',
+          'Drawer sides/ends come out of 5.9 mm hardboard: 8 mm bottom grooves cut through, Ø7 confirmat screws cannot '
+          'hold in 6 mm board and the slides cannot be screwed on. All drawer boxes are scrap.',
+          params=x03, source='wrong material picked from the drop-down for one role'),
+    Fault('x04', 'Sheet edge margin set to 0 mm',
+          'Parts are nested right up to the raw sheet edge where the hold-down clamps/screws are; the bit runs into '
+          'the clamps (broken bit, possible projectile) and the chipped factory edge ends up on visible parts.',
+          params=x04, source='nesting margin zeroed to squeeze one more part on the sheet'),
+    Fault('x05', '1/8" bit flute length entered as 38 mm (overall length)',
+          'Small through holes are no longer spot-drilled: the CNC plunges a 3.175 mm bit with a 12.7 mm flute '
+          'through 18.8 mm board, the shank burns in and the bit snaps.',
+          params=x05, source='tool table: overall length typed in the cutting-length field'),
+    Fault('x06', 'Plinth strip taller than the legs',
+          'The plinth strips hang 12 mm below the feet, so the kommode stands on the strips, rocks, and the legs never '
+          'touch the floor; the strips (and screw holes in the bottom) must be remade.',
+          params=x06, source='plinth height chosen without checking the leg height'),
+    Fault('x07', 'Drawer bottom play per side typed as 9 mm (meant 0.9)',
+          'The bottom is smaller than the span between the groove bottoms minus the groove depth, so it does not '
+          'engage the grooves at all and drops out of every drawer.',
+          params=x07, source='missing decimal point in a clearance field'),
+    Fault('x08', 'Slide pilot hole diameter set to 6 mm for Ø4 screws',
+          'The slide pilot holes are larger than the Ø4 slide screws; the screws spin freely, the slides cannot be '
+          'fixed and every side, middle wall and drawer side is drilled wrong.',
+          params=x08, source='screw head/washer diameter typed as pilot diameter'),
+    Fault('x09', 'Drawer centre offset over front centre typed -70 (meant -7)',
+          'Drawer boxes and slides move 70 mm down: the bottom drawer box/slide sits below the carcass bottom and every '
+          'slide row is misaligned with its front, so no drawer can be mounted.',
+          params=x09, source='missing decimal point / unit slip in an offset field'),
+    Fault('x10', 'Generator bug: handle hole x/y swapped on the fronts',
+          'Handle holes are placed at y = 304/496 on a 160 mm high front, i.e. off the part; the CNC drills into the '
+          'neighbouring part or spoilboard and the fronts get no (correct) handle holes.',
+          parts=x10, source='axis swap in a coordinate transform'),
+    Fault('x11', 'Generator bug: right side CH mirrored top-bottom instead of front-back',
+          'The right side gets its slide holes and joint holes flipped vertically: the right slides sit at different '
+          'heights from the left ones and the Minifix housings land at the bottom. The oak side is scrap.',
+          parts=x11, source='mirror about the wrong axis when deriving the handed part'),
+    Fault('x12', 'Generator bug: middle wall uses the same slide hole pattern on both faces',
+          'The left-face slide holes are drilled at the same x as the right-face ones, so 12.8 mm screws from both '
+          'sides meet in an 18.8 mm wall; the screws collide/split the wall and one side of slides cannot be fixed.',
+          parts=x12, source='alternate hole pattern for the opposite face ignored'),
+    Fault('x13', 'Generator bug: mirrored right drawer side SH has no bottom groove',
+          'Right drawer sides are cut without the groove for the drawer bottom, so the bottom cannot be slid in and '
+          'the drawers cannot be assembled.',
+          parts=x13, source='operation dropped when copying/mirroring a part'),
+    Fault('x14', 'Generator bug: plinth screw holes in the bottom offset by one board thickness',
+          'The holes for the plinth screws land beside the plinth strips instead of over their centre line; '
+          'screws go into air and the plinth cannot be fixed.',
+          parts=x14, source='reference edge vs centre-line mix-up for mating hole pattern'),
+    Fault('x15', 'Generator bug: drawer front width ignores the number of columns',
+          'Every drawer front is cut the full width of the kommode instead of half; fronts overlap each other, '
+          'handle holes are off-centre, and 8 oak fronts are scrap.',
+          parts=x15, source='division by column count lost in a refactor'),
+    Fault('x16', 'Generator bug: drawer bottoms nested on the 19 mm drawer-side board',
+          'The drawer bottoms are cut out of 18.8 mm chipboard instead of 6 mm hardboard; they cannot enter the '
+          '6.4 mm grooves, and the shared sheet gets the wrong contour depth for one of the thicknesses.',
+          parts=x16, source='material/role mapping bug in the part list'),
+    Fault('x17', 'Generator bug: top joint holes placed on the visible upper face',
+          'Minifix bolt and dowel holes are specified on the oak top\'s show face instead of the underside; they are '
+          'drilled into the visible surface and the top is ruined.',
+          parts=x17, source='face flag (F1/F2) inverted for one part'),
+    Fault('x18', 'DXF: contour polylines exported open (closed flag cleared)',
+          'CAM treats the outlines as open chains: no inside/outside offset can be applied, the last edge is not '
+          'cut, and parts are either cut on the line (undersize) or not released.',
+          dxf=x18, source='DXF exporter writes POLYLINE flag 70=0 instead of 1'),
+    Fault('x19', 'DXF: contours on one sheet exported on layer "0"',
+          'The CAM template maps tools and depths by layer; the outlines on layer 0 get no profile toolpath (or a '
+          'default engrave), so the sheet is drilled but the parts are never cut out, or cut at the wrong depth.',
+          dxf=x19, source='layer names dropped on export (everything to layer 0)'),
+    Fault('x20', 'DXF: part labels exported on the contour layer',
+          'The label text is on the through-cut layer, so the CNC routes the letters full depth into the faces of '
+          'every part on that sheet: parts ruined.',
+          dxf=x20, source='text entities assigned to the wrong layer'),
+    Fault('x21', 'DXF: bottom grooves drawn across the part instead of along it',
+          'The groove rectangles are rotated 90 degrees: the 8 mm deep groove runs across the drawer parts and into '
+          'their neighbours, cutting them in two.',
+          dxf=x21, source='groove not rotated together with a rotated part in the nester'),
+    Fault('x22', 'DXF: Minifix housing circles exported on a Ø5 drill layer',
+          'The CAM drills the 15 mm housings with a 5 mm drill cycle at the centre; the Minifix cams do not fit and '
+          'the carcass cannot be assembled.',
+          dxf=x22, source='layer mapping: pocket circles assigned to a drill layer'),
+    Fault('x23', 'DXF: outer contours on one sheet exported as inside contours',
+          'Tool compensation goes to the inside of the line, so every part on the sheet comes out one bit diameter '
+          '(6.35 mm) too small in both directions.',
+          dxf=x23, source='wrong layer suffix/tool-side in the export template'),
+    Fault('x24', 'DXF: largest contour on a sheet has two vertices swapped (bow-tie)',
+          'The outline self-intersects; CAM cannot offset it, or cuts a diagonal straight through the part.',
+          dxf=x24, source='vertex order corrupted on export'),
+    Fault('x25', 'DXF: two same-size sheet files for different boards have swapped contents',
+          'The operator loads the oak sheet and cuts the white carcass parts on it (and vice versa): wrong decor on '
+          'fronts/sides and both sheets wasted.',
+          dxf=x25, source='file names and contents mixed up when exporting/uploading per material'),
 ]
+
+VERSION = 2   # second blind held-out set, written after v1 was retired

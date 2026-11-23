@@ -25,7 +25,12 @@
   "R23",
   "R24",
   "R25",
-  "R26"
+  "R26",
+  "R27",
+  "R28",
+  "R29",
+  "R30",
+  "R31"
  ],
  "rows": [
   {
@@ -36,7 +41,8 @@
    "source": "",
    "gen": true,
    "rules": [
-    "R07"
+    "R07",
+    "R28"
    ]
   },
   {
@@ -229,7 +235,9 @@
    "why": "Slide does not fit.",
    "source": "",
    "gen": true,
-   "rules": []
+   "rules": [
+    "R28"
+   ]
   },
   {
    "id": "t26",
@@ -471,16 +479,18 @@
   },
   {
    "id": "h01",
-   "set": "heldout",
+   "set": "retired",
    "title": "Slide holes on middle wall 3 mm higher than on the opposite side",
    "why": "Each drawer hangs on two slides; if the carcass members are not at the same height the box is twisted, the ball cages bind and the drawer racks or drops off one rail. Hettich/Blum: both runners in one plane, tolerance <=0.5 mm.",
    "source": "Hettich KA/Quadro mounting instructions; System 32 line-boring practice",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R29"
+   ]
   },
   {
    "id": "h02",
-   "set": "heldout",
+   "set": "retired",
    "title": "Zero gap (fuge) between drawer fronts",
    "why": "Fronts touch: edge banding rubs, ABS chips, fronts cannot open past each other and any 0.5 mm swelling or slide sag locks the stack. Overlay fronts need 2-3 mm reveals.",
    "source": "Kitchen/overlay front reveal rules (Blum: 2-3 mm gap)",
@@ -491,34 +501,40 @@
   },
   {
    "id": "h03",
-   "set": "heldout",
+   "set": "retired",
    "title": "Plinth strip placed on top of the leg mounting positions",
    "why": "Bunnlist at y=70..89 runs straight through the 40x40 leg plates at y=60..100 near both ends: legs cannot be screwed on, or the strip must be notched by hand.",
    "source": "Leg/plinth layout under carcass bottoms (Ikea/Hafele leg plates)",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R28"
+   ]
   },
   {
    "id": "h04",
-   "set": "heldout",
+   "set": "retired",
    "title": "Front fixing screws placed exactly on the handle bolt line",
    "why": "The 4x30 screw through the drawer end sits where the handle M4 bolt has to pass (front centre, 96 mm off centre): the bolt hits the screw, the handle cannot be fitted.",
    "source": "Drawer front attachment practice: keep fixing screws clear of handle bores",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R27"
+   ]
   },
   {
    "id": "h05",
-   "set": "heldout",
+   "set": "retired",
    "title": "Bottom groove only 3 mm above lower edge of drawer parts",
    "why": "A 3 mm strip of particleboard under a 6.4 mm groove breaks off when the router passes or when the loaded HDF bottom pushes down. Typical minimum 8-12 mm.",
    "source": "Drawer box construction (groove 10-12 mm up), particleboard edge strength",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R31"
+   ]
   },
   {
    "id": "h06",
-   "set": "heldout",
+   "set": "retired",
    "title": "Groove clearance typed with a minus sign: groove narrower than the HDF",
    "why": "Groove 5.6 mm for a 5.9 mm bottom: the bottom cannot be slid in; forcing it splits the groove lips.",
    "source": "Sign/typo error in parameters; groove must be board + 0.3-0.5 mm",
@@ -529,7 +545,7 @@
   },
   {
    "id": "h07",
-   "set": "heldout",
+   "set": "retired",
    "title": "Drawer board thickness measured on the wrong (16 mm) sheet",
    "why": "Measured 15.8 on a nominal 19 board: every drawer end is 6 mm too long, boxes are too wide for the slide clearance, grooves and confirmat positions are wrong. A >3 mm deviation is a measurement mix-up, not tolerance.",
    "source": "Measuring the wrong offcut/sample; sheet-goods thickness tolerance is +-0.3 mm",
@@ -538,16 +554,18 @@
   },
   {
    "id": "h08",
-   "set": "heldout",
+   "set": "retired",
    "title": "Dowel only 10 mm from the Minifix bolt",
    "why": "Ø8 dowel at 60 next to Ø5 Minifix bolt at 50: 3.5 mm web between bores on the face and on the end edge; the particleboard between them crumbles and neither fitting holds.",
    "source": "Hafele/Hettich connector spacing: keep >=32 mm (System 32) between connector and dowel",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R27"
+   ]
   },
   {
    "id": "h09",
-   "set": "heldout",
+   "set": "retired",
    "title": "Oak decor grain flag lost: fronts/top/sides nested rotated",
    "why": "Kaindl Eik Dew has a grain direction; with retning=False the nester rotates parts freely - here the right side CH is nested turned 90 deg, so its grain runs vertically while the left side runs horizontally. Visible on the finished piece, cannot be fixed after cutting.",
    "source": "Decor/veneer grain direction in nesting software (grain lock)",
@@ -558,7 +576,7 @@
   },
   {
    "id": "h10",
-   "set": "heldout",
+   "set": "retired",
    "title": "Side panel slide holes referenced from the back edge",
    "why": "Slide pilots on the left side C at DEP-x instead of x from the front (C now looks like the mirrored CH): the left runners sit ~36 mm further back than the middle-wall runners, the drawer cannot be mounted square and the front will not close flush.",
    "source": "Wrong reference edge / origin in CNC programs (front-edge reference for slides)",
@@ -569,16 +587,18 @@
   },
   {
    "id": "h11",
-   "set": "heldout",
+   "set": "retired",
    "title": "Drawer-side slide holes 12 mm too low on the box",
    "why": "Box-member holes on the left drawer sides (S) are 12 mm off the box centre while the right sides (SH) are correct: every box hangs tilted, the bottom drawer drags on the carcass bottom and fronts are skewed.",
    "source": "Box-member mounting height vs cabinet-member height (Hettich/Blum)",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R29"
+   ]
   },
   {
    "id": "h12",
-   "set": "heldout",
+   "set": "retired",
    "title": "Top dowel/Minifix holes miss the front overhang offset",
    "why": "Holes in the top ignore the 21 mm overhang: the top sits flush with the carcass front, so the 18.8 mm drawer fronts stand proud of the top and the top hangs 24 mm over the back.",
    "source": "Offset/reference error between mating parts (top vs side edge bores)",
@@ -589,7 +609,7 @@
   },
   {
    "id": "h13",
-   "set": "heldout",
+   "set": "retired",
    "title": "Minifix cam housings in the bottom at 34 mm instead of 24 mm",
    "why": "The cam must sit at the bolt-head distance (24 mm for this bolt). At 34 mm the bolt head does not reach the cam: no clamping, the carcass joint is loose.",
    "source": "Hafele Minifix 15 drilling data (dimension B = 24 mm)",
@@ -600,7 +620,7 @@
   },
   {
    "id": "h14",
-   "set": "heldout",
+   "set": "retired",
    "title": "Middle wall cut full side height (bottom thickness not subtracted)",
    "why": "Middle wall stands on the bottom but is cut 653 mm: 18.8 mm too tall, the top cannot come down onto the sides and all Minifix joints at the top stay open.",
    "source": "Classic carcass arithmetic error (forgot one board thickness)",
@@ -611,7 +631,7 @@
   },
   {
    "id": "h15",
-   "set": "heldout",
+   "set": "retired",
    "title": "Drawer bottom 2 mm too large in both directions",
    "why": "Bottom is 1 mm per side deeper than the groove bottoms: the box cannot be closed, or is forced out of square / bows the sides.",
    "source": "Panel-in-groove sizing (groove depth minus play)",
@@ -622,7 +642,7 @@
   },
   {
    "id": "h16",
-   "set": "heldout",
+   "set": "retired",
    "title": "Drawer box 2 mm too wide for the slides",
    "why": "Ends/bottom 2 mm long: 1 mm less than the 12.7 mm slide clearance per side. Ball-bearing slides tolerate +-0.2 mm; the drawer jams or the slide must be forced.",
    "source": "Hettich KA 4532 / Accuride: side clearance 12.7 +0.2/-0",
@@ -634,16 +654,18 @@
   },
   {
    "id": "h17",
-   "set": "heldout",
+   "set": "retired",
    "title": "Only 7 drawer fronts generated for 8 drawers",
    "why": "Off-by-one in quantity: cut list and sheets both say 7, one drawer has no front. Found at assembly, a second oak sheet run for one part.",
    "source": "Off-by-one quantity bugs in cut lists",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R30"
+   ]
   },
   {
    "id": "h18",
-   "set": "heldout",
+   "set": "retired",
    "title": "Sheet exported in inches but header still says mm",
    "why": "All coordinates on the drawer-parts sheet are 25.4x too small while $INSUNITS=4 (mm). The CAM imports tiny parts; if scaled by guess, everything is off.",
    "source": "DXF unit mismatch (VCarve/ShopBot import scale)",
@@ -655,7 +677,7 @@
   },
   {
    "id": "h19",
-   "set": "heldout",
+   "set": "retired",
    "title": "Minifix housing pockets drilled through the oak sides",
    "why": "Layer depth for Ø15 cam housings written as Z18.8 (full thickness) instead of Z13.5: Ø15 holes through the visible outside of both side panels.",
    "source": "Layer-encoded depth errors in CAM templates",
@@ -667,7 +689,7 @@
   },
   {
    "id": "h20",
-   "set": "heldout",
+   "set": "retired",
    "title": "Contour depth set for 16 mm board on 18.8 mm sheet",
    "why": "Profile depth Z16 leaves 2.8 mm uncut: parts are not freed, have to be broken/cut out by hand, edges chip and the parts may shift during later ops.",
    "source": "Reusing a toolpath template from a thinner material",
@@ -678,7 +700,7 @@
   },
   {
    "id": "h21",
-   "set": "heldout",
+   "set": "retired",
    "title": "One drawer back (E2) missing from its sheet",
    "why": "Sheet has 7 E2 while the cut list says 8: one box has no back, second machine run.",
    "source": "Part count on sheet vs cut list mismatch (manual nest edit)",
@@ -689,7 +711,7 @@
   },
   {
    "id": "h22",
-   "set": "heldout",
+   "set": "retired",
    "title": "Part placed beyond the sheet edge",
    "why": "The rightmost part on the oak sheet extends 40 mm past the 2440 mm sheet: the bit cuts air or the clamps/bed, part comes out short.",
    "source": "Manual nest edits / bed size mismatch",
@@ -700,7 +722,7 @@
   },
   {
    "id": "h23",
-   "set": "heldout",
+   "set": "retired",
    "title": "Oak sheet exported mirrored (Y flipped)",
    "why": "All hole patterns are mirrored inside their parts (origin top-left vs bottom-left): top dowels at the wrong distance from the front, slide holes top/bottom swapped on the sides.",
    "source": "Mirror/flip on DXF export or wrong CAM origin corner",
@@ -711,7 +733,7 @@
   },
   {
    "id": "h24",
-   "set": "heldout",
+   "set": "retired",
    "title": "Blind holes exported with radius = diameter",
    "why": "Circles on 01_BOR layers are twice the size: Ø5 Minifix bolt bores become Ø10, Ø8 dowels Ø16 - nothing holds, and the CAM may pocket them.",
    "source": "Radius/diameter confusion in DXF writers",
@@ -722,7 +744,7 @@
   },
   {
    "id": "h25",
-   "set": "heldout",
+   "set": "retired",
    "title": "Labels swapped between a front end (E1) and a back end (E2)",
    "why": "The part labelled E1 has no front fixing holes and the one labelled E2 has them: built into the wrong position, the front cannot be screwed on.",
    "source": "Mislabelled parts on nested sheets",
@@ -730,6 +752,267 @@
    "rules": [
     "R02"
    ]
+  },
+  {
+   "id": "x01",
+   "set": "heldout",
+   "title": "Drawer box height typed from the front height: box taller than the row pitch",
+   "why": "Each drawer box is taller than the distance between slide rows, so the boxes of neighbouring rows collide; the drawers cannot be installed together and the cut drawer sides/ends are scrap.",
+   "source": "designer typed front height (+ clearance) into the box-height field",
+   "gen": true,
+   "rules": [
+    "R28"
+   ]
+  },
+  {
+   "id": "x02",
+   "set": "heldout",
+   "title": "Top overhang entered with a minus sign: top shallower than the carcass",
+   "why": "The top is cut ~40 mm short in depth, so it stops 21 mm behind the front edge of the sides and does not cover the back panel; the oak top is scrap and the carcass cannot be finished.",
+   "source": "sign error on an offset field (overhang vs setback)",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x03",
+   "set": "heldout",
+   "title": "Drawer boxes assigned to 6 mm hardboard instead of 19 mm chipboard",
+   "why": "Drawer sides/ends come out of 5.9 mm hardboard: 8 mm bottom grooves cut through, Ø7 confirmat screws cannot hold in 6 mm board and the slides cannot be screwed on. All drawer boxes are scrap.",
+   "source": "wrong material picked from the drop-down for one role",
+   "gen": true,
+   "rules": [
+    "R01",
+    "R09",
+    "R15",
+    "R25",
+    "R28"
+   ]
+  },
+  {
+   "id": "x04",
+   "set": "heldout",
+   "title": "Sheet edge margin set to 0 mm",
+   "why": "Parts are nested right up to the raw sheet edge where the hold-down clamps/screws are; the bit runs into the clamps (broken bit, possible projectile) and the chipped factory edge ends up on visible parts.",
+   "source": "nesting margin zeroed to squeeze one more part on the sheet",
+   "gen": false,
+   "rules": [
+    "R01"
+   ]
+  },
+  {
+   "id": "x05",
+   "set": "heldout",
+   "title": "1/8\" bit flute length entered as 38 mm (overall length)",
+   "why": "Small through holes are no longer spot-drilled: the CNC plunges a 3.175 mm bit with a 12.7 mm flute through 18.8 mm board, the shank burns in and the bit snaps.",
+   "source": "tool table: overall length typed in the cutting-length field",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x06",
+   "set": "heldout",
+   "title": "Plinth strip taller than the legs",
+   "why": "The plinth strips hang 12 mm below the feet, so the kommode stands on the strips, rocks, and the legs never touch the floor; the strips (and screw holes in the bottom) must be remade.",
+   "source": "plinth height chosen without checking the leg height",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x07",
+   "set": "heldout",
+   "title": "Drawer bottom play per side typed as 9 mm (meant 0.9)",
+   "why": "The bottom is smaller than the span between the groove bottoms minus the groove depth, so it does not engage the grooves at all and drops out of every drawer.",
+   "source": "missing decimal point in a clearance field",
+   "gen": false,
+   "rules": [
+    "R07"
+   ]
+  },
+  {
+   "id": "x08",
+   "set": "heldout",
+   "title": "Slide pilot hole diameter set to 6 mm for Ø4 screws",
+   "why": "The slide pilot holes are larger than the Ø4 slide screws; the screws spin freely, the slides cannot be fixed and every side, middle wall and drawer side is drilled wrong.",
+   "source": "screw head/washer diameter typed as pilot diameter",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x09",
+   "set": "heldout",
+   "title": "Drawer centre offset over front centre typed -70 (meant -7)",
+   "why": "Drawer boxes and slides move 70 mm down: the bottom drawer box/slide sits below the carcass bottom and every slide row is misaligned with its front, so no drawer can be mounted.",
+   "source": "missing decimal point / unit slip in an offset field",
+   "gen": true,
+   "rules": [
+    "R02",
+    "R28"
+   ]
+  },
+  {
+   "id": "x10",
+   "set": "heldout",
+   "title": "Generator bug: handle hole x/y swapped on the fronts",
+   "why": "Handle holes are placed at y = 304/496 on a 160 mm high front, i.e. off the part; the CNC drills into the neighbouring part or spoilboard and the fronts get no (correct) handle holes.",
+   "source": "axis swap in a coordinate transform",
+   "gen": true,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "x11",
+   "set": "heldout",
+   "title": "Generator bug: right side CH mirrored top-bottom instead of front-back",
+   "why": "The right side gets its slide holes and joint holes flipped vertically: the right slides sit at different heights from the left ones and the Minifix housings land at the bottom. The oak side is scrap.",
+   "source": "mirror about the wrong axis when deriving the handed part",
+   "gen": false,
+   "rules": [
+    "R03",
+    "R05"
+   ]
+  },
+  {
+   "id": "x12",
+   "set": "heldout",
+   "title": "Generator bug: middle wall uses the same slide hole pattern on both faces",
+   "why": "The left-face slide holes are drilled at the same x as the right-face ones, so 12.8 mm screws from both sides meet in an 18.8 mm wall; the screws collide/split the wall and one side of slides cannot be fixed.",
+   "source": "alternate hole pattern for the opposite face ignored",
+   "gen": true,
+   "rules": [
+    "R27"
+   ]
+  },
+  {
+   "id": "x13",
+   "set": "heldout",
+   "title": "Generator bug: mirrored right drawer side SH has no bottom groove",
+   "why": "Right drawer sides are cut without the groove for the drawer bottom, so the bottom cannot be slid in and the drawers cannot be assembled.",
+   "source": "operation dropped when copying/mirroring a part",
+   "gen": false,
+   "rules": [
+    "R07"
+   ]
+  },
+  {
+   "id": "x14",
+   "set": "heldout",
+   "title": "Generator bug: plinth screw holes in the bottom offset by one board thickness",
+   "why": "The holes for the plinth screws land beside the plinth strips instead of over their centre line; screws go into air and the plinth cannot be fixed.",
+   "source": "reference edge vs centre-line mix-up for mating hole pattern",
+   "gen": false,
+   "rules": [
+    "R03"
+   ]
+  },
+  {
+   "id": "x15",
+   "set": "heldout",
+   "title": "Generator bug: drawer front width ignores the number of columns",
+   "why": "Every drawer front is cut the full width of the kommode instead of half; fronts overlap each other, handle holes are off-centre, and 8 oak fronts are scrap.",
+   "source": "division by column count lost in a refactor",
+   "gen": true,
+   "rules": [
+    "R08"
+   ]
+  },
+  {
+   "id": "x16",
+   "set": "heldout",
+   "title": "Generator bug: drawer bottoms nested on the 19 mm drawer-side board",
+   "why": "The drawer bottoms are cut out of 18.8 mm chipboard instead of 6 mm hardboard; they cannot enter the 6.4 mm grooves, and the shared sheet gets the wrong contour depth for one of the thicknesses.",
+   "source": "material/role mapping bug in the part list",
+   "gen": false,
+   "rules": [
+    "R01"
+   ]
+  },
+  {
+   "id": "x17",
+   "set": "heldout",
+   "title": "Generator bug: top joint holes placed on the visible upper face",
+   "why": "Minifix bolt and dowel holes are specified on the oak top's show face instead of the underside; they are drilled into the visible surface and the top is ruined.",
+   "source": "face flag (F1/F2) inverted for one part",
+   "gen": false,
+   "rules": [
+    "R03"
+   ]
+  },
+  {
+   "id": "x18",
+   "set": "heldout",
+   "title": "DXF: contour polylines exported open (closed flag cleared)",
+   "why": "CAM treats the outlines as open chains: no inside/outside offset can be applied, the last edge is not cut, and parts are either cut on the line (undersize) or not released.",
+   "source": "DXF exporter writes POLYLINE flag 70=0 instead of 1",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x19",
+   "set": "heldout",
+   "title": "DXF: contours on one sheet exported on layer \"0\"",
+   "why": "The CAM template maps tools and depths by layer; the outlines on layer 0 get no profile toolpath (or a default engrave), so the sheet is drilled but the parts are never cut out, or cut at the wrong depth.",
+   "source": "layer names dropped on export (everything to layer 0)",
+   "gen": false,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "x20",
+   "set": "heldout",
+   "title": "DXF: part labels exported on the contour layer",
+   "why": "The label text is on the through-cut layer, so the CNC routes the letters full depth into the faces of every part on that sheet: parts ruined.",
+   "source": "text entities assigned to the wrong layer",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x21",
+   "set": "heldout",
+   "title": "DXF: bottom grooves drawn across the part instead of along it",
+   "why": "The groove rectangles are rotated 90 degrees: the 8 mm deep groove runs across the drawer parts and into their neighbours, cutting them in two.",
+   "source": "groove not rotated together with a rotated part in the nester",
+   "gen": false,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "x22",
+   "set": "heldout",
+   "title": "DXF: Minifix housing circles exported on a Ø5 drill layer",
+   "why": "The CAM drills the 15 mm housings with a 5 mm drill cycle at the centre; the Minifix cams do not fit and the carcass cannot be assembled.",
+   "source": "layer mapping: pocket circles assigned to a drill layer",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x23",
+   "set": "heldout",
+   "title": "DXF: outer contours on one sheet exported as inside contours",
+   "why": "Tool compensation goes to the inside of the line, so every part on the sheet comes out one bit diameter (6.35 mm) too small in both directions.",
+   "source": "wrong layer suffix/tool-side in the export template",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x24",
+   "set": "heldout",
+   "title": "DXF: largest contour on a sheet has two vertices swapped (bow-tie)",
+   "why": "The outline self-intersects; CAM cannot offset it, or cuts a diagonal straight through the part.",
+   "source": "vertex order corrupted on export",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "x25",
+   "set": "heldout",
+   "title": "DXF: two same-size sheet files for different boards have swapped contents",
+   "why": "The operator loads the oak sheet and cuts the white carcass parts on it (and vice versa): wrong decor on fronts/sides and both sheets wasted.",
+   "source": "file names and contents mixed up when exporting/uploading per material",
+   "gen": false,
+   "rules": []
   },
   {
    "id": "g01",
