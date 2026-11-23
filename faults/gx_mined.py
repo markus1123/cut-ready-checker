@@ -174,6 +174,122 @@ def _off_sheet(g, rng):
     return None
 
 
+def _hole_rows(p):
+    """Rows of >= 3 same-size drilled holes on one straight line at equal pitch (System 32 / shelf-pin / fitting rows).
+    -> list of (row_features, unit direction)."""
+    hs = [f for f in holes(p) if f.r]
+    rows, seen = [], set()
+    for a in hs:
+        for b in hs:
+            if a is b or round(a.r, 1) != round(b.r, 1): continue
+            ca, cb = a.geom.centroid, b.geom.centroid
+            d = ca.distance(cb)
+            if d < 8: continue
+            ux, uy = (cb.x - ca.x) / d, (cb.y - ca.y) / d
+            row = [a, b]
+            k = 2
+            while True:                                       # extend the row a -> b -> ... at the same pitch
+                nx, ny = ca.x + ux * d * k, ca.y + uy * d * k
+                nxt = [h for h in hs if round(h.r, 1) == round(a.r, 1) and h.geom.centroid.distance(Point(nx, ny)) < 0.3]
+                if not nxt: break
+                row.append(nxt[0]); k += 1
+            if len(row) < 3: continue
+            key = frozenset(id(f) for f in row)
+            if key in seen: continue
+            seen.add(key); rows.append((row, (ux, uy), d))
+    return rows
+
+
+def _row_off_pitch(g, rng):
+    """One hole of a regular drilled row (shelf pins, runner/hinge-plate screws, System 32 line) drawn 4 mm off the row line."""
+    g = clone(g)
+    cand = [(p, row, u, d) for p in g.parts for row, u, d in _hole_rows(p)]
+    rng.shuffle(cand)
+    for p, row, (ux, uy), _ in cand:
+        f = rng.choice(row)
+        nx, ny = -uy, ux
+        sgn = rng.choice((1, -1))
+        for s in (sgn, -sgn):
+            m = affinity.translate(f.geom, nx * 4.0 * s, ny * 4.0 * s)
+            if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+            if any(m.intersects(o) for o in p.inner if o is not f.geom): continue
+            if any(m.distance(o.geom) < 3 for o in p.features if o is not f and o.op in ('hole', 'pocket')): continue
+            if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+            f.geom = m
+            return g
+    return None
+
+
+def _self_intersect(g, rng):
+    """A part outline with a small figure-8 kink: the contour crosses itself (overshoot + doubled-back segment)."""
+    from shapely.geometry import LineString
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 5000]
+    rng.shuffle(cand)
+    for p in cand:
+        ring = p.outer.exterior
+        pts = list(ring.coords)[:-1]
+        segs = [(i, math.dist(pts[i], pts[(i + 1) % len(pts)])) for i in range(len(pts))]
+        segs = [s for s in segs if s[1] > 40]
+        if not segs: continue
+        i, L = rng.choice(segs)
+        (x0, y0), (x1, y1) = pts[i], pts[(i + 1) % len(pts)]
+        tx, ty = (x1 - x0) / L, (y1 - y0) / L
+        # outward normal: for a CCW ring the outside is to the right of the travel direction
+        nx, ny = (ty, -tx) if ring.is_ccw else (-ty, tx)
+        mx, my = x0 + tx * L / 2, y0 + ty * L / 2
+        P = lambda a, b: (mx + tx * a + nx * b, my + ty * a + ny * b)
+        new = pts[:i + 1] + [P(0, 0), P(8, 5), P(8, 0), P(0, 5), P(0, 2.5), P(10, 0)] + pts[i + 1:]
+        poly = Polygon(new)
+        if poly.is_valid or LineString(new + [new[0]]).is_simple: continue
+        if any(poly.buffer(0).intersects(o.outer) for o in g.parts if o is not p and o.outer.distance(p.outer) < 6): continue
+        p.outer = poly
+        return g
+    return None
+
+
+def _mirror(geom, cx):
+    return affinity.scale(geom, -1.0, 1.0, origin=(cx, 0))
+
+
+def _handed(p):
+    """True if p (outline + one-sided pockets) is clearly NOT congruent to its own mirror image under any 0/90/180/270
+    turn: under every turn the mirrored outline differs by > 1 % of its area or the pockets by > 25 %."""
+    from shapely.ops import unary_union
+    minx, miny, maxx, maxy = p.outer.bounds
+    cx, cy = (minx + maxx) / 2, (miny + maxy) / 2
+    pf = unary_union([f.geom for f in p.features if f.op == 'pocket'])
+    mo = _mirror(p.outer, cx); mf = _mirror(pf, cx)
+    for ang in (0, 90, 180, 270):
+        ro = affinity.rotate(mo, ang, origin=(cx, cy)); rf = affinity.rotate(mf, ang, origin=(cx, cy))
+        if ro.symmetric_difference(p.outer).area <= 0.01 * p.outer.area and \
+                rf.symmetric_difference(pf).area <= 0.25 * pf.area:
+            return False
+    return True
+
+
+def _wrong_hand(g, rng):
+    """A part with pockets (one-sided machining) drawn mirror-imaged: the left-hand version of a right-hand part."""
+    g = clone(g)
+    cand = [p for p in g.parts if p.outer.area > 5000 and any(f.op == 'pocket' and f.geom.area > 30 for f in p.features)]
+    rng.shuffle(cand)
+    for p in cand:
+        if not _handed(p): continue
+        minx, miny, maxx, maxy = p.outer.bounds
+        cx = (minx + maxx) / 2
+        mo = _mirror(p.outer, cx)
+        if any(mo.intersects(o.outer) and not o.outer.within(p.outer) and mo.intersection(o.outer).area > 1
+               for o in g.parts if o is not p): continue
+        olds = list(p.inner)
+        p.outer = Polygon(mo.exterior.coords)
+        p.inner = [_mirror(i, cx) for i in olds]
+        for f in p.features:
+            hit = [k for k, o in enumerate(olds) if f.geom is o]
+            f.geom = p.inner[hit[0]] if hit else _mirror(f.geom, cx)
+        return g
+    return None
+
+
 FAULTS = [
     Mut('gm01', 'Slots 2 mm narrower than the sheet (drawn for nominal-minus, or for thinner stock)',
         'Mating part cannot be pushed into its slot: sheet goods run at or above nominal thickness, slot joints need '
@@ -217,4 +333,30 @@ FAULTS = [
         source='ShopBot "Holding Down Material for Cutting" (screws/clamps in the sheet margin; keep toolpaths clear); '
                'Vectric VCarve job setup / nesting "Border gap" (parts must lie inside the material with clearance); '
                'Fab Academy computer-controlled machining week (check the nest against the real sheet before cutting)'),
+    Mut('gm07', 'One hole of a regular drilled row (shelf pins / fitting screws / System 32 line) 4 mm off the row line',
+        'Shelf-pin and fitting holes must sit on one line at the system pitch: a pin 4 mm off line makes the shelf rock '
+        'on three pins (or sit tilted), and a screw hole 4 mm off a runner/hinge-plate pattern misses the fitting\'s '
+        'slot, so the hardware cannot be fixed or is forced crooked',
+        _row_off_pitch,
+        source='Hettich "Ratgeber Möbeltechnik" p5 (System 32: Ø5 holes on one line, 32 mm pitch, 37 mm from the front '
+               'edge); Häfele Unitool / line-boring jig instructions (all holes of a row from one reference edge); '
+               'Hettich MS 10547 KA 4532 mounting instructions (runner screw holes at 37/165/229 on one screw line); '
+               'woodworking forum threads on wobbly shelves from mis-drilled shelf-pin holes'),
+    Mut('gm08', 'Part outline crosses itself (figure-8 kink / self-intersecting contour)',
+        'CAM cannot decide inside from outside on a self-intersecting vector: VCarve/Aspire and Fusion refuse to offset '
+        'it or cut a wrong-side toolpath, so the part is skipped, cut oversize, or gouged where the loop crosses',
+        _self_intersect,
+        source='Vectric VCarve/Aspire "Validate Vectors" / "Find and fix self-intersections" (self-intersecting '
+               'vectors cannot be offset for profile toolpaths); SendCutSend and Ponoko file-preparation guides '
+               '(no self-intersecting or overlapping paths); ShopBot/CNCzone forum threads on profile toolpaths failing '
+               'from crossed DXF polylines'),
+    Mut('gm09', 'Pocketed part drawn mirror-imaged (wrong hand: left side drawn as the right side)',
+        'Pockets/rebates are cut from the top face only. A mirrored handed part, flipped to match its outline, has its '
+        'housings, rebates and hardware recesses on the wrong face (outside of the cabinet), so the shelves/back/'
+        'hardware cannot be fitted - the classic "two left sides" flat-pack error',
+        _wrong_hand,
+        source='Opendesk making / design guidelines (parts are machined from one face; pockets must face the mating '
+               'part, check part orientation before cutting); WikiHouse design guide (handed parts labelled and '
+               'oriented on the cutting file); cabinet-software docs (Cabinet Vision / Mozaik "handed / mirrored '
+               'parts", left vs right end panels); CNC forum stories of cutting two identical-hand sides'),
 ]
