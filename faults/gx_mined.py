@@ -3,6 +3,7 @@ Same format as faults/gx_train.py. The loop's agents may read this file."""
 import math
 from shapely import affinity
 from shapely.geometry import Point, Polygon
+from shapely.ops import nearest_points
 from fc.gx.mutate import Mut, clone, holes
 
 
@@ -104,6 +105,75 @@ def _bores_collide(g, rng):
     return None
 
 
+def _translate_part(p, dx, dy):
+    p.outer = affinity.translate(p.outer, dx, dy)
+    olds = list(p.inner)
+    p.inner = [affinity.translate(i, dx, dy) for i in olds]
+    for f in p.features:
+        hit = [k for k, o in enumerate(olds) if f.geom is o]
+        f.geom = p.inner[hit[0]] if hit else affinity.translate(f.geom, dx, dy)
+
+
+def _nest_too_tight(g, rng):
+    """One part moved toward its nearest neighbour on the sheet so only 1.5 mm separates them (less than any cutter)."""
+    if len(g.parts) < 2: return None
+    g = clone(g); gap = 1.5
+    order = sorted(g.parts, key=lambda p: -p.outer.area)[:12]
+    rng.shuffle(order)
+    for a in order:
+        others = [p for p in g.parts if p is not a]
+        b = min(others, key=lambda p: p.outer.distance(a.outer))
+        d = a.outer.distance(b.outer)
+        if d < 5: continue                                    # already tight / common-line layout: nothing to break
+        pa, pb = nearest_points(a.outer, b.outer)
+        k = (d - gap) / d
+        dx, dy = (pb.x - pa.x) * k, (pb.y - pa.y) * k
+        moved = affinity.translate(a.outer, dx, dy)
+        dists = [moved.distance(o.outer) for o in others]
+        if min(dists) < gap - 0.2 or min(dists) > gap + 0.2: continue
+        if g.sheet is not None and not moved.within(g.sheet): continue
+        _translate_part(a, dx, dy)
+        return g
+    return None
+
+
+def _faceted_holes(g, rng):
+    """Every round through hole (Ø4 mm and up) exported as an 8-sided polyline instead of a true circle/arc."""
+    g = clone(g); n = 0
+    for p in g.parts:
+        for f in holes(p, rmax=40.0):
+            if f.r < 2.0 or f.geom not in p.inner: continue
+            c = f.geom.centroid
+            k0 = math.pi / 8
+            oct_ = Polygon([(c.x + f.r * math.cos(k0 + 2 * math.pi * j / 8), c.y + f.r * math.sin(k0 + 2 * math.pi * j / 8))
+                            for j in range(8)])
+            p.inner[p.inner.index(f.geom)] = oct_; f.geom = oct_; n += 1
+    return g if n else None
+
+
+def _off_sheet(g, rng):
+    """A part pushed across the drawn stock-sheet border: 30 mm of it lies outside the material."""
+    if g.sheet is None: return None
+    g = clone(g); sb = g.sheet.exterior
+    cand = [p for p in g.parts if p.outer.within(g.sheet) and p.outer.area > 2000]
+    rng.shuffle(cand)
+    for p in cand:
+        pa, pb = nearest_points(p.outer.exterior, sb)
+        d = pa.distance(pb)
+        minx, miny, maxx, maxy = p.outer.bounds
+        over = min(30.0, 0.3 * min(maxx - minx, maxy - miny))
+        if d < 1e-6 or over < 5: continue
+        k = (d + over) / d
+        dx, dy = (pb.x - pa.x) * k, (pb.y - pa.y) * k
+        moved = affinity.translate(p.outer, dx, dy)
+        out = moved.difference(g.sheet).area
+        if out < 0.05 * moved.area or out > 0.5 * moved.area: continue
+        if any(moved.intersects(o.outer) for o in g.parts if o is not p): continue
+        _translate_part(p, dx, dy)
+        return g
+    return None
+
+
 FAULTS = [
     Mut('gm01', 'Slots 2 mm narrower than the sheet (drawn for nominal-minus, or for thinner stock)',
         'Mating part cannot be pushed into its slot: sheet goods run at or above nominal thickness, slot joints need '
@@ -125,4 +195,26 @@ FAULTS = [
         source='Häfele TCH catalogue: Minifix/System 32 drilling patterns keep bores on 32 mm pitch / 24-34 mm '
                'offsets so they never meet; Hettich Ratgeber Möbeltechnik (System 32, Ø5 at 32 mm pitch); '
                'woodworking guidance on minimum screw/dowel spacing in board materials'),
+    Mut('gm04', 'Parts nested 1.5 mm apart on the sheet (gap smaller than the cutter)',
+        'The router bit is 3-12 mm wide: with a 1.5 mm gap the toolpath around one part cuts into the edge of its '
+        'neighbour, and no web is left to hold either part, so both are damaged or thrown',
+        _nest_too_tight,
+        source='Vectric VCarve/Aspire nesting "Part gap" / "Border gap" (set >= tool diameter so toolpaths do not overlap '
+               'neighbouring parts); ShopBot "Holding Down Material for Cutting" (parts need surrounding material/tabs); '
+               'Opendesk making guide (leave >= tool diameter + margin between nested parts)'),
+    Mut('gm05', 'Round holes exported as coarse 8-sided polygons instead of true circles',
+        'Faceted "circles" (SketchUp/Fusion DXF export with coarse arc-to-line tolerance) cut as flat-sided holes: '
+        'the inscribed diameter is ~8% under size, so dowels, bolts and cam bolts no longer go in and round parts '
+        'come out with visible flats',
+        _faceted_holes,
+        source='SendCutSend and Ponoko file-prep guides (arcs/circles must be true curves, not segmented polylines); '
+               'SketchUp DXF export forum threads (circles exported as 24-segment polygons, low-segment circles cut '
+               'as polygons on CNC); Fusion 360 DXF export "splines as polylines" tolerance notes'),
+    Mut('gm06', 'Part placed across the stock-sheet border (30 mm of it outside the material)',
+        'The part is nested partly off the drawn sheet: the cutter runs in air/spoilboard there, so the part is cut '
+        'incomplete (a missing edge) and often hits the clamps/screws that sit in the sheet margin',
+        _off_sheet,
+        source='ShopBot "Holding Down Material for Cutting" (screws/clamps in the sheet margin; keep toolpaths clear); '
+               'Vectric VCarve job setup / nesting "Border gap" (parts must lie inside the material with clearance); '
+               'Fab Academy computer-controlled machining week (check the nest against the real sheet before cutting)'),
 ]
