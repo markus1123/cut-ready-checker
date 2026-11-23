@@ -1,0 +1,551 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cut-Ready Checker</title>
+<meta name="description" content="A self-improving checker that stops bad CNC cutting files for flat-pack furniture before they reach the router.">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@75..100,500..800&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a single workshop-drawing column. Two charts carry the story (quality, then cost); everything else supports them. */
+:root {
+  --bg: #eef1ee; --panel: #fbfcfb; --fg: #17201c; --mute: #5a6862; --faint: #8b9792; --line: #d3dbd6; --grid: #e4e9e6;
+  --accent: #0b6b58; --accent-soft: #d5ebe4; --train: #a26a12; --base: #87918c; --bad: #b42d22; --bad-soft: #f6dfdc;
+  --ok: #217a42; --warn: #9a6a00; --warn-soft: #f6ebcd;
+  --display: "Archivo", "Arial Narrow", system-ui, sans-serif;
+  --body: "IBM Plex Sans", system-ui, -apple-system, sans-serif;
+  --mono: "IBM Plex Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #0f1412; --panel: #161d1a; --fg: #e3eae6; --mute: #9aa8a1; --faint: #6f7c76; --line: #2a3530; --grid: #1f2925;
+  --accent: #4cc3a6; --accent-soft: #173a31; --train: #e2a64c; --base: #75817b; --bad: #f08176; --bad-soft: #3a1d1a;
+  --ok: #6fd093; --warn: #e8bb55; --warn-soft: #362c12; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #0f1412; --panel: #161d1a; --fg: #e3eae6; --mute: #9aa8a1; --faint: #6f7c76; --line: #2a3530; --grid: #1f2925;
+  --accent: #4cc3a6; --accent-soft: #173a31; --train: #e2a64c; --base: #75817b; --bad: #f08176; --bad-soft: #3a1d1a;
+  --ok: #6fd093; --warn: #e8bb55; --warn-soft: #362c12; color-scheme: dark }
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--fg); font: 15px/1.6 var(--body); }
+.wrap { max-width: 1000px; margin: 0 auto; padding-block: 48px 72px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: grid; gap: 64px; }
+h1, h2, h3 { font-family: var(--display); font-stretch: 78%; text-wrap: balance; margin: 0; letter-spacing: -0.01em; }
+h1 { font-size: clamp(38px, 7vw, 68px); font-weight: 800; line-height: .98; }
+h2 { font-size: clamp(24px, 3.4vw, 32px); font-weight: 700; line-height: 1.1; }
+h3 { font-size: 19px; font-weight: 700; }
+p { margin: 0; max-width: 68ch; }
+.eyebrow { font: 500 12px var(--mono); letter-spacing: .09em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 18px; color: var(--mute); }
+.mute { color: var(--mute); }
+header { display: grid; gap: 18px; }
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 20px; margin-top: 12px; }
+.stat { border-top: 3px solid var(--fg); padding-top: 12px; display: grid; gap: 2px; align-content: start; }
+.stat b { font: 800 46px/1 var(--display); font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.stat .l { font-weight: 500; }
+.stat .from { font: 12.5px/1.4 var(--mono); color: var(--mute); }
+.stat.hero { border-color: var(--accent); } .stat.hero b { color: var(--accent); }
+section { display: grid; gap: 20px; }
+.head { display: grid; gap: 8px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.chart { padding: 20px 20px 16px; display: grid; gap: 14px; }
+.chart svg { width: 100%; height: auto; display: block; overflow: visible; }
+.chart svg text { font-family: var(--mono); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 13px var(--mono); color: var(--mute); }
+.legend span { display: inline-flex; align-items: center; gap: 8px; }
+.sw { display: inline-block; width: 22px; height: 0; border-top: 3px solid; }
+.sw.dash { border-top-style: dashed; }
+.dot { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.read { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 12px 28px; border-top: 1px solid var(--line); padding-top: 14px; font-size: 14px; }
+.read div { display: grid; gap: 2px; }
+.read b { font: 500 12px var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--mute); }
+.bugs { display: grid; gap: 14px; grid-template-columns: repeat(auto-fit, minmax(270px, 1fr)); }
+.bug { padding: 18px; display: grid; gap: 8px; align-content: start; border-left: 4px solid var(--bad); }
+.bug.open { border-left-color: var(--warn); }
+.tag { justify-self: start; font: 500 11px var(--mono); letter-spacing: .05em; text-transform: uppercase; padding: 2px 8px; border-radius: 99px; background: var(--bad-soft); color: var(--bad); }
+.bug.open .tag { background: var(--warn-soft); color: var(--warn); }
+.bug p { font-size: 14.5px; }
+.bug .rule { font: 12px var(--mono); color: var(--mute); }
+.bug .fix { font-size: 14px; color: var(--ok); font-weight: 500; }
+.bug.open .fix { color: var(--warn); }
+.cmp { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.opt { padding: 18px; display: grid; gap: 10px; align-content: start; }
+.opt.best { border: 2px solid var(--accent); }
+.opt .price { font: 800 38px/1 var(--display); font-stretch: 75%; font-variant-numeric: tabular-nums; }
+.opt .delta { font: 500 13px var(--mono); }
+.opt dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 4px 12px; font-size: 13.5px; }
+.opt dt { color: var(--mute); } .opt dd { margin: 0; text-align: right; font-variant-numeric: tabular-nums; }
+.opt ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mute); }
+.flow { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; }
+.flow div { padding: 16px; display: grid; gap: 6px; align-content: start; border: 1px solid var(--line); background: var(--panel); margin-left: -1px; }
+.flow div:first-child { border-radius: 8px 0 0 8px; margin-left: 0; } .flow div:last-child { border-radius: 0 8px 8px 0; }
+.flow b { font: 700 18px var(--display); font-stretch: 80%; }
+.flow b::after { content: " →"; color: var(--faint); }
+.flow div:last-child b::after { content: " ↺"; color: var(--accent); }
+.flow span { font-size: 13.5px; color: var(--mute); }
+.tbl { overflow-x: auto; }
+table { border-collapse: collapse; width: 100%; font-size: 14px; }
+th, td { text-align: left; padding: 9px 14px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 500 11.5px var(--mono); text-transform: uppercase; letter-spacing: .07em; color: var(--mute); }
+tr:last-child td { border-bottom: 0; }
+td.id { font: 500 13px var(--mono); white-space: nowrap; }
+.pill { font: 500 11px var(--mono); padding: 2px 8px; border-radius: 99px; white-space: nowrap; }
+.pill.auto { background: var(--accent-soft); color: var(--accent); } .pill.hand { border: 1px solid var(--line); color: var(--mute); }
+.pill.yes { background: var(--accent-soft); color: var(--ok); } .pill.no { background: var(--bad-soft); color: var(--bad); }
+.foot { font-size: 13px; color: var(--mute); border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
+/* explainer */
+.explain { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.explain .card { padding: 18px; display: grid; gap: 8px; align-content: start; }
+.explain .n { font: 800 30px/1 var(--display); font-stretch: 75%; color: var(--accent); }
+.explain p { font-size: 14.5px; }
+.explain .term { font: 500 12.5px var(--mono); color: var(--mute); }
+/* catch map */
+:root { --seed: #5a6862; --loop: #0b6b58; --manual: #6a4fc0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --seed: #a9b6b0; --loop: #4cc3a6; --manual: #ab98f2; } }
+:root[data-theme="dark"] { --seed: #a9b6b0; --loop: #4cc3a6; --manual: #ab98f2; }
+.mapscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+#map { min-width: 820px; }
+#map .col:hover .hl { opacity: 1; }
+.scrub { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font: 13px var(--mono); color: var(--mute); }
+.scrub input[type=range] { flex: 1 1 260px; accent-color: var(--accent); }
+.scrub button { font: 500 13px var(--mono); padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.scrub button:hover { border-color: var(--accent); }
+.now { font: 13.5px/1.5 var(--body); color: var(--fg); min-height: 3em; }
+.now b { font-family: var(--mono); font-weight: 500; }
+.counts { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 13px var(--mono); }
+.counts b { font: 700 20px var(--display); font-stretch: 78%; margin-right: 4px; }
+.tip { position: fixed; z-index: 10; max-width: 340px; pointer-events: none; background: var(--fg); color: var(--bg); padding: 10px 12px;
+  border-radius: 6px; font-size: 13px; line-height: 1.45; opacity: 0; transition: opacity .1s; }
+.tip b { font-family: var(--mono); font-weight: 500; }
+.lessons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+.lesson { padding: 16px; display: grid; gap: 6px; align-content: start; border-top: 3px solid var(--accent); }
+.lesson .big { font: 800 34px/1 var(--display); font-stretch: 75%; }
+.lesson p { font-size: 13.5px; }
+.lesson ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mute); }
+@media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } .cmp { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr 1fr; } .flow div { margin: 0 0 -1px 0; border-radius: 0 !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="eyebrow">Self-improving checker · 8-drawer chest · ShopBot Alpha PRS, Fellesverkstedet Oslo</div>
+    <h1>Catch it before the router does.</h1>
+    <p class="lede">A chest of drawers generated from parameters and cut from melamine sheets. Machine time costs 568 kr an hour, so mistakes have to be caught in the files. Agents invent realistic faults, other agents write rules for the ones it misses, and an optimizer cuts cost without ever leaving what the checker allows.</p>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section>
+    <div class="head"><div class="eyebrow">The object</div><h2>An 8-drawer chest, generated from 30 numbers</h2>
+      <p class="mute">This is the generator's own 3D model, built from the same parts list that becomes the cutting files. Drag to rotate, pull the sliders to explode it or open the drawers, click a drawer to open it. Every part you see is checked by the rules below before it can reach the router.</p></div>
+    <div class="card" style="overflow:hidden;position:relative">
+      <iframe src="chest.html?embed" title="3D model of the chest of drawers" loading="lazy" style="display:block;width:100%;height:min(72vh,620px);border:0"></iframe>
+    </div>
+    <p class="mute" style="font-size:13px"><a href="chest.html" style="color:var(--accent)">Open the full viewer</a> – materials, prices per sheet and the generator's own checks (in Norwegian).</p>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">0 · How it works, in plain words</div><h2>An exam for the cutting files, and agents that keep making it harder</h2>
+      <p class="mute">A program (the generator) turns a few numbers – width, height, number of drawers, board thickness – into cutting files for the CNC router and a parts list. A single wrong hole, depth or mirrored part wastes a sheet and an hour of machine time. This project builds a checker that reads those files and refuses to send a bad job, and then improves that checker on its own.</p></div>
+    <div class="explain">
+      <div class="card"><span class="n">1</span><h3>Break it on purpose</h3>
+        <p>We write <i>faults</i>: small, realistic mistakes injected into a good design – a slide hole 12 mm too low, a pocket drilled through the face, an inch/mm mix-up in the file. Each fault is a test question with a known answer: “this must not be cut”.</p>
+        <span class="term">train 34 · mined 6 · held-out 25 · known-good 7</span></div>
+      <div class="card"><span class="n">2</span><h3>Rules are plain code</h3>
+        <p>A rule is a short Python check with a number and a reason from the workshop or a manufacturer: “Minifix housing in 19 mm board is 14.0 mm deep (Häfele p 7.13)”. No AI judges a design at check time – the same files always get the same answer.</p>
+        <span class="term">26 rules · each one tested against every fault</span></div>
+      <div class="card"><span class="n">3</span><h3>The loop (RSI)</h3>
+        <p>Recursive self-improvement, kept small and safe: one agent <b>mines</b> new faults from real failure modes, another <b>writes</b> a rule for one the checker misses, and a fixed <b>gate</b> keeps the rule only if it catches that fault, breaks nothing that was already caught, and raises zero false alarms on the known-good designs.</p>
+        <span class="term">6 of 6 loop rules accepted · every one is a git commit</span></div>
+      <div class="card"><span class="n">4</span><h3>Honest scoring</h3>
+        <p>The rule writers can read the training faults, so they will always ace those. The <b>held-out</b> faults were written by a separate red-team agent and never shown to them – that score is the one that says whether the rules generalise. The <b>known-good</b> designs catch rules that are too strict.</p>
+        <span class="term">Caught = stopped with an error. Warnings do not count.</span></div>
+      <div class="card"><span class="n">5</span><h3>Then optimise the cost</h3>
+        <p>With a trustworthy checker, a hill-climbing optimizer can try hundreds of material and layout choices and keep only those the checker passes. The look stays fixed; only the hidden boards, column count and nesting change.</p>
+        <span class="term">~370 designs tried in 35 s · Oslo and Bay Area prices</span></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">1 · Quality</div><h2>How many faults are stopped before cutting</h2></div>
+    <div class="card chart">
+      <svg id="score" role="img" aria-label="Catch rate per checker version"></svg>
+      <div class="legend">
+        <span><i class="sw" style="border-color:var(--accent)"></i>Held-out faults (never seen by the agents)</span>
+        <span><i class="sw" style="border-color:var(--train)"></i>Training faults (seen by the rule writers)</span>
+        <span><i class="sw dash" style="border-color:var(--base)"></i>Generator's own check, no rules</span>
+      </div>
+      <div class="read">
+        <div><b>Horizontal axis</b>Versions of the checker, in the order they happened today. Each step is one change to the rule book: the first point is the generator alone, the last is after the loop's latest accepted rule.</div>
+        <div><b>Vertical axis</b>Share of deliberately broken designs (wrong hole, wrong depth, part off the sheet…) that the checker stops before they reach the machine.</div>
+        <div><b>Why two lines</b>The rule writers can see the training faults, so that line climbs to 100 %. The held-out faults were written by a separate agent and never shown to them. That line measures whether the rules generalise.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">2 · What the runs taught us</div><h2>Which rule catches which fault</h2>
+      <p class="mute">Every fault we have, run against every layer of the checker separately. Press play to watch the rule book grow in the order it was built – first the hand-written seed rules, then the six the loop wrote, then the eight taken from manufacturer manuals – and see which faults each addition picks up.</p></div>
+    <div class="card chart">
+      <div class="scrub"><button id="play" type="button">▶ Play</button>
+        <input id="ver" type="range" min="1" value="1" aria-label="Checker version">
+        <span id="vlab"></span></div>
+      <div class="counts" id="counts"></div>
+      <div class="now" id="now"></div>
+      <div class="mapscroll"><svg id="map" role="img" aria-label="Matrix of faults (columns) against checker rules (rows)"></svg></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--seed);border-radius:2px"></i>Seed rule (written by hand at the start)</span>
+        <span><i class="dot" style="background:var(--loop);border-radius:2px"></i>Written by the loop agent</span>
+        <span><i class="dot" style="background:var(--manual);border-radius:2px"></i>From manufacturer manuals</span>
+        <span><i class="dot" style="background:var(--faint);opacity:.35;border-radius:2px"></i>Also catches it (backup)</span>
+        <span><i class="dot" style="border:1.5px dashed var(--faint);border-radius:2px"></i>Will catch it, not added yet</span>
+      </div>
+      <div class="read">
+        <div><b>Columns</b>One per fault, grouped into training, mined (written by the loop's miner) and held-out (never seen by any rule writer). Within a group they are sorted by the first rule that catches them, so the staircase shows the order things were learned. Hover a column for the fault.</div>
+        <div><b>Rows</b>The generator's own check, then each rule in the order it was added. A strong square marks the first rule that catches a fault; faint squares are backups. The bars on the right count how many faults each row catches, and how many only it catches.</div>
+        <div><b>Bottom strip</b>Green: the fault is stopped before cutting at this version. Red: it would reach the machine. The red columns that remain at the end are the checker's known blind spots.</div>
+      </div>
+    </div>
+    <div class="lessons" id="lessons"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">3 · Found in the real chest</div><h2>What the generator's own check let through</h2></div>
+    <div class="bugs">
+      <div class="card bug"><span class="tag">Fixed</span><h3>Left and right parts were identical</h3>
+        <p>The right side, middle wall and 8 right drawer sides were copies of parts that must be mirrored. Slide marks landed 30 mm too far back and the edge band ended up on the back edge. The drawers would not have closed square.</p>
+        <div class="rule">Caught by R04 handedness, R05 slide holes, R06 banding</div>
+        <div class="fix">Mirrored parts added (CH, SH)</div></div>
+      <div class="card bug"><span class="tag">Fixed</span><h3>Holes deeper than the bit reaches</h3>
+        <p>Ø5 handle holes, Ø4.5 plinth screws and slide pilots go 19 mm through, deeper than a short 1/8″ bit can cut.</p>
+        <div class="rule">Caught by R11 tool reach</div>
+        <div class="fix">CNC spots 3 mm, drilled through by hand</div></div>
+      <div class="card bug"><span class="tag">Fixed</span><h3>Handle screws that barely bite</h3>
+        <p>M4×40 through 37.6 mm of board leaves 2.4 mm of thread in the handle.</p>
+        <div class="rule">Caught by R09 fasteners</div>
+        <div class="fix">Changed to M4×45</div></div>
+      <div class="card bug open"><span class="tag">Open decision</span><h3>Drawers wider than the slide allows</h3>
+        <p>Hettich's mounting sheet for the KA 4532 says 550 mm maximum. With two columns the boxes are 747 mm.</p>
+        <div class="rule">Found by the manual-reading agent · R18</div>
+        <div class="fix">Three columns or a heavier slide (priced below)</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Minifix housing 0.5 mm too shallow</h3>
+        <p>13.5 mm is Häfele's depth for 18 mm board. In 19 mm board the cam sits proud and the bolt head misses its ramp.</p>
+        <div class="rule">Caught by R19 · Häfele TCH 2023 p 7.13</div>
+        <div class="fix">Changed to 14.0 mm</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Slide screws nearly through 16 mm sides</h3>
+        <p>16 mm screws through a 1.2 mm runner leave 1 mm of board behind on 16 mm drawer sides; the melamine dimples on the inside.</p>
+        <div class="rule">Caught by R25 · Hettich MS 10547 p1</div>
+        <div class="fix">Ø4×14 as the manual says; hole pattern 37/165/229 and 37/165/291 entered</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Groove feed too fast for a 1/8″ bit</h3>
+        <p>With thinner hardboard the bottom groove drops under 6.35 mm and is cut with the 1/8″ bit at 3000 mm/min – Amana allows about 2030.</p>
+        <div class="rule">Caught by R21 · Amana compression spiral sheet</div>
+        <div class="fix">Groove feed set to 2000 mm/min</div></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">4 · Cost</div><h2>Cheaper, without leaving what the checker allows</h2>
+      <p class="mute">Hill climbing with random restarts over the hidden board choices, two or three columns, and nesting order. The look (oak fronts, top and sides) stays fixed. Every candidate is generated and run through all rules; anything that fails is thrown out.</p></div>
+    <div class="card chart">
+      <svg id="cost" role="img" aria-label="Optimizer cost per evaluated design"></svg>
+      <div class="legend">
+        <span><i class="sw" style="border-color:var(--accent)"></i>Best valid design so far, any drawer width</span>
+        <span><i class="sw" style="border-color:var(--train)"></i>Best valid, within Hettich's 550 mm</span>
+        <span><i class="dot" style="background:var(--faint)"></i>Candidate that passed the checker</span>
+        <span><i class="dot" style="background:var(--bad)"></i>Candidate the checker rejected</span>
+      </div>
+      <div class="read">
+        <div><b>Horizontal axis</b>Candidate designs tried by the optimizer, in order. Each one is a full generate → nest → check run (well under a second).</div>
+        <div><b>Vertical axis</b>Total cost in kroner: whole sheets bought, spindle time at 568 kr/h (formula time × 1.5), and hardware per drawer.</div>
+        <div><b>What to look for</b>The lines only step down. Red dots are cheaper-looking designs the checker refused, for example 18 mm board that breaks the Minifix joints.</div>
+      </div>
+    </div>
+    <div class="cmp" id="cmp"></div>
+    <div id="regionwrap" hidden>
+      <h3 style="margin:28px 0 6px">Same optimizer, Bay Area materials</h3>
+      <p class="mute" id="regionnote"></p>
+      <div class="card tbl"><table id="region"><thead><tr><th>Option</th><th>Oslo</th><th>Oslo in USD</th><th>Bay Area</th><th>Where the money goes (Oslo &rarr; Bay Area, USD)</th></tr></thead><tbody></tbody></table></div>
+    </div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">5 · The loop</div><h2>How a rule earns its place</h2></div>
+    <div class="flow">
+      <div><b>Mine</b><span>An agent writes new faults from real failure modes: Hettich and Häfele manuals, CNC forums, cabinet practice.</span></div>
+      <div><b>Score</b><span>Generator plus every rule runs on each fault. The checks read the DXF files and the 3D assembly, not the intent.</span></div>
+      <div><b>Write</b><span>For one missed fault, an agent writes one plain-Python rule with a workshop reason.</span></div>
+      <div><b>Gate</b><span>Kept only if it catches that fault, loses nothing already caught, and raises zero false alarms on good designs.</span></div>
+    </div>
+    <div class="card tbl"><table id="loop"><thead><tr><th>Time</th><th>Step</th><th>Fault</th><th>Rule</th><th>Gate</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">6 · Rule book</div><h2 id="rulesh">Rules</h2>
+      <p class="mute">Deterministic code with thresholds, run on the files the workshop receives. No model gives an opinion at check time.</p></div>
+    <div class="card tbl"><table id="rules"><thead><tr><th>Rule</th><th>What it checks</th><th>Written by</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <div class="foot">
+    <span>Board prices are partly estimates until quotes arrive; hardware is estimated at 320 kr per drawer. Spindle time is the feed × length formula times 1.5.</span>
+    <span id="stamp"></span>
+  </div>
+</div>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const D = {"attr": {"rules": ["R01", "R02", "R03", "R04", "R05", "R06", "R07", "R08", "R09", "R10", "R11", "R12", "R13", "R14", "R15", "R16", "R17", "R18", "R19", "R20", "R21", "R22", "R23", "R24", "R25", "R26"], "rows": [{"id": "t01", "set": "train", "title": "Slide clearance entered as 12.7 - 0.3 (box 0.6 mm too wide)", "why": "Ball-bearing slides need >= 12.7 mm per side; 12.4 mm binds or will not engage.", "source": "", "gen": true, "rules": ["R07"]}, {"id": "t02", "set": "train", "title": "Handle c/c 790 on an 800 mm front", "why": "Handle holes 5 mm from the edge; melamine blows out.", "source": "", "gen": true, "rules": []}, {"id": "t03", "set": "train", "title": "3 mm hardboard as bottom of an 800 mm wide drawer", "why": "Bottom sags/pops out of the groove under 10-15 kg of clothes.", "source": "", "gen": false, "rules": ["R07"]}, {"id": "t04", "set": "train", "title": "Bottom groove 12 mm deep in an 18.8 mm drawer side", "why": "Side breaks along the groove.", "source": "", "gen": true, "rules": []}, {"id": "t05", "set": "train", "title": "Generator bug: drawer ends E1/E2 1 mm too long", "why": "Box 1 mm wider than the slides allow: 12.5 mm per side, drawer binds.", "source": "", "gen": false, "rules": ["R03", "R04", "R07"]}, {"id": "t06", "set": "train", "title": "DXF: contour depth set to 18.5 on 18.8 mm boards", "why": "Parts are not cut through; prying them out chips the melamine.", "source": "", "gen": false, "rules": ["R01"]}, {"id": "t07", "set": "train", "title": "DXF export dropped one Minifix-bolt hole", "why": "One joint has no bolt; found during assembly, part must be re-drilled by hand.", "source": "", "gen": false, "rules": ["R02"]}, {"id": "t08", "set": "train", "title": "DXF: one part moved 30 mm into its neighbour", "why": "Two parts overlap; the router cuts through both.", "source": "", "gen": false, "rules": ["R01", "R02"]}, {"id": "t09", "set": "train", "title": "DXF: one part moved 400 mm, off the sheet", "why": "The part is cut in air/spoilboard; a whole sheet wasted.", "source": "", "gen": false, "rules": ["R01", "R02"]}, {"id": "t10", "set": "train", "title": "Gap between nested parts 4 mm with a 6.35 mm bit", "why": "Neighbouring cuts merge; parts lose their edge and come loose mid-cut.", "source": "", "gen": false, "rules": ["R01"]}, {"id": "t11", "set": "train", "title": "Confirmat 5 mm from top edge of drawer side", "why": "Screw splits the side.", "source": "", "gen": true, "rules": []}, {"id": "t12", "set": "train", "title": "Gap between fronts 0 mm", "why": "Fronts rub and chip each other.", "source": "", "gen": false, "rules": ["R08"]}, {"id": "t13", "set": "train", "title": "Handle screws M4x30 through 37.6 mm", "why": "Screw does not reach the handle thread.", "source": "", "gen": false, "rules": ["R09"]}, {"id": "t15", "set": "train", "title": "Generator bug: bottom groove on E1 2 mm higher than on sides", "why": "Bottom cannot enter all four grooves; box will not close square.", "source": "", "gen": false, "rules": ["R07"]}, {"id": "t16", "set": "train", "title": "Generator bug: Minifix bolt holes in the top forget the overhang", "why": "Bolts land 21 mm off the side edge holes; top cannot be fitted.", "source": "", "gen": false, "rules": ["R03"]}, {"id": "t17", "set": "train", "title": "Generator bug: side bolt hole for the bottom at y = T instead of T/2", "why": "Bolt misses the edge hole in the bottom by 9 mm.", "source": "", "gen": false, "rules": ["R03"]}, {"id": "t19", "set": "train", "title": "Plinth strip only 45 mm wide, 1400 mm long", "why": "Narrow long part shifts under vacuum/hold-down and is ruined.", "source": "", "gen": false, "rules": ["R10"]}, {"id": "t24", "set": "train", "title": "Fronts flush to the bottom (edge 0) -> bottom drawer 1 mm above the carcass bottom", "why": "Bottom drawer scrapes.", "source": "", "gen": true, "rules": []}, {"id": "t25", "set": "train", "title": "450 mm slide in a 430 mm carcass", "why": "Slide does not fit.", "source": "", "gen": true, "rules": []}, {"id": "t26", "set": "train", "title": "Fronts banded with 2 mm ABS (cut sizes not reduced)", "why": "Gap between fronts goes from 3 mm to -1 mm; fronts collide.", "source": "", "gen": false, "rules": ["R08", "R23"]}, {"id": "t29", "set": "train", "title": "DXF: Minifix housing pocket depth 18.8 (through the board)", "why": "Housing goes through the visible face.", "source": "", "gen": false, "rules": ["R01", "R02"]}, {"id": "t30", "set": "train", "title": "DXF header says inches", "why": "VCarve imports the job 25.4x too big (or the operator rescales by guess).", "source": "", "gen": false, "rules": ["R01"]}, {"id": "t32", "set": "train", "title": "Generator bug: drawer bottom 4 mm too wide", "why": "Bottom bottoms out in the groove; box cannot be closed.", "source": "", "gen": false, "rules": ["R07"]}, {"id": "t33", "set": "train", "title": "Regression: right side cut as an identical copy of the left (the bug found on 2026-11-22)", "why": "Right side: band on the back edge, slide holes 30+ mm too far back; drawer cannot close square.", "source": "found by R04 on the real kommode", "gen": false, "rules": ["R05", "R06"]}, {"id": "t34", "set": "train", "title": "Regression: right drawer sides identical to left", "why": "8 right drawer sides get slide holes front<->back; slides cannot be mounted.", "source": "found by R04 on the real kommode", "gen": false, "rules": ["R05"]}, {"id": "t35", "set": "train", "title": "Minifix housing depth for 18 mm board drilled in 19 mm board (13.5)", "why": "Cam sits 0.5 mm proud; bolt head misses the ramp, joint does not pull tight.", "source": "H\u00e4fele TCH 2023 p 7.13", "gen": false, "rules": ["R19"]}, {"id": "t36", "set": "train", "title": "Minifix edge bore only 20 mm deep with B24 housing", "why": "Bolt head stops short of the cam; joint cannot be closed.", "source": "H\u00e4fele TCH 2023 p 7.13/7.18", "gen": false, "rules": ["R12", "R20"]}, {"id": "t37", "set": "train", "title": "Groove feed 3000 mm/min with 5.6 mm hardboard (groove cut with the 1/8\" bit)", "why": "Above Amana chipload for 1/8\"; bit snaps mid-job or burns the groove.", "source": "Amana compression spiral sheet v12", "gen": false, "rules": ["R21"]}, {"id": "t38", "set": "train", "title": "Contour feed 6000 mm/min at 9.5 mm per pass", "why": "Over Amana 1/4\" limit for 1.5xD passes; chipped melamine, deflection, broken bit.", "source": "Amana compression spiral sheet v12", "gen": false, "rules": ["R21"]}, {"id": "t39", "set": "train", "title": "Slide holes typed in from another length (KA 4532/400 with 37/165/357)", "why": "Rear screw misses the runner hole; runner sits crooked.", "source": "Hettich MS 10547 p2", "gen": false, "rules": ["R22"]}, {"id": "t40", "set": "train", "title": "1 mm ABS banding on the fronts, cut sizes not reduced", "why": "Fronts grow 2 mm each way; the 3 mm gap closes to 1 mm and fronts rub.", "source": "Microvellum KB, cut size = finished - band", "gen": false, "rules": ["R08", "R23"]}, {"id": "t41", "set": "train", "title": "Onion skin 1.5 mm", "why": "Parts do not separate; tearing them out chips the melamine face.", "source": "ShopBot hold-down guide p8", "gen": false, "rules": ["R24"]}, {"id": "t42", "set": "train", "title": "Vacuum table only, small drawer parts without tabs", "why": "Small parts move in the last pass and get gouged.", "source": "ShopBot hold-down guide p7", "gen": false, "rules": ["R24"]}, {"id": "t43", "set": "train", "title": "Slide screws \u00d84x10", "why": "Only 8.8 mm in chipboard; runner pulls out under load.", "source": "Hettich MS 10547 p1", "gen": false, "rules": ["R25"]}, {"id": "m01", "set": "mined", "title": "Minifix housing 34 mm from the edge with B24 bolts (24 mm system)", "why": "Minifix 15 comes in drilling distance B24 and B34; the bolt length is matched to the distance. With the housing 10 mm further in than the bolt reaches, the cam turns past the bolt head and the joint never pulls tight (or the operator over-tightens and cracks the chipboard).", "source": "H\u00e4fele Minifix 15 catalogue / drilling template: housing distance B24 vs B34 must match the bolt type", "gen": false, "rules": ["R12"]}, {"id": "m02", "set": "mined", "title": "Dowel holes 12 mm (face) + 15 mm (edge) = 27 mm for 8x35 dowels", "why": "Hole depths must add up to dowel length + ~2 mm glue/air space. With 27 mm the 8x30/8x35 dowel bottoms out and the carcass joint stays open 5-8 mm; Minifix cannot close it either and the edge splits.", "source": "Dowel joint practice (H\u00e4fele/W\u00fcrth dowel tables, Festool/Wolfcraft dowel jig manuals): face depth + edge depth = dowel length + 1-2 mm; 8 mm dowel in 19 mm board: ~12 face / ~22-25 edge", "gen": false, "rules": ["R13"]}, {"id": "m03", "set": "mined", "title": "Oak decor board marked \"no grain direction\" -> nester rotates parts 90\u00b0", "why": "Kaindl oak decor has a printed grain. With rotation allowed the nester turns one side panel 90\u00b0 on the sheet (653x430 instead of 430x653): the two visible sides get grain in different directions and one must be re-cut from a new oak sheet.", "source": "Woodworking/nesting practice (VCarve/Cutlist \"grain direction lock\", panel-saw cutting lists): decor and veneer boards must keep grain orientation", "gen": false, "rules": ["R14"]}, {"id": "m04", "set": "mined", "title": "Slide screws 20 mm long into 18.8 mm carcass sides", "why": "Screw goes 18.8 mm into an 18.8 mm side: the tip lifts or pierces the finished OUTER face of the oak side (visible). Hettich/Blum specify 3.5x15/16 chipboard or 6.3x13 Euro screws for side mount slides in 16-19 mm.", "source": "Hettich KA 4532 / Blum mounting instructions: screw length for side-mount slides in 16-19 mm panels; common forum failure \"screw came through the side of the cabinet\"", "gen": false, "rules": ["R15", "R25"]}, {"id": "m05", "set": "mined", "title": "Slide hole pattern from the INSET drawing (+19 mm) on an overlay kommode", "why": "Cabinet member sits 19 mm further back while the drawer member is unchanged: the closed position is 19 mm deeper than the carcass front, so the overlay front hits the carcass edge 19 mm before the slide reaches its stop. Self/soft-close never engages and the drawer springs open.", "source": "Hettich/Blum slide mounting instructions give separate setback dimensions for overlay vs inset fronts (inset: add front thickness); mixing them is a common cabinet-maker error", "gen": false, "rules": ["R16", "R22"]}, {"id": "m06", "set": "mined", "title": "Edge band added on the top edge of the sides (joint edge) without shortening the part", "why": "The top sits on the banded edge: sides become 1-2 mm taller than the middle wall, top rocks/gaps, and the Minifix/dowel edge holes are drilled through ABS which chips and misaligns.", "source": "Edge-banding practice (Homag/Biesse banding guides, cutlist rules): never band edges that are joined; if you must, deduct band thickness from the cut size", "gen": false, "rules": ["R17"]}, {"id": "h01", "set": "heldout", "title": "Slide holes on middle wall 3 mm higher than on the opposite side", "why": "Each drawer hangs on two slides; if the carcass members are not at the same height the box is twisted, the ball cages bind and the drawer racks or drops off one rail. Hettich/Blum: both runners in one plane, tolerance <=0.5 mm.", "source": "Hettich KA/Quadro mounting instructions; System 32 line-boring practice", "gen": false, "rules": []}, {"id": "h02", "set": "heldout", "title": "Zero gap (fuge) between drawer fronts", "why": "Fronts touch: edge banding rubs, ABS chips, fronts cannot open past each other and any 0.5 mm swelling or slide sag locks the stack. Overlay fronts need 2-3 mm reveals.", "source": "Kitchen/overlay front reveal rules (Blum: 2-3 mm gap)", "gen": false, "rules": ["R08"]}, {"id": "h03", "set": "heldout", "title": "Plinth strip placed on top of the leg mounting positions", "why": "Bunnlist at y=70..89 runs straight through the 40x40 leg plates at y=60..100 near both ends: legs cannot be screwed on, or the strip must be notched by hand.", "source": "Leg/plinth layout under carcass bottoms (Ikea/Hafele leg plates)", "gen": false, "rules": []}, {"id": "h04", "set": "heldout", "title": "Front fixing screws placed exactly on the handle bolt line", "why": "The 4x30 screw through the drawer end sits where the handle M4 bolt has to pass (front centre, 96 mm off centre): the bolt hits the screw, the handle cannot be fitted.", "source": "Drawer front attachment practice: keep fixing screws clear of handle bores", "gen": false, "rules": []}, {"id": "h05", "set": "heldout", "title": "Bottom groove only 3 mm above lower edge of drawer parts", "why": "A 3 mm strip of particleboard under a 6.4 mm groove breaks off when the router passes or when the loaded HDF bottom pushes down. Typical minimum 8-12 mm.", "source": "Drawer box construction (groove 10-12 mm up), particleboard edge strength", "gen": false, "rules": []}, {"id": "h06", "set": "heldout", "title": "Groove clearance typed with a minus sign: groove narrower than the HDF", "why": "Groove 5.6 mm for a 5.9 mm bottom: the bottom cannot be slid in; forcing it splits the groove lips.", "source": "Sign/typo error in parameters; groove must be board + 0.3-0.5 mm", "gen": false, "rules": ["R07"]}, {"id": "h07", "set": "heldout", "title": "Drawer board thickness measured on the wrong (16 mm) sheet", "why": "Measured 15.8 on a nominal 19 board: every drawer end is 6 mm too long, boxes are too wide for the slide clearance, grooves and confirmat positions are wrong. A >3 mm deviation is a measurement mix-up, not tolerance.", "source": "Measuring the wrong offcut/sample; sheet-goods thickness tolerance is +-0.3 mm", "gen": true, "rules": []}, {"id": "h08", "set": "heldout", "title": "Dowel only 10 mm from the Minifix bolt", "why": "\u00d88 dowel at 60 next to \u00d85 Minifix bolt at 50: 3.5 mm web between bores on the face and on the end edge; the particleboard between them crumbles and neither fitting holds.", "source": "Hafele/Hettich connector spacing: keep >=32 mm (System 32) between connector and dowel", "gen": false, "rules": []}, {"id": "h09", "set": "heldout", "title": "Oak decor grain flag lost: fronts/top/sides nested rotated", "why": "Kaindl Eik Dew has a grain direction; with retning=False the nester rotates parts freely - here the right side CH is nested turned 90 deg, so its grain runs vertically while the left side runs horizontally. Visible on the finished piece, cannot be fixed after cutting.", "source": "Decor/veneer grain direction in nesting software (grain lock)", "gen": false, "rules": ["R14"]}, {"id": "h10", "set": "heldout", "title": "Side panel slide holes referenced from the back edge", "why": "Slide pilots on the left side C at DEP-x instead of x from the front (C now looks like the mirrored CH): the left runners sit ~36 mm further back than the middle-wall runners, the drawer cannot be mounted square and the front will not close flush.", "source": "Wrong reference edge / origin in CNC programs (front-edge reference for slides)", "gen": false, "rules": ["R05"]}, {"id": "h11", "set": "heldout", "title": "Drawer-side slide holes 12 mm too low on the box", "why": "Box-member holes on the left drawer sides (S) are 12 mm off the box centre while the right sides (SH) are correct: every box hangs tilted, the bottom drawer drags on the carcass bottom and fronts are skewed.", "source": "Box-member mounting height vs cabinet-member height (Hettich/Blum)", "gen": false, "rules": []}, {"id": "h12", "set": "heldout", "title": "Top dowel/Minifix holes miss the front overhang offset", "why": "Holes in the top ignore the 21 mm overhang: the top sits flush with the carcass front, so the 18.8 mm drawer fronts stand proud of the top and the top hangs 24 mm over the back.", "source": "Offset/reference error between mating parts (top vs side edge bores)", "gen": false, "rules": ["R03"]}, {"id": "h13", "set": "heldout", "title": "Minifix cam housings in the bottom at 34 mm instead of 24 mm", "why": "The cam must sit at the bolt-head distance (24 mm for this bolt). At 34 mm the bolt head does not reach the cam: no clamping, the carcass joint is loose.", "source": "Hafele Minifix 15 drilling data (dimension B = 24 mm)", "gen": false, "rules": ["R12"]}, {"id": "h14", "set": "heldout", "title": "Middle wall cut full side height (bottom thickness not subtracted)", "why": "Middle wall stands on the bottom but is cut 653 mm: 18.8 mm too tall, the top cannot come down onto the sides and all Minifix joints at the top stay open.", "source": "Classic carcass arithmetic error (forgot one board thickness)", "gen": false, "rules": ["R03"]}, {"id": "h15", "set": "heldout", "title": "Drawer bottom 2 mm too large in both directions", "why": "Bottom is 1 mm per side deeper than the groove bottoms: the box cannot be closed, or is forced out of square / bows the sides.", "source": "Panel-in-groove sizing (groove depth minus play)", "gen": false, "rules": ["R07"]}, {"id": "h16", "set": "heldout", "title": "Drawer box 2 mm too wide for the slides", "why": "Ends/bottom 2 mm long: 1 mm less than the 12.7 mm slide clearance per side. Ball-bearing slides tolerate +-0.2 mm; the drawer jams or the slide must be forced.", "source": "Hettich KA 4532 / Accuride: side clearance 12.7 +0.2/-0", "gen": false, "rules": ["R03", "R07"]}, {"id": "h17", "set": "heldout", "title": "Only 7 drawer fronts generated for 8 drawers", "why": "Off-by-one in quantity: cut list and sheets both say 7, one drawer has no front. Found at assembly, a second oak sheet run for one part.", "source": "Off-by-one quantity bugs in cut lists", "gen": false, "rules": []}, {"id": "h18", "set": "heldout", "title": "Sheet exported in inches but header still says mm", "why": "All coordinates on the drawer-parts sheet are 25.4x too small while $INSUNITS=4 (mm). The CAM imports tiny parts; if scaled by guess, everything is off.", "source": "DXF unit mismatch (VCarve/ShopBot import scale)", "gen": false, "rules": ["R01", "R02"]}, {"id": "h19", "set": "heldout", "title": "Minifix housing pockets drilled through the oak sides", "why": "Layer depth for \u00d815 cam housings written as Z18.8 (full thickness) instead of Z13.5: \u00d815 holes through the visible outside of both side panels.", "source": "Layer-encoded depth errors in CAM templates", "gen": false, "rules": ["R01", "R02"]}, {"id": "h20", "set": "heldout", "title": "Contour depth set for 16 mm board on 18.8 mm sheet", "why": "Profile depth Z16 leaves 2.8 mm uncut: parts are not freed, have to be broken/cut out by hand, edges chip and the parts may shift during later ops.", "source": "Reusing a toolpath template from a thinner material", "gen": false, "rules": ["R01"]}, {"id": "h21", "set": "heldout", "title": "One drawer back (E2) missing from its sheet", "why": "Sheet has 7 E2 while the cut list says 8: one box has no back, second machine run.", "source": "Part count on sheet vs cut list mismatch (manual nest edit)", "gen": false, "rules": ["R02"]}, {"id": "h22", "set": "heldout", "title": "Part placed beyond the sheet edge", "why": "The rightmost part on the oak sheet extends 40 mm past the 2440 mm sheet: the bit cuts air or the clamps/bed, part comes out short.", "source": "Manual nest edits / bed size mismatch", "gen": false, "rules": ["R01"]}, {"id": "h23", "set": "heldout", "title": "Oak sheet exported mirrored (Y flipped)", "why": "All hole patterns are mirrored inside their parts (origin top-left vs bottom-left): top dowels at the wrong distance from the front, slide holes top/bottom swapped on the sides.", "source": "Mirror/flip on DXF export or wrong CAM origin corner", "gen": false, "rules": ["R02"]}, {"id": "h24", "set": "heldout", "title": "Blind holes exported with radius = diameter", "why": "Circles on 01_BOR layers are twice the size: \u00d85 Minifix bolt bores become \u00d810, \u00d88 dowels \u00d816 - nothing holds, and the CAM may pocket them.", "source": "Radius/diameter confusion in DXF writers", "gen": false, "rules": ["R02"]}, {"id": "h25", "set": "heldout", "title": "Labels swapped between a front end (E1) and a back end (E2)", "why": "The part labelled E1 has no front fixing holes and the one labelled E2 has them: built into the wrong position, the front cannot be screwed on.", "source": "Mislabelled parts on nested sheets", "gen": false, "rules": ["R02"]}]}, "opt_us": {"today": {"x": {"korpus": "us-hd-white-melamine-19", "skuff": "us-hd-white-melamine-19", "skuffebunn": "us-hardboard-6", "bakplate": "us-hardboard-3", "kolonner": 2}, "ok": true, "cost": 842, "why": [], "sheets": 422, "cnc_min": 170, "cnc_kr": 127, "hardware": 293, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)", "ark": 2, "kr": 273, "used": 39, "roles": ["front", "ytre"]}, {"navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)", "ark": 2, "kr": 101, "used": 55, "roles": ["korpus", "skuff"]}, {"navn": "Tempered hardboard 1/4in 4x8", "ark": 1, "kr": 28, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Tempered hardboard 1/8in 4x8", "ark": 1, "kr": 20, "used": 35, "roles": ["bakplate"]}]}, "t": "2026-11-22T17:20:25", "free_look": false, "region": "bay_area", "currency": "USD", "sales_tax": 0.0925, "machine_per_h": 45.0, "hw_per_drawer": 32.0, "loose": {"best": {"x": {"korpus": "us-egger-oak-tfl-19", "skuff": "us-hd-white-melamine-19", "skuffebunn": "us-hardboard-6", "bakplate": "us-hardboard-3", "kolonner": 2}, "ok": true, "cost": 791, "why": [], "sheets": 371, "cnc_min": 170, "cnc_kr": 127, "hardware": 293, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)", "ark": 2, "kr": 273, "used": 58, "roles": ["front", "ytre", "korpus"]}, {"navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)", "ark": 1, "kr": 50, "used": 72, "roles": ["skuff"]}, {"navn": "Tempered hardboard 1/4in 4x8", "ark": 1, "kr": 28, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Tempered hardboard 1/8in 4x8", "ark": 1, "kr": 20, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 91}, "strict": {"best": {"x": {"korpus": "us-hd-white-melamine-19", "skuff": "us-hd-white-melamine-19", "skuffebunn": "us-hardboard-6", "bakplate": "us-hardboard-3", "kolonner": 3}, "ok": true, "cost": 1023, "why": [], "sheets": 422, "cnc_min": 207, "cnc_kr": 155, "hardware": 446, "drawers": 12, "box_width": 483, "estimate": false, "materials": [{"navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)", "ark": 2, "kr": 273, "used": 39, "roles": ["front", "ytre"]}, {"navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)", "ark": 2, "kr": 101, "used": 65, "roles": ["korpus", "skuff"]}, {"navn": "Tempered hardboard 1/4in 4x8", "ark": 1, "kr": 28, "used": 70, "roles": ["skuffebunn"]}, {"navn": "Tempered hardboard 1/8in 4x8", "ark": 1, "kr": 20, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 77}, "nok_per_usd": 10.8}, "hist": [{"t": "2026-11-22T15:36:57", "note": "baseline: generator's own check() only", "train_n": 23, "train_caught": 6, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 0, "label": "Generator only"}, {"t": "2026-11-22T15:39:01", "note": "R01 DXF sheet sanity + R02 DXF vs cut list", "train_n": 23, "train_caught": 13, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 2, "label": "+ DXF checks"}, {"t": "2026-11-22T15:41:06", "note": "R03 joint continuity + R04 handedness; generator fixed (mirrored C/CH, S/SH, D face)", "train_n": 25, "train_caught": 16, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 0, "heldout_caught": 0, "heldout_gen": 0, "false_pos": 0, "good_n": 7, "rules": 4, "label": "+ 3D joints"}, {"t": "2026-11-22T15:43:00", "note": "R05 slides, R06 bands, R07 drawer box+sag+MC, R08 fronts, R09 screws, R10 hold-down, R11 bit reach; generator: spot+hand-drill, M4x45", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 1, "good_n": 7, "rules": 11, "label": "+ 7 rules"}, {"t": "2026-11-22T15:43:15", "note": "R08 fix: false alarm on 3-col design", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": null, "mined_caught": null, "heldout_n": 25, "heldout_caught": 16, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 11, "label": "False-alarm fix"}, {"t": "2026-11-22T15:52:00", "note": "loop: r12_auto_m01 for m01", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 1, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 12, "label": "Loop R12"}, {"t": "2026-11-22T15:53:04", "note": "loop: r13_auto_m02 for m02", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 2, "heldout_n": 25, "heldout_caught": 17, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 13, "label": "Loop R13"}, {"t": "2026-11-22T15:54:09", "note": "loop: r14_auto_m03 for m03", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 3, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 14, "label": "Loop R14"}, {"t": "2026-11-22T15:55:13", "note": "loop: r15_auto_m04 for m04", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 4, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 15, "label": "Loop R15"}, {"t": "2026-11-22T15:56:53", "note": "loop: r16_auto_m05 for m05", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 5, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 16, "label": "Loop R16"}, {"t": "2026-11-22T15:58:03", "note": "loop: r17_auto_m06 for m06", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 17, "label": "Loop R17"}, {"t": "2026-11-22T16:52:11", "note": "R18 Hettich drawer width (warn, from manual)", "train_n": 25, "train_caught": 25, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 18, "label": "+ R18 slide width"}, {"t": "2026-11-22T17:16:57", "note": "R19-R26 from manufacturer manuals (H\u00e4fele, Hettich, Amana, ShopBot, Microvellum)", "train_n": 34, "train_caught": 34, "train_gen": 6, "mined_n": 6, "mined_caught": 6, "heldout_n": 25, "heldout_caught": 18, "heldout_gen": 1, "false_pos": 0, "good_n": 7, "rules": 26, "label": "+ 8 manual rules"}], "loop": [{"t": "2026-11-22T15:50:40", "step": "mine", "fault": null, "rule": null, "accepted": null, "false_alarms": null, "lost": null, "n": 6}, {"t": "2026-11-22T15:51:57", "step": "write", "fault": "m01", "rule": "r12_auto_m01", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:52:59", "step": "write", "fault": "m02", "rule": "r13_auto_m02", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:54:05", "step": "write", "fault": "m03", "rule": "r14_auto_m03", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:55:10", "step": "write", "fault": "m04", "rule": "r15_auto_m04", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:56:50", "step": "write", "fault": "m05", "rule": "r16_auto_m05", "accepted": true, "false_alarms": [], "lost": [], "n": null}, {"t": "2026-11-22T15:57:59", "step": "write", "fault": "m06", "rule": "r17_auto_m06", "accepted": true, "false_alarms": [], "lost": [], "n": null}], "rules": [{"id": "R01", "desc": "DXF sheet sanity: mm units, parts inside the sheet, spacing >= bit, cut depth vs measured board", "auto": false}, {"id": "R02", "desc": "DXF vs cut list: part count, outline size, and every hole/groove at the right place, diameter, depth", "auto": false}, {"id": "R03", "desc": "Joint continuity in 3D: every connector hole has a coaxial partner hole in the part it touches", "auto": false}, {"id": "R04", "desc": "Handedness: a part used as a mirror image (left vs right) must be symmetric, or be cut as a mirrored copy", "auto": false}, {"id": "R05", "desc": "Slide holes on carcass walls and drawer sides match the slide pattern (depth from front, height), both sides", "auto": false}, {"id": "R06", "desc": "Front-facing edges of carcass parts and all front edges are edge-banded, on the edge that really faces front", "auto": false}, {"id": "R07", "desc": "Drawer box from the real parts: fits the slides, grooves line up, bottom fits and does not sag", "auto": false}, {"id": "R08", "desc": "Front gaps after edge banding >= 1.5 mm; fronts do not stick out past the carcass", "auto": false}, {"id": "R09", "desc": "Handle screws reach >= 5 mm into the handle thread and do not bottom out", "auto": false}, {"id": "R10", "desc": "Parts narrower than 60 mm (or smaller than 0.02 m2) need tabs, which the files do not have", "auto": false}, {"id": "R11", "desc": "Every CNC hole/pocket/groove depth fits the flute length of the bit that must cut it", "auto": false}, {"id": "R12", "desc": "Minifix housing distance from the edge is a standard system (B24/B34) and matches the bolt-hole depth", "auto": true}, {"id": "R13", "desc": "Dowel joints: face + edge hole depth = a standard dowel length + 1-4 mm glue space", "auto": true}, {"id": "R14", "desc": "Boards with grain (wood decor/veneer) are nested with rotation locked: every part keeps its grain direction", "auto": true}, {"id": "R15", "desc": "Slide screws (length - slide metal thickness) leave >= 1 mm of board before the opposite face", "auto": true}, {"id": "R16", "desc": "Slide cabinet-member and drawer-member holes line up front-to-front (closed drawer), <= 8 mm apart", "auto": true}, {"id": "R17", "desc": "Edges that are joined (another panel sits on them, or they carry edge bores) must not be edge-banded", "auto": true}, {"id": "R18", "desc": "Drawer box width within the slide maker's maximum (KA 4532: 550 mm)", "auto": false}, {"id": "R19", "desc": "Minifix housing depth matches the H\u00e4fele table for the board thickness (16/18/19 mm -> 12.5/13.5/14.0 +0.5)", "auto": false}, {"id": "R20", "desc": "Minifix edge bore reaches the housing centre and stops within 3 mm past the housing", "auto": false}, {"id": "R21", "desc": "Contour and groove feeds within Amana's chipload table for the bit and depth per pass", "auto": false}, {"id": "R22", "desc": "Verified slide hole pattern matches the manufacturer drawing (Hettich KA 4532/400)", "auto": false}, {"id": "R23", "desc": "Edge banding thickness is stated, and the growth it adds per direction is <= 1 mm (else cut sizes must deduct it)", "auto": false}, {"id": "R24", "desc": "Hold-down method stated; onion skin 0.25-0.76 mm; small parts not on vacuum alone", "auto": false}, {"id": "R25", "desc": "Slide screws bite >= 10 mm and leave the blind-hole minimum wall in the thinnest board they go into", "auto": false}, {"id": "R26", "desc": "Planned flute lengths match a real compression bit (Amana 1/8\": 9.5 or 20.6; 1/4\": 22.2)", "auto": false}], "mined": [{"id": "m01", "title": "Minifix housing 34 mm from the edge with B24 bolts (24 mm system)"}, {"id": "m02", "title": "Dowel holes 12 mm (face) + 15 mm (edge) = 27 mm for 8x35 dowels"}, {"id": "m03", "title": "Oak decor board marked \"no grain direction\" -> nester rotates parts 90\u00b0"}, {"id": "m04", "title": "Slide screws 20 mm long into 18.8 mm carcass sides"}, {"id": "m05", "title": "Slide hole pattern from the INSET drawing (+19 mm) on an overlay kommode"}, {"id": "m06", "title": "Edge band added on the top edge of the sides (joint edge) without shortening the part"}], "opt_hist": [{"n": 1, "strict": false, "cost": 8167, "ok": true, "best": 8167}, {"n": 2, "strict": false, "cost": 9967, "ok": true, "best": 8167}, {"n": 3, "strict": false, "cost": 9617, "ok": true, "best": 8167}, {"n": 4, "strict": false, "cost": 10147, "ok": true, "best": 8167}, {"n": 5, "strict": false, "cost": 9917, "ok": true, "best": 8167}, {"n": 6, "strict": false, "cost": 8167, "ok": true, "best": 8167}, {"n": 7, "strict": false, "cost": 8248, "ok": true, "best": 8167}, {"n": 8, "strict": false, "cost": 8857, "ok": true, "best": 8167}, {"n": 9, "strict": false, "cost": 9327, "ok": true, "best": 8167}, {"n": 10, "strict": false, "cost": 9922, "ok": true, "best": 8167}, {"n": 11, "strict": false, "cost": 9427, "ok": true, "best": 8167}, {"n": 12, "strict": false, "cost": 9164, "ok": false, "best": 8167}, {"n": 13, "strict": false, "cost": 8447, "ok": true, "best": 8167}, {"n": 14, "strict": false, "cost": 8781, "ok": true, "best": 8167}, {"n": 15, "strict": false, "cost": 8431, "ok": true, "best": 8167}, {"n": 16, "strict": false, "cost": 8857, "ok": true, "best": 8167}, {"n": 17, "strict": false, "cost": 9617, "ok": true, "best": 8167}, {"n": 18, "strict": false, "cost": 9352, "ok": true, "best": 8167}, {"n": 19, "strict": false, "cost": 8183, "ok": true, "best": 8167}, {"n": 20, "strict": false, "cost": 10081, "ok": false, "best": 8167}, {"n": 21, "strict": false, "cost": 9427, "ok": true, "best": 8167}, {"n": 22, "strict": false, "cost": 10151, "ok": true, "best": 8167}, {"n": 23, "strict": false, "cost": 9327, "ok": true, "best": 8167}, {"n": 24, "strict": false, "cost": 10137, "ok": false, "best": 8167}, {"n": 25, "strict": false, "cost": 9881, "ok": true, "best": 8167}, {"n": 26, "strict": false, "cost": 9867, "ok": false, "best": 8167}, {"n": 27, "strict": false, "cost": 9427, "ok": true, "best": 8167}, {"n": 28, "strict": false, "cost": 9967, "ok": true, "best": 8167}, {"n": 29, "strict": false, "cost": 10127, "ok": true, "best": 8167}, {"n": 30, "strict": false, "cost": 10077, "ok": false, "best": 8167}, {"n": 31, "strict": false, "cost": 10347, "ok": false, "best": 8167}, {"n": 32, "strict": false, "cost": 10291, "ok": false, "best": 8167}, {"n": 33, "strict": false, "cost": 9827, "ok": true, "best": 8167}, {"n": 34, "strict": false, "cost": 10077, "ok": false, "best": 8167}, {"n": 35, "strict": false, "cost": 9827, "ok": true, "best": 8167}, {"n": 36, "strict": false, "cost": 9707, "ok": true, "best": 8167}, {"n": 37, "strict": false, "cost": 10127, "ok": true, "best": 8167}, {"n": 38, "strict": false, "cost": 10177, "ok": true, "best": 8167}, {"n": 39, "strict": false, "cost": 9827, "ok": true, "best": 8167}, {"n": 40, "strict": false, "cost": 9723, "ok": true, "best": 8167}, {"n": 41, "strict": false, "cost": 8377, "ok": true, "best": 8167}, {"n": 42, "strict": false, "cost": 10132, "ok": true, "best": 8167}, {"n": 43, "strict": false, "cost": 10127, "ok": true, "best": 8167}, {"n": 44, "strict": false, "cost": 8097, "ok": true, "best": 8097}, {"n": 45, "strict": false, "cost": 8711, "ok": true, "best": 8097}, {"n": 46, "strict": false, "cost": 8361, "ok": true, "best": 8097}, {"n": 47, "strict": false, "cost": 9547, "ok": true, "best": 8097}, {"n": 48, "strict": false, "cost": 9811, "ok": true, "best": 8097}, {"n": 49, "strict": false, "cost": 8787, "ok": true, "best": 8097}, {"n": 50, "strict": false, "cost": 8377, "ok": true, "best": 8097}, {"n": 51, "strict": false, "cost": 8178, "ok": true, "best": 8097}, {"n": 52, "strict": false, "cost": 8787, "ok": true, "best": 8097}, {"n": 53, "strict": false, "cost": 9852, "ok": true, "best": 8097}, {"n": 54, "strict": false, "cost": 9897, "ok": true, "best": 8097}, {"n": 55, "strict": false, "cost": 9257, "ok": true, "best": 8097}, {"n": 56, "strict": false, "cost": 9427, "ok": true, "best": 8097}, {"n": 57, "strict": false, "cost": 9427, "ok": true, "best": 8097}, {"n": 58, "strict": false, "cost": 9897, "ok": true, "best": 8097}, {"n": 59, "strict": false, "cost": 9257, "ok": true, "best": 8097}, {"n": 60, "strict": false, "cost": 10081, "ok": true, "best": 8097}, {"n": 61, "strict": false, "cost": 9547, "ok": true, "best": 8097}, {"n": 62, "strict": false, "cost": 10067, "ok": false, "best": 8097}, {"n": 63, "strict": false, "cost": 9357, "ok": true, "best": 8097}, {"n": 64, "strict": false, "cost": 8097, "ok": true, "best": 8097}, {"n": 65, "strict": false, "cost": 9797, "ok": false, "best": 8097}, {"n": 66, "strict": false, "cost": 10077, "ok": true, "best": 8097}, {"n": 67, "strict": false, "cost": 10011, "ok": false, "best": 8097}, {"n": 68, "strict": false, "cost": 9094, "ok": false, "best": 8097}, {"n": 69, "strict": false, "cost": 8113, "ok": true, "best": 8097}, {"n": 70, "strict": false, "cost": 9847, "ok": true, "best": 8097}, {"n": 71, "strict": false, "cost": 9282, "ok": true, "best": 8097}, {"n": 72, "strict": false, "cost": 11766, "ok": true, "best": 8097}, {"n": 73, "strict": false, "cost": 11916, "ok": false, "best": 8097}, {"n": 74, "strict": false, "cost": 11982, "ok": false, "best": 8097}, {"n": 75, "strict": false, "cost": 11816, "ok": true, "best": 8097}, {"n": 76, "strict": false, "cost": 13561, "ok": true, "best": 8097}, {"n": 77, "strict": false, "cost": 10011, "ok": true, "best": 8097}, {"n": 78, "strict": false, "cost": 10036, "ok": true, "best": 8097}, {"n": 79, "strict": false, "cost": 9828, "ok": true, "best": 8097}, {"n": 80, "strict": false, "cost": 9778, "ok": false, "best": 8097}, {"n": 81, "strict": false, "cost": 9878, "ok": true, "best": 8097}, {"n": 82, "strict": false, "cost": 9928, "ok": true, "best": 8097}, {"n": 83, "strict": false, "cost": 10027, "ok": true, "best": 8097}, {"n": 84, "strict": false, "cost": 10648, "ok": true, "best": 8097}, {"n": 85, "strict": false, "cost": 8768, "ok": true, "best": 8097}, {"n": 86, "strict": false, "cost": 8078, "ok": true, "best": 8078}, {"n": 87, "strict": false, "cost": 9828, "ok": true, "best": 8078}, {"n": 88, "strict": false, "cost": 9075, "ok": false, "best": 8078}, {"n": 89, "strict": false, "cost": 9338, "ok": true, "best": 8078}, {"n": 90, "strict": false, "cost": 9878, "ok": true, "best": 8078}, {"n": 91, "strict": false, "cost": 8094, "ok": true, "best": 8078}, {"n": 92, "strict": false, "cost": 8261, "ok": true, "best": 8078}, {"n": 93, "strict": false, "cost": 9263, "ok": true, "best": 8078}, {"n": 94, "strict": false, "cost": 9408, "ok": true, "best": 8078}, {"n": 95, "strict": false, "cost": 8692, "ok": true, "best": 8078}, {"n": 96, "strict": false, "cost": 8768, "ok": true, "best": 8078}, {"n": 97, "strict": false, "cost": 9528, "ok": true, "best": 8078}, {"n": 98, "strict": false, "cost": 9878, "ok": true, "best": 8078}, {"n": 99, "strict": false, "cost": 10058, "ok": true, "best": 8078}, {"n": 100, "strict": false, "cost": 10062, "ok": true, "best": 8078}, {"n": 101, "strict": false, "cost": 8078, "ok": true, "best": 8078}, {"n": 102, "strict": false, "cost": 9833, "ok": true, "best": 8078}, {"n": 103, "strict": false, "cost": 9778, "ok": false, "best": 8078}, {"n": 104, "strict": false, "cost": 9338, "ok": true, "best": 8078}, {"n": 105, "strict": false, "cost": 10048, "ok": false, "best": 8078}, {"n": 106, "strict": false, "cost": 9992, "ok": false, "best": 8078}, {"n": 107, "strict": false, "cost": 9792, "ok": true, "best": 8078}, {"n": 108, "strict": false, "cost": 7997, "ok": true, "best": 7997}, {"n": 109, "strict": false, "cost": 7997, "ok": true, "best": 7997}, {"n": 110, "strict": false, "cost": 9447, "ok": true, "best": 7997}, {"n": 111, "strict": false, "cost": 8277, "ok": true, "best": 7997}, {"n": 112, "strict": false, "cost": 8994, "ok": false, "best": 7997}, {"n": 113, "strict": false, "cost": 9447, "ok": true, "best": 7997}, {"n": 114, "strict": false, "cost": 9797, "ok": true, "best": 7997}, {"n": 115, "strict": false, "cost": 9257, "ok": true, "best": 7997}, {"n": 116, "strict": false, "cost": 9967, "ok": false, "best": 7997}, {"n": 117, "strict": false, "cost": 9747, "ok": true, "best": 7997}, {"n": 118, "strict": false, "cost": 8687, "ok": true, "best": 7997}, {"n": 119, "strict": false, "cost": 9797, "ok": true, "best": 7997}, {"n": 120, "strict": false, "cost": 9182, "ok": true, "best": 7997}, {"n": 121, "strict": false, "cost": 9697, "ok": false, "best": 7997}, {"n": 122, "strict": false, "cost": 8261, "ok": true, "best": 7997}, {"n": 123, "strict": false, "cost": 9752, "ok": true, "best": 7997}, {"n": 124, "strict": false, "cost": 8611, "ok": true, "best": 7997}, {"n": 125, "strict": false, "cost": 9977, "ok": true, "best": 7997}, {"n": 126, "strict": false, "cost": 9911, "ok": false, "best": 7997}, {"n": 127, "strict": false, "cost": 8687, "ok": true, "best": 7997}, {"n": 128, "strict": false, "cost": 8013, "ok": true, "best": 7997}, {"n": 129, "strict": false, "cost": 9257, "ok": true, "best": 7997}, {"n": 130, "strict": false, "cost": 8078, "ok": true, "best": 7997}, {"n": 131, "strict": false, "cost": 9711, "ok": true, "best": 7997}, {"n": 132, "strict": false, "cost": 9327, "ok": true, "best": 7997}, {"n": 133, "strict": false, "cost": 9981, "ok": true, "best": 7997}, {"n": 134, "strict": false, "cost": 9257, "ok": true, "best": 7997}, {"n": 135, "strict": false, "cost": 9327, "ok": true, "best": 7997}, {"n": 136, "strict": false, "cost": 11818, "ok": true, "best": 7997}, {"n": 137, "strict": false, "cost": 12008, "ok": true, "best": 7997}, {"n": 138, "strict": false, "cost": 10542, "ok": true, "best": 7997}, {"n": 139, "strict": false, "cost": 11082, "ok": true, "best": 7997}, {"n": 140, "strict": false, "cost": 10806, "ok": true, "best": 7997}, {"n": 141, "strict": false, "cost": 10732, "ok": true, "best": 7997}, {"n": 142, "strict": false, "cost": 8787, "ok": true, "best": 7997}, {"n": 143, "strict": false, "cost": 9051, "ok": true, "best": 7997}, {"n": 144, "strict": false, "cost": 9327, "ok": true, "best": 7997}, {"n": 145, "strict": false, "cost": 8097, "ok": true, "best": 7997}, {"n": 146, "strict": false, "cost": 8377, "ok": true, "best": 7997}, {"n": 147, "strict": false, "cost": 9282, "ok": true, "best": 7997}, {"n": 148, "strict": false, "cost": 9897, "ok": true, "best": 7997}, {"n": 149, "strict": false, "cost": 10011, "ok": false, "best": 7997}, {"n": 150, "strict": false, "cost": 9427, "ok": true, "best": 7997}, {"n": 151, "strict": false, "cost": 10067, "ok": false, "best": 7997}, {"n": 152, "strict": false, "cost": 8361, "ok": true, "best": 7997}, {"n": 153, "strict": false, "cost": 8787, "ok": true, "best": 7997}, {"n": 154, "strict": false, "cost": 9897, "ok": true, "best": 7997}, {"n": 155, "strict": false, "cost": 9811, "ok": true, "best": 7997}, {"n": 156, "strict": false, "cost": 10077, "ok": true, "best": 7997}, {"n": 157, "strict": false, "cost": 9257, "ok": true, "best": 7997}, {"n": 158, "strict": false, "cost": 8711, "ok": true, "best": 7997}, {"n": 159, "strict": false, "cost": 9547, "ok": true, "best": 7997}, {"n": 160, "strict": false, "cost": 8178, "ok": true, "best": 7997}, {"n": 161, "strict": false, "cost": 9094, "ok": false, "best": 7997}, {"n": 162, "strict": false, "cost": 10081, "ok": true, "best": 7997}, {"n": 163, "strict": false, "cost": 8113, "ok": true, "best": 7997}, {"n": 164, "strict": false, "cost": 9547, "ok": true, "best": 7997}, {"n": 165, "strict": false, "cost": 8787, "ok": true, "best": 7997}, {"n": 166, "strict": false, "cost": 9797, "ok": false, "best": 7997}, {"n": 167, "strict": false, "cost": 9257, "ok": true, "best": 7997}, {"n": 168, "strict": false, "cost": 8097, "ok": true, "best": 7997}, {"n": 169, "strict": false, "cost": 9427, "ok": true, "best": 7997}, {"n": 170, "strict": false, "cost": 9852, "ok": true, "best": 7997}, {"n": 171, "strict": false, "cost": 9847, "ok": true, "best": 7997}, {"n": 172, "strict": false, "cost": 9357, "ok": true, "best": 7997}, {"n": 1, "strict": true, "cost": 8167, "ok": false, "best": null}, {"n": 2, "strict": true, "cost": 9967, "ok": false, "best": null}, {"n": 3, "strict": true, "cost": 9617, "ok": false, "best": null}, {"n": 4, "strict": true, "cost": 10147, "ok": false, "best": null}, {"n": 5, "strict": true, "cost": 9917, "ok": false, "best": null}, {"n": 6, "strict": true, "cost": 8167, "ok": false, "best": null}, {"n": 7, "strict": true, "cost": 8248, "ok": false, "best": null}, {"n": 8, "strict": true, "cost": 8857, "ok": false, "best": null}, {"n": 9, "strict": true, "cost": 9327, "ok": false, "best": null}, {"n": 10, "strict": true, "cost": 9922, "ok": true, "best": 9922}, {"n": 11, "strict": true, "cost": 10612, "ok": true, "best": 9922}, {"n": 12, "strict": true, "cost": 10202, "ok": true, "best": 9922}, {"n": 13, "strict": true, "cost": 11822, "ok": false, "best": 9922}, {"n": 14, "strict": true, "cost": 9938, "ok": true, "best": 9922}, {"n": 15, "strict": true, "cost": 11372, "ok": true, "best": 9922}, {"n": 16, "strict": true, "cost": 12472, "ok": true, "best": 9922}, {"n": 17, "strict": true, "cost": 10612, "ok": true, "best": 9922}, {"n": 18, "strict": true, "cost": 11372, "ok": true, "best": 9922}, {"n": 19, "strict": true, "cost": 11669, "ok": true, "best": 9922}, {"n": 20, "strict": true, "cost": 11888, "ok": true, "best": 9922}, {"n": 21, "strict": true, "cost": 11082, "ok": true, "best": 9922}, {"n": 22, "strict": true, "cost": 11722, "ok": true, "best": 9922}, {"n": 23, "strict": true, "cost": 11672, "ok": true, "best": 9922}, {"n": 24, "strict": true, "cost": 11640, "ok": true, "best": 9922}, {"n": 25, "strict": true, "cost": 10003, "ok": true, "best": 9922}, {"n": 26, "strict": true, "cost": 11182, "ok": true, "best": 9922}, {"n": 27, "strict": true, "cost": 11182, "ok": true, "best": 9922}, {"n": 28, "strict": true, "cost": 11888, "ok": false, "best": 9922}, {"n": 29, "strict": true, "cost": 11722, "ok": true, "best": 9922}, {"n": 30, "strict": true, "cost": 11182, "ok": true, "best": 9922}, {"n": 31, "strict": true, "cost": 12877, "ok": true, "best": 9922}, {"n": 32, "strict": true, "cost": 10186, "ok": true, "best": 9922}, {"n": 33, "strict": true, "cost": 9922, "ok": true, "best": 9922}, {"n": 34, "strict": true, "cost": 11892, "ok": false, "best": 9922}, {"n": 35, "strict": true, "cost": 11622, "ok": false, "best": 9922}, {"n": 36, "strict": true, "cost": 8167, "ok": false, "best": 9922}, {"n": 37, "strict": true, "cost": 11082, "ok": true, "best": 9922}, {"n": 38, "strict": true, "cost": 12024, "ok": true, "best": 9922}, {"n": 39, "strict": true, "cost": 11571, "ok": false, "best": 9922}, {"n": 40, "strict": true, "cost": 12024, "ok": true, "best": 9922}, {"n": 41, "strict": true, "cost": 11904, "ok": true, "best": 9922}, {"n": 42, "strict": true, "cost": 12324, "ok": true, "best": 9922}, {"n": 43, "strict": true, "cost": 12374, "ok": true, "best": 9922}, {"n": 44, "strict": true, "cost": 12024, "ok": true, "best": 9922}, {"n": 45, "strict": true, "cost": 11888, "ok": true, "best": 9922}, {"n": 46, "strict": true, "cost": 10147, "ok": false, "best": 9922}, {"n": 47, "strict": true, "cost": 12308, "ok": true, "best": 9922}, {"n": 48, "strict": true, "cost": 12168, "ok": true, "best": 9922}, {"n": 49, "strict": true, "cost": 12877, "ok": true, "best": 9922}, {"n": 50, "strict": true, "cost": 11818, "ok": true, "best": 9922}, {"n": 51, "strict": true, "cost": 11599, "ok": true, "best": 9922}, {"n": 52, "strict": true, "cost": 12309, "ok": false, "best": 9922}, {"n": 53, "strict": true, "cost": 11330, "ok": true, "best": 9922}, {"n": 54, "strict": true, "cost": 11820, "ok": true, "best": 9922}, {"n": 55, "strict": true, "cost": 11770, "ok": false, "best": 9922}, {"n": 56, "strict": true, "cost": 11680, "ok": true, "best": 9922}, {"n": 57, "strict": true, "cost": 11895, "ok": true, "best": 9922}, {"n": 58, "strict": true, "cost": 8975, "ok": false, "best": 9922}, {"n": 59, "strict": true, "cost": 12036, "ok": false, "best": 9922}, {"n": 60, "strict": true, "cost": 12666, "ok": true, "best": 9922}, {"n": 61, "strict": true, "cost": 10070, "ok": true, "best": 9922}, {"n": 62, "strict": true, "cost": 10619, "ok": true, "best": 9922}, {"n": 63, "strict": true, "cost": 10016, "ok": true, "best": 9922}, {"n": 64, "strict": true, "cost": 10706, "ok": true, "best": 9922}, {"n": 65, "strict": true, "cost": 11816, "ok": true, "best": 9922}, {"n": 66, "strict": true, "cost": 10186, "ok": true, "best": 9922}, {"n": 67, "strict": true, "cost": 11816, "ok": true, "best": 9922}, {"n": 68, "strict": true, "cost": 11986, "ok": false, "best": 9922}, {"n": 69, "strict": true, "cost": 11766, "ok": true, "best": 9922}, {"n": 70, "strict": true, "cost": 9752, "ok": true, "best": 9752}, {"n": 71, "strict": true, "cost": 9922, "ok": true, "best": 9752}, {"n": 72, "strict": true, "cost": 11452, "ok": false, "best": 9752}, {"n": 73, "strict": true, "cost": 11012, "ok": true, "best": 9752}, {"n": 74, "strict": true, "cost": 11547, "ok": true, "best": 9752}, {"n": 75, "strict": true, "cost": 11502, "ok": true, "best": 9752}, {"n": 76, "strict": true, "cost": 11012, "ok": true, "best": 9752}, {"n": 77, "strict": true, "cost": 11552, "ok": true, "best": 9752}, {"n": 78, "strict": true, "cost": 10339, "ok": true, "best": 9752}, {"n": 79, "strict": true, "cost": 10310, "ok": true, "best": 9752}, {"n": 80, "strict": true, "cost": 9833, "ok": true, "best": 9752}, {"n": 81, "strict": true, "cost": 7997, "ok": false, "best": 9752}, {"n": 82, "strict": true, "cost": 10558, "ok": true, "best": 9752}, {"n": 83, "strict": true, "cost": 10442, "ok": true, "best": 9752}, {"n": 84, "strict": true, "cost": 9768, "ok": true, "best": 9752}, {"n": 85, "strict": true, "cost": 11718, "ok": false, "best": 9752}, {"n": 86, "strict": true, "cost": 11722, "ok": false, "best": 9752}, {"n": 87, "strict": true, "cost": 11652, "ok": false, "best": 9752}, {"n": 88, "strict": true, "cost": 11142, "ok": true, "best": 9752}, {"n": 89, "strict": true, "cost": 11082, "ok": true, "best": 9752}, {"n": 90, "strict": true, "cost": 9852, "ok": true, "best": 9752}, {"n": 91, "strict": true, "cost": 10032, "ok": true, "best": 9752}, {"n": 92, "strict": true, "cost": 10016, "ok": true, "best": 9752}, {"n": 93, "strict": true, "cost": 11552, "ok": true, "best": 9752}, {"n": 94, "strict": true, "cost": 11202, "ok": true, "best": 9752}, {"n": 95, "strict": true, "cost": 9282, "ok": true, "best": 9282}, {"n": 96, "strict": true, "cost": 11082, "ok": true, "best": 9282}, {"n": 97, "strict": true, "cost": 10310, "ok": true, "best": 9282}, {"n": 98, "strict": true, "cost": 10442, "ok": true, "best": 9282}, {"n": 99, "strict": true, "cost": 9972, "ok": true, "best": 9282}, {"n": 100, "strict": true, "cost": 10732, "ok": true, "best": 9282}, {"n": 101, "strict": true, "cost": 11938, "ok": false, "best": 9282}, {"n": 102, "strict": true, "cost": 10732, "ok": true, "best": 9282}, {"n": 103, "strict": true, "cost": 11547, "ok": true, "best": 9282}, {"n": 104, "strict": true, "cost": 9852, "ok": true, "best": 9282}, {"n": 105, "strict": true, "cost": 9363, "ok": true, "best": 9282}, {"n": 106, "strict": true, "cost": 11872, "ok": false, "best": 9282}, {"n": 107, "strict": true, "cost": 11032, "ok": true, "best": 9282}, {"n": 108, "strict": true, "cost": 9562, "ok": true, "best": 9282}, {"n": 109, "strict": true, "cost": 10558, "ok": true, "best": 9282}, {"n": 110, "strict": true, "cost": 11082, "ok": true, "best": 9282}, {"n": 111, "strict": true, "cost": 10339, "ok": true, "best": 9282}, {"n": 112, "strict": true, "cost": 9752, "ok": true, "best": 9282}, {"n": 113, "strict": true, "cost": 7527, "ok": false, "best": 9282}, {"n": 114, "strict": true, "cost": 11142, "ok": true, "best": 9282}, {"n": 115, "strict": true, "cost": 10612, "ok": true, "best": 9282}, {"n": 116, "strict": true, "cost": 10542, "ok": true, "best": 9282}, {"n": 117, "strict": true, "cost": 9298, "ok": true, "best": 9282}, {"n": 118, "strict": true, "cost": 10542, "ok": true, "best": 9282}, {"n": 119, "strict": true, "cost": 11942, "ok": false, "best": 9282}, {"n": 120, "strict": true, "cost": 9546, "ok": true, "best": 9282}, {"n": 121, "strict": true, "cost": 11672, "ok": false, "best": 9282}, {"n": 122, "strict": true, "cost": 9922, "ok": true, "best": 9282}, {"n": 123, "strict": true, "cost": 9708, "ok": false, "best": 9282}, {"n": 124, "strict": true, "cost": 9401, "ok": false, "best": 9282}, {"n": 125, "strict": true, "cost": 9988, "ok": false, "best": 9282}, {"n": 126, "strict": true, "cost": 9282, "ok": false, "best": 9282}, {"n": 127, "strict": true, "cost": 9182, "ok": false, "best": 9282}, {"n": 128, "strict": true, "cost": 9352, "ok": false, "best": 9282}, {"n": 129, "strict": true, "cost": 9789, "ok": false, "best": 9282}, {"n": 130, "strict": true, "cost": 9972, "ok": false, "best": 9282}, {"n": 131, "strict": true, "cost": 9797, "ok": false, "best": 9282}, {"n": 132, "strict": true, "cost": 9227, "ok": false, "best": 9282}, {"n": 133, "strict": true, "cost": 9978, "ok": false, "best": 9282}, {"n": 134, "strict": true, "cost": 9922, "ok": false, "best": 9282}, {"n": 135, "strict": true, "cost": 9472, "ok": false, "best": 9282}, {"n": 136, "strict": true, "cost": 10503, "ok": false, "best": 9282}, {"n": 137, "strict": true, "cost": 12010, "ok": false, "best": 9282}, {"n": 138, "strict": true, "cost": 9724, "ok": false, "best": 9282}, {"n": 139, "strict": true, "cost": 9867, "ok": false, "best": 9282}, {"n": 140, "strict": true, "cost": 9822, "ok": false, "best": 9282}, {"n": 141, "strict": true, "cost": 8712, "ok": false, "best": 9282}, {"n": 142, "strict": true, "cost": 9282, "ok": false, "best": 9282}, {"n": 143, "strict": true, "cost": 9005, "ok": false, "best": 9282}, {"n": 144, "strict": true, "cost": 10507, "ok": false, "best": 9282}, {"n": 145, "strict": true, "cost": 8022, "ok": false, "best": 9282}, {"n": 146, "strict": true, "cost": 9822, "ok": false, "best": 9282}, {"n": 147, "strict": true, "cost": 9697, "ok": false, "best": 9282}, {"n": 148, "strict": true, "cost": 9472, "ok": false, "best": 9282}, {"n": 149, "strict": true, "cost": 9137, "ok": false, "best": 9282}, {"n": 150, "strict": true, "cost": 9772, "ok": false, "best": 9282}, {"n": 151, "strict": true, "cost": 12519, "ok": false, "best": 9282}, {"n": 152, "strict": true, "cost": 12738, "ok": false, "best": 9282}, {"n": 153, "strict": true, "cost": 11879, "ok": true, "best": 9282}, {"n": 154, "strict": true, "cost": 11879, "ok": true, "best": 9282}, {"n": 155, "strict": true, "cost": 12519, "ok": false, "best": 9282}, {"n": 156, "strict": true, "cost": 12419, "ok": true, "best": 9282}, {"n": 157, "strict": true, "cost": 12098, "ok": true, "best": 9282}, {"n": 158, "strict": true, "cost": 8991, "ok": false, "best": 9282}, {"n": 159, "strict": true, "cost": 11949, "ok": true, "best": 9282}, {"n": 160, "strict": true, "cost": 12419, "ok": true, "best": 9282}, {"n": 161, "strict": true, "cost": 11779, "ok": true, "best": 9282}, {"n": 162, "strict": true, "cost": 12419, "ok": true, "best": 9282}, {"n": 163, "strict": true, "cost": 10032, "ok": true, "best": 9282}, {"n": 164, "strict": true, "cost": 10032, "ok": true, "best": 9282}, {"n": 165, "strict": true, "cost": 11782, "ok": true, "best": 9282}, {"n": 166, "strict": true, "cost": 11998, "ok": false, "best": 9282}, {"n": 167, "strict": true, "cost": 11482, "ok": true, "best": 9282}, {"n": 168, "strict": true, "cost": 10722, "ok": true, "best": 9282}, {"n": 169, "strict": true, "cost": 11292, "ok": true, "best": 9282}, {"n": 170, "strict": true, "cost": 11482, "ok": true, "best": 9282}, {"n": 171, "strict": true, "cost": 11998, "ok": true, "best": 9282}, {"n": 172, "strict": true, "cost": 9752, "ok": true, "best": 9282}, {"n": 173, "strict": true, "cost": 11012, "ok": true, "best": 9282}, {"n": 174, "strict": true, "cost": 10016, "ok": true, "best": 9282}, {"n": 175, "strict": true, "cost": 11202, "ok": true, "best": 9282}, {"n": 176, "strict": true, "cost": 11012, "ok": true, "best": 9282}, {"n": 177, "strict": true, "cost": 11652, "ok": false, "best": 9282}, {"n": 178, "strict": true, "cost": 9752, "ok": true, "best": 9282}, {"n": 179, "strict": true, "cost": 9768, "ok": true, "best": 9282}, {"n": 180, "strict": true, "cost": 11552, "ok": true, "best": 9282}, {"n": 181, "strict": true, "cost": 7997, "ok": false, "best": 9282}, {"n": 182, "strict": true, "cost": 11718, "ok": true, "best": 9282}, {"n": 183, "strict": true, "cost": 12302, "ok": true, "best": 9282}, {"n": 184, "strict": true, "cost": 11082, "ok": true, "best": 9282}, {"n": 185, "strict": true, "cost": 9833, "ok": true, "best": 9282}, {"n": 186, "strict": true, "cost": 10032, "ok": true, "best": 9282}, {"n": 187, "strict": true, "cost": 11082, "ok": true, "best": 9282}, {"n": 188, "strict": true, "cost": 11718, "ok": false, "best": 9282}, {"n": 189, "strict": true, "cost": 11202, "ok": true, "best": 9282}, {"n": 190, "strict": true, "cost": 10442, "ok": true, "best": 9282}, {"n": 191, "strict": true, "cost": 11502, "ok": true, "best": 9282}, {"n": 192, "strict": true, "cost": 11722, "ok": false, "best": 9282}, {"n": 193, "strict": true, "cost": 11552, "ok": true, "best": 9282}, {"n": 194, "strict": true, "cost": 10442, "ok": true, "best": 9282}, {"n": 195, "strict": true, "cost": 12707, "ok": true, "best": 9282}, {"n": 196, "strict": true, "cost": 11499, "ok": true, "best": 9282}, {"n": 197, "strict": true, "cost": 11470, "ok": true, "best": 9282}, {"n": 198, "strict": true, "cost": 11012, "ok": true, "best": 9282}, {"n": 199, "strict": true, "cost": 11452, "ok": false, "best": 9282}], "opt": {"today": {"x": {"korpus": "fritzoe-kaindl-1570-hvit-19", "skuff": "fritzoe-kaindl-1570-hvit-19", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 2}, "ok": true, "cost": 8167, "why": [], "sheets": 3882, "cnc_min": 170, "cnc_kr": 1605, "hardware": 2680, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 40, "roles": ["front", "ytre"]}, {"navn": "Spon melamin Kaindl 1570 PE hvit", "ark": 1, "kr": 1330, "used": 56, "roles": ["korpus", "skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "t": "2026-11-22T17:19:45", "free_look": false, "region": "oslo", "currency": "NOK", "sales_tax": 0.0, "machine_per_h": 568.0, "hw_per_drawer": 320.0, "loose": {"best": {"x": {"korpus": "fritzoe-koskimel-hvit-19", "skuff": "fritzoe-koskimel-hvit-19", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 2}, "ok": true, "cost": 7997, "why": [], "sheets": 3712, "cnc_min": 170, "cnc_kr": 1605, "hardware": 2680, "drawers": 8, "box_width": 747, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 40, "roles": ["front", "ytre"]}, {"navn": "Spon melamin Koskimel SF hvit", "ark": 1, "kr": 1160, "used": 65, "roles": ["korpus", "skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 73, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 172}, "strict": {"best": {"x": {"korpus": "fritzoe-kaindl-eik-dew-19", "skuff": "fritzoe-fimaplast-hvit-19-2440", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3", "kolonner": 3}, "ok": true, "cost": 9282, "why": [], "sheets": 3242, "cnc_min": 207, "cnc_kr": 1960, "hardware": 4080, "drawers": 12, "box_width": 483, "estimate": false, "materials": [{"navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "ark": 1, "kr": 1750, "used": 64, "roles": ["front", "ytre", "korpus"]}, {"navn": "Spon melamin Fimaplast SR209 78E hvit (2440\u00d71220)", "ark": 1, "kr": 690, "used": 82, "roles": ["skuff"]}, {"navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "ark": 1, "kr": 533, "used": 70, "roles": ["skuffebunn"]}, {"navn": "Moelven trefiberplate standard 3 mm (brun)", "ark": 1, "kr": 269, "used": 35, "roles": ["bakplate"]}]}, "evaluations": 199}}};
+const $ = s => document.querySelector(s);
+const pct = (a, b) => b ? Math.round(100 * a / b) : null;
+const kr = v => v == null ? '–' : Math.round(v).toLocaleString('nb-NO').replace(/ /g, ' ') + ' kr';
+const NS = 'http://www.w3.org/2000/svg';
+const H = D.hist, last = H[H.length - 1], first = H[0];
+const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
+const O = D.opt;
+
+$('#stats').innerHTML = [
+  ['hero', pct(last.heldout_caught, last.heldout_n) + '%', 'held-out faults caught', 'generator alone: ' + pct(last.heldout_gen, last.heldout_n) + '%'],
+  ['', pct(train(last).c, train(last).n) + '%', 'training faults caught', 'generator alone: ' + pct(first.train_gen, first.train_n) + '%'],
+  ['', String(last.false_pos), 'false alarms', 'on ' + last.good_n + ' known-good designs'],
+  ['', String(last.rules), 'rules', D.rules.filter(r => r.auto).length + ' written by the loop']
+].map(([c, b, l, f]) => `<div class="stat ${c}"><b>${b}</b><span class="l">${l}</span><span class="from">${f}</span></div>`).join('');
+
+function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
+  let s = '';
+  for (const g of yTicks) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(g)}" y2="${y(g)}" stroke="var(--grid)" stroke-width="1"/>
+    <text x="${m.l - 10}" y="${y(g) + 4}" text-anchor="end" font-size="12" fill="var(--mute)">${yFmt(g)}</text>`;
+  s += `<line x1="${m.l}" x2="${W - m.r}" y1="${Hh - m.b}" y2="${Hh - m.b}" stroke="var(--line)" stroke-width="1.5"/>`;
+  s += `<text transform="translate(16 ${(m.t + Hh - m.b) / 2}) rotate(-90)" text-anchor="middle" font-size="12" fill="var(--mute)">${yTitle}</text>`;
+  s += `<text x="${(m.l + W - m.r) / 2}" y="${Hh - 6}" text-anchor="middle" font-size="12" fill="var(--mute)">${xTitle}</text>`;
+  return s;
+}
+
+// --- score chart
+(function () {
+  const W = 960, Hh = 420, m = { l: 74, r: 28, t: 24, b: 92 };
+  const x = i => m.l + 14 + i * (W - m.l - m.r - 28) / Math.max(1, H.length - 1);
+  const y = v => m.t + (100 - v) * (Hh - m.t - m.b) / 100;
+  let s = axes(W, Hh, m, [0, 25, 50, 75, 100], g => g + '%', y, 'Faults stopped before cutting', 'Checker version (each step = one change to the rule book, in time order)');
+  H.forEach((h, i) => {
+    const loop = h.label.startsWith('Loop');
+    if (loop) s += `<rect x="${x(i) - 6}" y="${m.t}" width="12" height="${Hh - m.b - m.t}" fill="var(--accent)" fill-opacity=".07"/>`;
+    s += `<text transform="translate(${x(i) + 4} ${Hh - m.b + 14}) rotate(35)" font-size="11.5" fill="${loop ? 'var(--accent)' : 'var(--mute)'}">${h.label}</text>`;
+  });
+  const series = [
+    { col: 'var(--base)', w: 2, dash: '6 5', v: H.map(h => pct(h.train_gen, h.train_n)) },
+    { col: 'var(--train)', w: 2.5, v: H.map(h => pct(train(h).c, train(h).n)) },
+    { col: 'var(--accent)', w: 3.5, v: H.map(h => h.heldout_n ? pct(h.heldout_caught, h.heldout_n) : null) },
+  ];
+  for (const se of series) {
+    const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v), v, i]).filter(Boolean);
+    if (!pts.length) continue;
+    s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
+    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
+    const lp = pts[pts.length - 1];
+    s += `<text x="${lp[0] + 8}" y="${lp[1] + (se.col.includes('train') ? -8 : 16)}" font-size="13" font-weight="500" fill="${se.col}">${lp[2]}%</text>`;
+  }
+  // annotate the start of the held-out line
+  const hi = H.findIndex(h => h.heldout_n);
+  if (hi >= 0) s += `<text x="${x(hi) - 6}" y="${y(pct(H[hi].heldout_caught, H[hi].heldout_n)) + 22}" text-anchor="end" font-size="11.5" fill="var(--accent)">held-out set added here</text>`;
+  const svg = $('#score'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
+})();
+
+// --- cost chart
+(function () {
+  const E = D.opt_hist || [];
+  if (!E.length) { $('#cost').outerHTML = '<p class="mute">Run python3 optimize.py to fill this chart.</p>'; return; }
+  const runs = [false, true].map(st => E.filter(e => e.strict === st));
+  const nMax = Math.max(...runs.map(r => r.length));
+  const costs = E.map(e => e.cost).filter(v => v != null);
+  const lo = Math.floor(Math.min(...costs) / 1000) * 1000, hi = Math.ceil(Math.max(...costs) / 1000) * 1000;
+  const W = 960, Hh = 400, m = { l: 84, r: 28, t: 20, b: 52 };
+  const x = n => m.l + 8 + (n - 1) * (W - m.l - m.r - 16) / Math.max(1, nMax - 1);
+  const y = v => m.t + (hi - v) * (Hh - m.t - m.b) / (hi - lo);
+  const ticks = []; const step = (hi - lo) > 6000 ? 2000 : 1000; for (let v = lo; v <= hi; v += step) ticks.push(v);
+  let s = axes(W, Hh, m, ticks, v => (v / 1000).toLocaleString('nb-NO') + ' 000', y, 'Total cost (kr)', 'Candidate designs tried by the optimizer');
+  for (const n of [1, 50, 100, 150, 200].filter(n => n <= nMax)) s += `<text x="${x(n)}" y="${Hh - m.b + 18}" text-anchor="middle" font-size="11.5" fill="var(--mute)">${n}</text>`;
+  runs.forEach((r, k) => r.forEach((e, i) => {
+    if (e.cost == null) return;
+    s += `<circle cx="${x(i + 1) + (k ? 2 : -2)}" cy="${y(e.cost)}" r="3" fill="${e.ok ? 'var(--faint)' : 'var(--bad)'}" fill-opacity="${e.ok ? .45 : .8}"><title>${e.ok ? 'passed' : 'rejected by checker'}: ${kr(e.cost)}</title></circle>`;
+  }));
+  runs.forEach((r, k) => {
+    const pts = r.map((e, i) => e.best == null ? null : [x(i + 1), y(e.best), e.best]).filter(Boolean);
+    if (!pts.length) return;
+    const col = k ? 'var(--train)' : 'var(--accent)';
+    s += `<polyline fill="none" stroke="${col}" stroke-width="3" stroke-linejoin="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
+    const lp = pts[pts.length - 1];
+    s += `<circle cx="${lp[0]}" cy="${lp[1]}" r="5" fill="${col}"/><text x="${lp[0] - 8}" y="${lp[1] - 10}" text-anchor="end" font-size="13" font-weight="500" fill="${col}">${kr(lp[2])}</text>`;
+  });
+  if (O && O.today) s += `<line x1="${m.l}" x2="${W - m.r}" y1="${y(O.today.cost)}" y2="${y(O.today.cost)}" stroke="var(--fg)" stroke-width="1" stroke-dasharray="3 4"/>
+    <text x="${m.l + 6}" y="${y(O.today.cost) - 6}" font-size="11.5" fill="var(--fg)">today's design ${kr(O.today.cost)}</text>`;
+  const svg = $('#cost'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`); svg.innerHTML = s;
+})();
+
+// --- comparison cards
+(function () {
+  if (!O) return;
+  const t = O.today, a = O.loose && O.loose.best, b = O.strict && O.strict.best;
+  const card = (r, title, cls, note) => !r ? '' : `<div class="card opt ${cls}">
+    <div class="eyebrow">${title}</div>
+    <div class="price">${kr(r.cost)}</div>
+    <div class="delta" style="color:${r === t ? 'var(--mute)' : r.cost <= t.cost ? 'var(--ok)' : 'var(--warn)'}">${r === t ? 'current params.json' : (r.cost <= t.cost ? '−' : '+') + kr(Math.abs(r.cost - t.cost)) + ' vs today'}</div>
+    <dl><dt>Sheets</dt><dd>${kr(r.sheets)}</dd><dt>Spindle time</dt><dd>${r.cnc_min} min · ${kr(r.cnc_kr)}</dd>
+      <dt>Hardware</dt><dd>${kr(r.hardware)}</dd><dt>Drawers</dt><dd>${r.drawers} × ${r.box_width} mm wide</dd></dl>
+    <ul>${r.materials.map(mm => `<li>${mm.navn.replace(/\s*\(.*\)$/, '')}: ${mm.ark} sheet, ${mm.used}% used</li>`).join('')}</ul>
+    <p style="font-size:13px">${note}</p></div>`;
+  $('#cmp').innerHTML = card(t, 'Today', '', 'Two columns. Drawers exceed Hettich’s 550 mm.')
+    + card(a, 'Cheapest, any width', '', 'Same layout, cheaper white board that still fits one sheet.')
+    + card(b, 'Cheapest within Hettich', 'best', 'Three columns. The carcass moves onto the oak sheet, which was only 40% used.');
+})();
+
+
+// --- catch map
+(function () {
+  const A = D.attr; if (!A) return;
+  const meta = Object.fromEntries(D.rules.map(r => [r.id, r]));
+  const layers = ['gen', ...A.rules];
+  const origin = r => r === 'gen' ? 'gen' : meta[r] && meta[r].auto ? 'loop' : (+r.slice(1) >= 18 ? 'manual' : 'seed');
+  const col = { gen: 'var(--base)', seed: 'var(--seed)', loop: 'var(--loop)', manual: 'var(--manual)' };
+  const name = r => r === 'gen' ? 'Generator’s own check' : r + ' · ' + (meta[r] ? meta[r].desc : '');
+  const SETS = [['train', 'Training'], ['mined', 'Mined'], ['heldout', 'Held-out']];
+  const catchers = f => layers.filter(l => l === 'gen' ? f.gen : f.rules.includes(l));
+  const firstIdx = f => { const c = catchers(f); return c.length ? layers.indexOf(c[0]) : 999; };
+  const groups = SETS.map(([k, lab]) => ({ k, lab, rows: A.rows.filter(r => r.set === k).sort((a, b) => firstIdx(a) - firstIdx(b) || a.id.localeCompare(b.id)) }));
+  const all = groups.flatMap(g => g.rows);
+  const cw = 12, rh = 15, lw = 64, top = 46, gap = 22, barW = 150;
+  const xs = []; let x = lw;
+  groups.forEach(g => { g.x0 = x; g.rows.forEach(r => { xs.push(x); x += cw; }); g.x1 = x; x += gap; });
+  const W = x - gap + 18 + barW, gridB = top + layers.length * rh, Hh = gridB + 52;
+  const svg = $('#map'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  const total = Object.fromEntries(layers.map(l => [l, 0])), only = Object.fromEntries(layers.map(l => [l, 0]));
+  all.forEach(f => { const c = catchers(f); c.forEach(l => total[l]++); if (c.length === 1) only[c[0]]++; });
+  const maxT = Math.max(...Object.values(total));
+
+  let s = '';
+  groups.forEach(g => {
+    s += `<text x="${g.x0}" y="16" font-size="12" font-weight="500" fill="var(--fg)">${g.lab}</text>
+      <text x="${g.x0}" y="31" font-size="11" fill="var(--mute)">${g.rows.length} faults</text>
+      <line x1="${g.x0}" x2="${g.x1 - 2}" y1="38" y2="38" stroke="var(--line)" stroke-width="1.5"/>`;
+  });
+  let prevO = null;
+  layers.forEach((l, i) => {
+    const y = top + i * rh, o = origin(l);
+    if (o !== prevO && i) s += `<line x1="4" x2="${W - barW - 10}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    prevO = o;
+    s += `<rect x="4" y="${y + 3}" width="4" height="${rh - 6}" fill="${col[o]}"/>
+      <text class="rl" data-l="${i}" x="${lw - 8}" y="${y + rh / 2 + 4}" text-anchor="end" font-size="11" fill="var(--mute)">${l === 'gen' ? 'Gen' : l}<title>${name(l).replace(/</g, '&lt;')}</title></text>`;
+    const bx = W - barW;
+    s += `<rect class="tb" data-l="${i}" x="${bx}" y="${y + 3}" width="${(barW - 64) * total[l] / maxT}" height="${rh - 6}" fill="${col[o]}" fill-opacity=".25"/>
+      <rect class="ob" data-l="${i}" x="${bx}" y="${y + 3}" width="${(barW - 64) * only[l] / maxT}" height="${rh - 6}" fill="${col[o]}"/>
+      <text class="bt" data-l="${i}" x="${bx + (barW - 64) * total[l] / maxT + 5}" y="${y + rh / 2 + 4}" font-size="10.5" fill="var(--mute)">${total[l]}${only[l] ? ' · ' + only[l] : ''}</text>`;
+  });
+  s += `<text x="${W - barW}" y="31" font-size="11" fill="var(--mute)">caught · only it</text>`;
+  // origin labels
+  // cells
+  all.forEach((f, j) => {
+    const cx = xs[j], c = catchers(f);
+    s += `<g class="col" data-j="${j}"><rect class="hl" x="${cx}" y="${top - 4}" width="${cw}" height="${gridB - top + 30}" fill="var(--accent)" fill-opacity=".08" opacity="0"/>`;
+    c.forEach(l => { const i = layers.indexOf(l);
+      s += `<rect class="cell" data-i="${i}" data-j="${j}" x="${cx + 1.5}" y="${top + i * rh + 2}" width="${cw - 3}" height="${rh - 4}" rx="1.5"/>`; });
+    s += `<rect class="res" data-j="${j}" x="${cx + 1.5}" y="${gridB + 8}" width="${cw - 3}" height="12" rx="1.5"/>`;
+    s += `<rect x="${cx}" y="${top - 4}" width="${cw}" height="${gridB - top + 30}" fill="transparent"/></g>`;
+  });
+  s += `<text x="${lw - 8}" y="${gridB + 18}" text-anchor="end" font-size="11" fill="var(--mute)">Result</text>`;
+  s += `<text x="${lw}" y="${Hh - 8}" font-size="11.5" fill="var(--mute)">Each column is one fault · each row one layer of the checker, oldest at the top</text>`;
+  svg.innerHTML = s;
+
+  const cells = [...svg.querySelectorAll('.cell')], res = [...svg.querySelectorAll('.res')];
+  const ver = $('#ver'); ver.max = layers.length; ver.value = layers.length;
+  function draw(v) {
+    const on = i => i < v;
+    cells.forEach(el => {
+      const i = +el.dataset.i, f = all[+el.dataset.j];
+      const firstOn = catchers(f).map(l => layers.indexOf(l)).find(on);
+      if (on(i)) { el.setAttribute('fill', col[origin(layers[i])]); el.setAttribute('fill-opacity', i === firstOn ? 1 : .3);
+        el.setAttribute('stroke', 'none'); el.removeAttribute('stroke-dasharray'); }
+      else { el.setAttribute('fill', 'none'); el.setAttribute('stroke', 'var(--faint)'); el.setAttribute('stroke-dasharray', '2 2'); el.setAttribute('stroke-width', 1); }
+    });
+    const cnt = {};
+    res.forEach(el => { const f = all[+el.dataset.j], ok = catchers(f).some(l => on(layers.indexOf(l)));
+      el.setAttribute('fill', ok ? 'var(--ok)' : 'var(--bad)'); el.setAttribute('fill-opacity', ok ? .85 : .9);
+      cnt[f.set] = cnt[f.set] || [0, 0]; cnt[f.set][1]++; if (ok) cnt[f.set][0]++; });
+    svg.querySelectorAll('[data-l]').forEach(el => el.style.opacity = +el.dataset.l < v ? 1 : .3);
+    $('#counts').innerHTML = SETS.map(([k, lab]) => cnt[k] ? `<span><b style="color:${k === 'heldout' ? 'var(--accent)' : 'var(--fg)'}">${cnt[k][0]}/${cnt[k][1]}</b>${lab.toLowerCase()} caught</span>` : '').join('')
+      + `<span><b>${v - 1}</b>rules</span>`;
+    const l = layers[v - 1], o = origin(l);
+    const gained = all.filter(f => catchers(f).map(c => layers.indexOf(c)).filter(on)[0] === v - 1);
+    $('#vlab').textContent = `version ${v} of ${layers.length}`;
+    $('#now').innerHTML = `<b style="color:${col[o]}">${l === 'gen' ? 'Generator only' : l}</b> ${l === 'gen' ? '– the checks the generator already had.' : '– ' + (meta[l] ? meta[l].desc : '')}`
+      + (gained.length ? ` <span class="mute">New catches: ${gained.map(f => f.id).join(', ')}.</span>` : total[l] ? ' <span class="mute">No new catches – it backs up rules that already existed.</span>' : ' <span class="mute">Catches none of the current faults: it only warns (warnings never block a cut), or no fault in the library exercises it yet.</span>');
+  }
+  draw(layers.length);
+  ver.addEventListener('input', () => { stop(); draw(+ver.value); });
+  let timer = null;
+  const stop = () => { clearInterval(timer); timer = null; $('#play').textContent = '▶ Play'; };
+  $('#play').addEventListener('click', () => {
+    if (timer) return stop();
+    let v = +ver.value >= layers.length ? 1 : +ver.value;
+    $('#play').textContent = '❚❚ Pause'; ver.value = v; draw(v);
+    timer = setInterval(() => { v++; if (v > layers.length) return stop(); ver.value = v; draw(v); }, 650);
+  });
+  const tip = $('#tip');
+  svg.addEventListener('mousemove', e => {
+    const g = e.target.closest('.col'); if (!g) { tip.style.opacity = 0; return; }
+    const f = all[+g.dataset.j], c = catchers(f);
+    tip.innerHTML = '';
+    const h = document.createElement('div'); h.innerHTML = `<b>${f.id}</b> · ${f.set}`; tip.appendChild(h);
+    for (const [t, cls] of [[f.title, ''], [f.why, 'w'], [c.length ? 'Caught by ' + c.map(l => l === 'gen' ? 'generator' : l).join(', ') : 'Not caught by any layer', 'c']]) {
+      if (!t) continue; const d = document.createElement('div'); d.textContent = t; if (cls) d.style.opacity = .8; tip.appendChild(d); }
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 360) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; tip.style.opacity = 1;
+  });
+  svg.addEventListener('mouseleave', () => tip.style.opacity = 0);
+
+  // lessons, computed from the same data
+  const ho = groups.find(g => g.k === 'heldout').rows;
+  const by = o => ho.filter(f => { const c = catchers(f); return c.length && origin(c[0]) === o; }).length;
+  const hoCaught = ho.filter(f => catchers(f).length).length;
+  const single = all.filter(f => catchers(f).length === 1).length;
+  const deep = all.filter(f => catchers(f).length >= 3).length;
+  const miss = ho.filter(f => !catchers(f).length);
+  const loopHelp = ho.filter(f => catchers(f).some(l => origin(l) === 'loop')).length;
+  const loopRules = layers.filter(l => origin(l) === 'loop');
+  const narrow = loopRules.filter(l => total[l] <= 1).length;
+  $('#lessons').innerHTML = `
+    <div class="card lesson"><span class="eyebrow">Generalisation</span><span class="big">${hoCaught}/${ho.length}</span>
+      <p>held-out faults caught by rules that never saw them. First caught by: seed rules ${by('seed')}, generator ${by('gen')}, loop ${by('loop')}, manuals ${by('manual')}. Loop rules back up ${loopHelp} of them.</p></div>
+    <div class="card lesson" style="border-color:var(--warn)"><span class="eyebrow" style="color:var(--warn)">Single points of failure</span><span class="big">${single}</span>
+      <p>faults caught by exactly one layer. Delete that rule and they slip through. ${deep} ${deep === 1 ? 'fault is' : 'faults are'} caught by three or more layers. Most of the checker is one rule deep.</p></div>
+    <div class="card lesson" style="border-color:var(--loop)"><span class="eyebrow" style="color:var(--loop)">Loop rules stay narrow</span><span class="big">${narrow}/${loopRules.length}</span>
+      <p>loop-written rules catch only the one fault they were written for. Together they stop ${loopHelp} held-out ${loopHelp === 1 ? 'fault' : 'faults'}. The gate checks “caught the target, broke nothing” but not “caught anything else”, so it accepts rules that are correct but specific. Next step: make the gate reward rules that also catch unseen faults.</p></div>
+    <div class="card lesson" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Blind spots</span><span class="big">${miss.length}</span>
+      <p>held-out faults nothing catches yet:</p><ul>${miss.map(f => `<li>${f.title.replace(/</g, '&lt;')}</li>`).join('')}</ul></div>
+    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">Lesson about the tests</span><span class="big">h19</span>
+      <p>When the Minifix depth was corrected to 14.0 mm, one held-out fault quietly stopped doing anything – it edited a file layer named after the old 13.5 mm depth. The score dropped for the wrong reason. The harness now refuses any fault that changes nothing.</p></div>`;
+})();
+
+// --- region comparison
+(function () {
+  const U = D.opt_us; if (!O || !U) return;
+  const fx = U.nok_per_usd, usd = v => '$' + Math.round(v).toLocaleString('en-US');
+  const rows = [['Today’s design', O.today, U.today], ['Cheapest, any width', O.loose && O.loose.best, U.loose && U.loose.best],
+                ['Cheapest within Hettich', O.strict && O.strict.best, U.strict && U.strict.best]];
+  const part = (a, b, k, n) => `${n} ${usd(a[k] / fx)} → ${usd(b[k])}`;
+  $('#region tbody').innerHTML = rows.filter(r => r[1] && r[2]).map(([n, a, b]) => `<tr><td>${n}</td><td class="id">${kr(a.cost)}</td><td class="id">${usd(a.cost / fx)}</td><td class="id"><b>${usd(b.cost)}</b></td>
+    <td style="font-size:13px">${part(a, b, 'sheets', 'sheets')} · ${part(a, b, 'cnc_kr', 'machine')} · ${part(a, b, 'hardware', 'hardware')}<br><span class="mute">${b.materials.map(m => m.ark + '× ' + m.navn.replace(/\s*\(.*\)$/, '').replace(/ 3\/4in.*| 1\/[48]in.*| 4x8.*/, '')).join(', ')}</span></td></tr>`).join('');
+  $('#regionnote').textContent = `Same machine (ShopBot, 2440×1220 bed), same rules, same oak-outside / white-inside look. US 4×8 sheets (2438×1219) have half the area of the 2800×2070 Norwegian sheets, so the oak needs two. Prices include ${(U.sales_tax * 100).toFixed(2)}% sales tax; machine $${U.machine_per_h}/h; hardware $${U.hw_per_drawer} per drawer. Most US prices are estimates. NOK→USD at ${fx} (assumed).`;
+  $('#regionwrap').hidden = false;
+})();
+
+// --- loop log
+$('#loop tbody').innerHTML = (D.loop || []).map(e => {
+  const t = (e.t || '').slice(11, 16);
+  if (e.step === 'mine') return `<tr><td class="id">${t}</td><td>Mine</td><td colspan="2">${e.n} new faults written</td><td><span class="pill auto">mined</span></td></tr>`;
+  const rule = D.rules.find(r => e.rule && e.rule.startsWith(r.id.toLowerCase().replace('r', 'r')));
+  const g = e.accepted ? '<span class="pill yes">accepted</span>' : '<span class="pill no">rejected</span>';
+  return `<tr><td class="id">${t}</td><td>Write rule</td><td class="id">${e.fault}</td><td class="id">${e.rule || '–'}</td><td>${g}</td></tr>`;
+}).join('') || '<tr><td colspan="5" class="mute">The loop has not run yet.</td></tr>';
+
+// --- rules
+$('#rulesh').textContent = D.rules.length + ' rules';
+$('#rules tbody').innerHTML = D.rules.map(r => `<tr><td class="id">${r.id}</td><td>${r.desc}</td><td><span class="pill ${r.auto ? 'auto' : 'hand'}">${r.auto ? 'loop agent' : 'seed'}</span></td></tr>`).join('');
+$('#stamp').textContent = 'Last score ' + (last.t || '').replace('T', ' ').slice(0, 16) + (O ? ' · optimizer run ' + O.t.replace('T', ' ').slice(0, 16) : '');
+</script>

@@ -1,0 +1,487 @@
+<!doctype html>
+<html lang="no">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Kommode 3D</title>
+<style>
+  :root { --bg:#f4f2ee; --panel:#ffffffee; --ink:#1d1d1b; --mute:#6b6862; --err:#b3261e; --warn:#9a6700; --ok:#2e7d32; --line:#d9d5cc; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#171716; --panel:#232321ee; --ink:#ecebe7; --mute:#a3a09a; --err:#ff8a80; --warn:#ffd166; --ok:#81c784; --line:#3a3936; } }
+  html,body { margin:0; height:100%; background:var(--bg); color:var(--ink); font:14px/1.4 system-ui, sans-serif; overflow:hidden; }
+  #c { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .panel { position:fixed; background:var(--panel); border:1px solid var(--line); border-radius:10px; padding:12px 14px; backdrop-filter:blur(6px); }
+  #ctl { top:12px; left:12px; width:300px; max-height:calc(100% - 24px); overflow:auto; box-sizing:border-box; }
+  select { font:inherit; font-size:12px; width:100%; padding:3px 4px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); }
+  .mat { display:grid; grid-template-columns:72px 1fr; gap:4px 8px; align-items:center; font-size:12px; }
+  .mat span { color:var(--mute); }
+  .mat input[type=color] { grid-column:2; width:100%; height:22px; padding:0; border:1px solid var(--line); border-radius:6px; background:none; }
+  #cost table { width:100%; border-collapse:collapse; font-size:12px; font-variant-numeric:tabular-nums; }
+  #cost td { padding:3px 4px; border-top:1px solid var(--line); vertical-align:top; }
+  #cost td.n { text-align:right; white-space:nowrap; }
+  #cost .sub { color:var(--mute); font-size:11px; }
+  .bar { height:4px; background:var(--line); border-radius:2px; margin-top:3px; } .bar i { display:block; height:100%; background:var(--ok); border-radius:2px; }
+  textarea { width:100%; box-sizing:border-box; font:11px ui-monospace, monospace; height:120px; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:6px; }
+  details summary { cursor:pointer; font-size:12px; margin-top:8px; }
+  #st { top:12px; right:12px; width:360px; max-height:calc(100% - 24px); overflow:auto; }
+  #tip { pointer-events:none; padding:4px 8px; font-size:12px; display:none; }
+  h1 { font-size:15px; margin:0 0 8px; } h2 { font-size:12px; text-transform:uppercase; letter-spacing:.05em; color:var(--mute); margin:12px 0 4px; }
+  label { display:flex; gap:6px; align-items:center; margin:3px 0; cursor:pointer; }
+  input[type=range] { width:100%; }
+  ul { margin:0; padding-left:18px; } li { margin:2px 0; }
+  .err { color:var(--err); } .warn { color:var(--warn); } .ok { color:var(--ok); }
+  .big { font-size:16px; font-weight:600; }
+  button { font:inherit; font-size:12px; padding:4px 10px; border-radius:6px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer; }
+  .kv { display:grid; grid-template-columns:auto auto; gap:2px 10px; font-variant-numeric:tabular-nums; }
+  .kv span:nth-child(odd) { color:var(--mute); }
+  @media (max-width: 700px) { #st { top:auto; bottom:12px; left:12px; right:12px; width:auto; max-height:40%; } #ctl { width:auto; right:12px; } }
+
+  html.embed #st, html.embed #ctl > :not(.keep) { display:none !important; }
+  html.embed #ctl { width:auto; right:auto; max-width:280px; }
+  html.embed, html.embed body { background:transparent; }
+</style>
+</head>
+<body>
+<canvas id="c"></canvas>
+<script>
+if (/[?&]embed/.test(location.search)) {
+  document.documentElement.classList.add('embed');
+  addEventListener('DOMContentLoaded', () => {
+    const t = (sel, s) => { const el = document.querySelector(sel); if (el) el.firstChild.textContent = s; };
+    document.querySelector('#ctl h1').textContent = 'Drag to rotate · scroll to zoom';
+    document.querySelector('#ex').parentNode.firstChild.textContent = 'Explode ';
+    document.querySelector('#op').parentNode.firstChild.textContent = 'Open drawers ';
+    document.querySelector('#ctr').textContent = 'Recenter'; document.querySelector('#cls').textContent = 'Close all';
+  });
+  addEventListener('load', () => {            // intro: explode out and back once
+    const ex = document.querySelector('#ex'); if (!ex) return;
+    const t0 = performance.now(), D = 3200;
+    (function step(now) {
+      const k = Math.min(1, (now - t0) / D), v = Math.sin(Math.PI * k) * 0.75;
+      ex.value = v; ex.dispatchEvent(new Event('input', { bubbles: true }));
+      if (k < 1) requestAnimationFrame(step);
+    })(t0 + 1);
+  });
+}
+</script>
+<div id="ctl" class="panel">
+  <h1 class="keep">Kommode – 3D</h1>
+  <label class="keep">Sprengskisse <input id="ex" type="range" min="0" max="1" step="0.01" value="0"></label>
+  <label class="keep">Alle skuffer ut <input id="op" type="range" min="0" max="1" step="0.01" value="0"></label>
+  <div class="keep" style="display:flex;gap:6px;margin-top:6px">
+    <button id="ctr">Sentrer</button><button id="cls">Lukk alle</button>
+  </div>
+  <p style="color:var(--mute);font-size:12px;margin:6px 0 0">Klikk på en skuff for å åpne/lukke den. Dobbeltklikk = sentrer.</p>
+  <h2>Plater (kan bestilles)</h2>
+  <div class="mat" id="mat"></div>
+  <h2>Utseende</h2>
+  <div class="mat" id="look"></div>
+  <h2>Vis</h2>
+  <div id="grps"></div>
+  <h2>Mål</h2>
+  <div class="kv" id="kv"></div>
+</div>
+<div id="st" class="panel"><div id="cost"></div><div id="status"></div></div>
+<div id="tip" class="panel"></div>
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/"}}</script>
+<script type="module">
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const D = {"asm": [{"code": "A", "grp": "korpus", "b": [0, -21, 653, 1603, 454.0, 19.0], "check": true, "label": "A"}, {"code": "C", "grp": "korpus", "b": [0, 0, 0, 19.0, 430, 653], "check": true, "label": "C venstre"}, {"code": "CH", "grp": "korpus", "b": [1584.0, 0, 0, 19.0, 430, 653], "check": true, "label": "CH høyre"}, {"code": "B", "grp": "korpus", "b": [19.0, 0, 0, 1565.0, 430, 19.0], "check": true, "label": "B"}, {"code": "D", "grp": "korpus", "b": [792.0, 0, 19.0, 19.0, 430, 634.0], "check": true, "label": "D"}, {"code": "G", "grp": "korpus", "b": [0, 430, 0, 1603, 3.0, 653], "check": true, "label": "G"}, {"code": "H", "grp": "korpus", "b": [100.0, 130, -70, 1403.0, 19.0, 70], "check": true, "label": "H"}, {"code": "H", "grp": "korpus", "b": [100.0, 281, -70, 1403.0, 19.0, 70], "check": true, "label": "H"}, {"code": "BEIN", "grp": "bein", "b": [79.0, 60, -128, 40, 40, 128], "check": false, "label": "BEIN"}, {"code": "BEIN", "grp": "bein", "b": [1484.0, 60, -128, 40, 40, 128], "check": false, "label": "BEIN"}, {"code": "BEIN", "grp": "bein", "b": [79.0, 330, -128, 40, 40, 128], "check": false, "label": "BEIN"}, {"code": "BEIN", "grp": "bein", "b": [1484.0, 330, -128, 40, 40, 128], "check": false, "label": "BEIN"}, {"code": "K", "grp": "front", "b": [0.0, -19.0, 2.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 1V"}, {"code": "S", "grp": "skuff", "b": [32.0, 0, 22.0, 19.0, 400, 120], "check": true, "label": "S 1V"}, {"code": "SH", "grp": "skuff", "b": [760.0, 0, 22.0, 19.0, 400, 120], "check": true, "label": "SH 1V"}, {"code": "E1", "grp": "skuff", "b": [51.0, 0, 22.0, 709.0, 19.0, 120], "check": true, "label": "E1 1V"}, {"code": "E2", "grp": "skuff", "b": [51.0, 381.0, 22.0, 709.0, 19.0, 120], "check": true, "label": "E2 1V"}, {"code": "SB", "grp": "skuff", "b": [43.5, 11.5, 32.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 1V"}, {"code": "SKINNE", "grp": "skinne", "b": [19.0, 0, 59.0, 12.7, 400, 46], "check": true, "label": "skinne 1V"}, {"code": "SKINNE", "grp": "skinne", "b": [779.3, 0, 59.0, 12.7, 400, 46], "check": true, "label": "skinne 1V"}, {"code": "K", "grp": "front", "b": [0.0, -19.0, 165.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 2V"}, {"code": "S", "grp": "skuff", "b": [32.0, 0, 185.0, 19.0, 400, 120], "check": true, "label": "S 2V"}, {"code": "SH", "grp": "skuff", "b": [760.0, 0, 185.0, 19.0, 400, 120], "check": true, "label": "SH 2V"}, {"code": "E1", "grp": "skuff", "b": [51.0, 0, 185.0, 709.0, 19.0, 120], "check": true, "label": "E1 2V"}, {"code": "E2", "grp": "skuff", "b": [51.0, 381.0, 185.0, 709.0, 19.0, 120], "check": true, "label": "E2 2V"}, {"code": "SB", "grp": "skuff", "b": [43.5, 11.5, 195.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 2V"}, {"code": "SKINNE", "grp": "skinne", "b": [19.0, 0, 222.0, 12.7, 400, 46], "check": true, "label": "skinne 2V"}, {"code": "SKINNE", "grp": "skinne", "b": [779.3, 0, 222.0, 12.7, 400, 46], "check": true, "label": "skinne 2V"}, {"code": "K", "grp": "front", "b": [0.0, -19.0, 328.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 3V"}, {"code": "S", "grp": "skuff", "b": [32.0, 0, 348.0, 19.0, 400, 120], "check": true, "label": "S 3V"}, {"code": "SH", "grp": "skuff", "b": [760.0, 0, 348.0, 19.0, 400, 120], "check": true, "label": "SH 3V"}, {"code": "E1", "grp": "skuff", "b": [51.0, 0, 348.0, 709.0, 19.0, 120], "check": true, "label": "E1 3V"}, {"code": "E2", "grp": "skuff", "b": [51.0, 381.0, 348.0, 709.0, 19.0, 120], "check": true, "label": "E2 3V"}, {"code": "SB", "grp": "skuff", "b": [43.5, 11.5, 358.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 3V"}, {"code": "SKINNE", "grp": "skinne", "b": [19.0, 0, 385.0, 12.7, 400, 46], "check": true, "label": "skinne 3V"}, {"code": "SKINNE", "grp": "skinne", "b": [779.3, 0, 385.0, 12.7, 400, 46], "check": true, "label": "skinne 3V"}, {"code": "K", "grp": "front", "b": [0.0, -19.0, 491.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 4V"}, {"code": "S", "grp": "skuff", "b": [32.0, 0, 511.0, 19.0, 400, 120], "check": true, "label": "S 4V"}, {"code": "SH", "grp": "skuff", "b": [760.0, 0, 511.0, 19.0, 400, 120], "check": true, "label": "SH 4V"}, {"code": "E1", "grp": "skuff", "b": [51.0, 0, 511.0, 709.0, 19.0, 120], "check": true, "label": "E1 4V"}, {"code": "E2", "grp": "skuff", "b": [51.0, 381.0, 511.0, 709.0, 19.0, 120], "check": true, "label": "E2 4V"}, {"code": "SB", "grp": "skuff", "b": [43.5, 11.5, 521.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 4V"}, {"code": "SKINNE", "grp": "skinne", "b": [19.0, 0, 548.0, 12.7, 400, 46], "check": true, "label": "skinne 4V"}, {"code": "SKINNE", "grp": "skinne", "b": [779.3, 0, 548.0, 12.7, 400, 46], "check": true, "label": "skinne 4V"}, {"code": "K", "grp": "front", "b": [803.0, -19.0, 2.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 1H"}, {"code": "S", "grp": "skuff", "b": [824.0, 0, 22.0, 19.0, 400, 120], "check": true, "label": "S 1H"}, {"code": "SH", "grp": "skuff", "b": [1552.0, 0, 22.0, 19.0, 400, 120], "check": true, "label": "SH 1H"}, {"code": "E1", "grp": "skuff", "b": [843.0, 0, 22.0, 709.0, 19.0, 120], "check": true, "label": "E1 1H"}, {"code": "E2", "grp": "skuff", "b": [843.0, 381.0, 22.0, 709.0, 19.0, 120], "check": true, "label": "E2 1H"}, {"code": "SB", "grp": "skuff", "b": [835.5, 11.5, 32.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 1H"}, {"code": "SKINNE", "grp": "skinne", "b": [811.0, 0, 59.0, 12.7, 400, 46], "check": true, "label": "skinne 1H"}, {"code": "SKINNE", "grp": "skinne", "b": [1571.3, 0, 59.0, 12.7, 400, 46], "check": true, "label": "skinne 1H"}, {"code": "K", "grp": "front", "b": [803.0, -19.0, 165.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 2H"}, {"code": "S", "grp": "skuff", "b": [824.0, 0, 185.0, 19.0, 400, 120], "check": true, "label": "S 2H"}, {"code": "SH", "grp": "skuff", "b": [1552.0, 0, 185.0, 19.0, 400, 120], "check": true, "label": "SH 2H"}, {"code": "E1", "grp": "skuff", "b": [843.0, 0, 185.0, 709.0, 19.0, 120], "check": true, "label": "E1 2H"}, {"code": "E2", "grp": "skuff", "b": [843.0, 381.0, 185.0, 709.0, 19.0, 120], "check": true, "label": "E2 2H"}, {"code": "SB", "grp": "skuff", "b": [835.5, 11.5, 195.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 2H"}, {"code": "SKINNE", "grp": "skinne", "b": [811.0, 0, 222.0, 12.7, 400, 46], "check": true, "label": "skinne 2H"}, {"code": "SKINNE", "grp": "skinne", "b": [1571.3, 0, 222.0, 12.7, 400, 46], "check": true, "label": "skinne 2H"}, {"code": "K", "grp": "front", "b": [803.0, -19.0, 328.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 3H"}, {"code": "S", "grp": "skuff", "b": [824.0, 0, 348.0, 19.0, 400, 120], "check": true, "label": "S 3H"}, {"code": "SH", "grp": "skuff", "b": [1552.0, 0, 348.0, 19.0, 400, 120], "check": true, "label": "SH 3H"}, {"code": "E1", "grp": "skuff", "b": [843.0, 0, 348.0, 709.0, 19.0, 120], "check": true, "label": "E1 3H"}, {"code": "E2", "grp": "skuff", "b": [843.0, 381.0, 348.0, 709.0, 19.0, 120], "check": true, "label": "E2 3H"}, {"code": "SB", "grp": "skuff", "b": [835.5, 11.5, 358.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 3H"}, {"code": "SKINNE", "grp": "skinne", "b": [811.0, 0, 385.0, 12.7, 400, 46], "check": true, "label": "skinne 3H"}, {"code": "SKINNE", "grp": "skinne", "b": [1571.3, 0, 385.0, 12.7, 400, 46], "check": true, "label": "skinne 3H"}, {"code": "K", "grp": "front", "b": [803.0, -19.0, 491.0, 800.0, 19.0, 160.0], "check": true, "label": "K front 4H"}, {"code": "S", "grp": "skuff", "b": [824.0, 0, 511.0, 19.0, 400, 120], "check": true, "label": "S 4H"}, {"code": "SH", "grp": "skuff", "b": [1552.0, 0, 511.0, 19.0, 400, 120], "check": true, "label": "SH 4H"}, {"code": "E1", "grp": "skuff", "b": [843.0, 0, 511.0, 709.0, 19.0, 120], "check": true, "label": "E1 4H"}, {"code": "E2", "grp": "skuff", "b": [843.0, 381.0, 511.0, 709.0, 19.0, 120], "check": true, "label": "E2 4H"}, {"code": "SB", "grp": "skuff", "b": [835.5, 11.5, 521.25, 724.0, 377.0, 6.0], "check": false, "label": "SB 4H"}, {"code": "SKINNE", "grp": "skinne", "b": [811.0, 0, 548.0, 12.7, 400, 46], "check": true, "label": "skinne 4H"}, {"code": "SKINNE", "grp": "skinne", "b": [1571.3, 0, 548.0, 12.7, 400, 46], "check": true, "label": "skinne 4H"}], "info": {"W": 1603, "DEP": 430, "HS": 653, "T": 19.0, "tf": 19.0, "ts": 19.0, "tb": 6.0, "Wo": 773.0, "bw": 747.0, "bh": 120, "fw": 800.0, "fh": 160.0, "Ls": 400, "LE": 709.0, "gw": 6.5, "nd": 8, "sp": 0.5, "clr": 13.0, "slide_zc": [82.0, 245.0, 408.0, 571.0], "rows_zc": [82.0, 245.0, 408.0, 571.0], "HD": 634.0, "OV": 21, "hcc": 192, "total_h": 800.0}, "status": {"err": [], "warn": ["Pris for Spon melamin Kaindl K2751 AE eik aviva dew er et ANSLAG (Anslag ~300 kr/m² for tredekor.). Be om tilbud og skriv inn pris.", "Pris for Spon melamin Kaindl 1570 PE hvit er et ANSLAG (Anslag: Optimera 16 mm hvit 202 kr/m² + ~15 % for 19 mm. Be om tilbud.). Be om tilbud og skriv inn pris.", "C: Ø3 (Merke skinne-senter) er mindre enn minste fres Ø3.175 - blir Ø3.175.  (x8)", "CH: Ø3 (Merke skinne-senter) er mindre enn minste fres Ø3.175 - blir Ø3.175.  (x8)", "D: Ø3 (Merke skinne-senter (begge sider)) er mindre enn minste fres Ø3.175 - blir Ø3.175.  (x8)"], "block": ["Platetykkelser er IKKE målt. Mål platene med skyvelær og skriv tykkelse_malt i materialer.json, kjør på nytt.", "Fresere/platestørrelse er ikke bekreftet av verkstedet (verksted.bekreftet=false).", "Skinnemodell ikke verifisert (beslag/skinne.json). CNC borer bare senterlinjemerker, ikke skruehull."], "ok": ["Ingen innvendige hjørner: alle konturer er rektangler (utvendig profil) og alle noter går ut i begge ender.", "Skuffeboks 747.0 bred i åpning 773.0 -> 13.00 mm per side (skinne 12.7 + 0.3).", "Skuffebunn-not 6.50 mm for 6.00 mm HDF (0.50 klaring). Bunn 724 x 377.", "3D-sjekk: ingen av 64 deler overlapper.", "Alle deler får plass på platene: plate1_fritzoe-kaindl-eik-dew-19_2440x1220.dxf (73%), plate2_fritzoe-kaindl-eik-dew-19_2440x846.dxf (6%), plate3_fritzoe-kaindl-1570-hvit-19_2440x1220.dxf (75%), plate4_fritzoe-kaindl-1570-hvit-19_2440x846.dxf (50%), plate5_maxbo-huntonit-6_2440x1220.dxf (73%), plate6_obs-moelven-3_2440x1220.dxf (35%)"]}, "mat": {"keys": ["front", "korpus", "skuff", "skuffebunn", "bakplate"], "lists": {"18|18|16|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 716.5, 120], ["E2", "skuff", 8, 716.5, 120], ["SB", "skuffebunn", 8, 731.5, 383.0], ["G", "bakplate", 1, 1603, 653]], "18|18|16|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 716.5, 120], ["E2", "skuff", 8, 716.5, 120], ["SB", "skuffebunn", 8, 731.5, 383.0], ["G", "bakplate", 1, 1603, 653]], "18|18|18|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 712.5, 120], ["E2", "skuff", 8, 712.5, 120], ["SB", "skuffebunn", 8, 727.5, 379.0], ["G", "bakplate", 1, 1603, 653]], "18|18|18|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 712.5, 120], ["E2", "skuff", 8, 712.5, 120], ["SB", "skuffebunn", 8, 727.5, 379.0], ["G", "bakplate", 1, 1603, 653]], "18|18|19|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 710.5, 120], ["E2", "skuff", 8, 710.5, 120], ["SB", "skuffebunn", 8, 725.5, 377.0], ["G", "bakplate", 1, 1603, 653]], "18|18|19|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 710.5, 120], ["E2", "skuff", 8, 710.5, 120], ["SB", "skuffebunn", 8, 725.5, 377.0], ["G", "bakplate", 1, 1603, 653]], "18|19|16|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 715.0, 120], ["E2", "skuff", 8, 715.0, 120], ["SB", "skuffebunn", 8, 730.0, 383.0], ["G", "bakplate", 1, 1603, 653]], "18|19|16|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 715.0, 120], ["E2", "skuff", 8, 715.0, 120], ["SB", "skuffebunn", 8, 730.0, 383.0], ["G", "bakplate", 1, 1603, 653]], "18|19|18|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 711.0, 120], ["E2", "skuff", 8, 711.0, 120], ["SB", "skuffebunn", 8, 726.0, 379.0], ["G", "bakplate", 1, 1603, 653]], "18|19|18|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 711.0, 120], ["E2", "skuff", 8, 711.0, 120], ["SB", "skuffebunn", 8, 726.0, 379.0], ["G", "bakplate", 1, 1603, 653]], "18|19|19|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 709.0, 120], ["E2", "skuff", 8, 709.0, 120], ["SB", "skuffebunn", 8, 724.0, 377.0], ["G", "bakplate", 1, 1603, 653]], "18|19|19|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 709.0, 120], ["E2", "skuff", 8, 709.0, 120], ["SB", "skuffebunn", 8, 724.0, 377.0], ["G", "bakplate", 1, 1603, 653]], "19|18|16|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 716.5, 120], ["E2", "skuff", 8, 716.5, 120], ["SB", "skuffebunn", 8, 731.5, 383.0], ["G", "bakplate", 1, 1603, 653]], "19|18|16|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 716.5, 120], ["E2", "skuff", 8, 716.5, 120], ["SB", "skuffebunn", 8, 731.5, 383.0], ["G", "bakplate", 1, 1603, 653]], "19|18|18|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 712.5, 120], ["E2", "skuff", 8, 712.5, 120], ["SB", "skuffebunn", 8, 727.5, 379.0], ["G", "bakplate", 1, 1603, 653]], "19|18|18|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 712.5, 120], ["E2", "skuff", 8, 712.5, 120], ["SB", "skuffebunn", 8, 727.5, 379.0], ["G", "bakplate", 1, 1603, 653]], "19|18|19|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 710.5, 120], ["E2", "skuff", 8, 710.5, 120], ["SB", "skuffebunn", 8, 725.5, 377.0], ["G", "bakplate", 1, 1603, 653]], "19|18|19|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1567, 430], ["D", "korpus", 1, 430, 635], ["H", "korpus", 2, 1405, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 710.5, 120], ["E2", "skuff", 8, 710.5, 120], ["SB", "skuffebunn", 8, 725.5, 377.0], ["G", "bakplate", 1, 1603, 653]], "19|19|16|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 715.0, 120], ["E2", "skuff", 8, 715.0, 120], ["SB", "skuffebunn", 8, 730.0, 383.0], ["G", "bakplate", 1, 1603, 653]], "19|19|16|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 715.0, 120], ["E2", "skuff", 8, 715.0, 120], ["SB", "skuffebunn", 8, 730.0, 383.0], ["G", "bakplate", 1, 1603, 653]], "19|19|18|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 711.0, 120], ["E2", "skuff", 8, 711.0, 120], ["SB", "skuffebunn", 8, 726.0, 379.0], ["G", "bakplate", 1, 1603, 653]], "19|19|18|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 711.0, 120], ["E2", "skuff", 8, 711.0, 120], ["SB", "skuffebunn", 8, 726.0, 379.0], ["G", "bakplate", 1, 1603, 653]], "19|19|19|6|3": [["A", "ytre", 1, 1603, 454], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 709.0, 120], ["E2", "skuff", 8, 709.0, 120], ["SB", "skuffebunn", 8, 724.0, 377.0], ["G", "bakplate", 1, 1603, 653]], "19|19|19|6|6": [["A", "ytre", 1, 1603, 457], ["C", "ytre", 1, 430, 653], ["CH", "ytre", 1, 430, 653], ["B", "korpus", 1, 1565, 430], ["D", "korpus", 1, 430, 634], ["H", "korpus", 2, 1403, 70], ["K", "front", 8, 800.0, 160.0], ["S", "skuff", 8, 400, 120], ["SH", "skuff", 8, 400, 120], ["E1", "skuff", 8, 709.0, 120], ["E2", "skuff", 8, 709.0, 120], ["SB", "skuffebunn", 8, 724.0, 377.0], ["G", "bakplate", 1, 1603, 653]]}, "katalog": [{"id": "fritzoe-kaindl-1570-hvit-19", "navn": "Spon melamin Kaindl 1570 PE hvit", "leverandor": "Fritzøe Engros", "artnr": "17879", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2800, 2070], "pris": null, "pris_anslag": 1330, "pris_kilde": "Anslag: Optimera 16 mm hvit 202 kr/m² + ~15 % for 19 mm. Be om tilbud.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "skuff", "front"], "retning": false, "dekor": {"c": "#f1f0ec", "r": 0.5}}, {"id": "fritzoe-fimaplast-hvit-19-2440", "navn": "Spon melamin Fimaplast SR209 78E hvit (2440×1220)", "leverandor": "Fritzøe Engros", "artnr": "13038", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2440, 1220], "pris": null, "pris_anslag": 690, "pris_kilde": "Anslag ~230 kr/m². Passer maskinen uten oppdeling.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "skuff", "front"], "retning": false, "dekor": {"c": "#f1f0ec", "r": 0.5}}, {"id": "fritzoe-fimaplast-hvit-16-2440", "navn": "Spon melamin Fimaplast SR209 78E hvit 16 mm (2440×1220)", "leverandor": "Fritzøe Engros", "artnr": "12937", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 16, "tykkelse_malt": null, "format": [2440, 1220], "pris": null, "pris_anslag": 600, "pris_kilde": "Anslag ~202 kr/m² (som Optimera 16 mm).", "pris_dato": "2026-11-15", "roller": ["skuff"], "retning": false, "dekor": {"c": "#f1f0ec", "r": 0.5}}, {"id": "optimera-hvit-16", "navn": "Sponplate melamin 16 mm hvit (Kronospan)", "leverandor": "Optimera / Montér", "artnr": "", "url": "https://trepriser.no/produkt/53cbc138-3976-4d02-9904-d830c78647bb/sponplate-melamin-207x280-cm-16-mm-hvit", "tykkelse": 16, "tykkelse_malt": null, "format": [2800, 2070], "pris": 1171, "pris_anslag": null, "pris_kilde": "trepriser.no: 202 kr/m² (Optimera), mva ukjent", "pris_dato": "2026-11-14", "roller": ["skuff"], "retning": false, "dekor": {"c": "#f1f0ec", "r": 0.5}}, {"id": "monter-hobby-hvit-18-600", "navn": "Hobbyplate melamin hvit 18×600×2400 (kantlist langsider)", "leverandor": "Montér", "artnr": "", "url": "https://www.monter.no/byggevarer/bygningsplater/interiorplater/hobbyplate-hvit-melamin/", "tykkelse": 18, "tykkelse_malt": null, "format": [2400, 600], "pris": 985, "pris_anslag": null, "pris_kilde": "monter.no (søkeresultat), dato ukjent", "pris_dato": "2026-11-14", "roller": ["skuff", "korpus", "ytre", "front"], "retning": false, "dekor": {"c": "#eceae4", "r": 0.8}}, {"id": "fritzoe-koskimel-hvit-19", "navn": "Spon melamin Koskimel SF hvit", "leverandor": "Fritzøe Engros", "artnr": "13031", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2750, 1830], "pris": null, "pris_anslag": 1160, "pris_kilde": "Anslag ~230 kr/m².", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "skuff", "front"], "retning": false, "dekor": {"c": "#efeee9", "r": 0.55}}, {"id": "fritzoe-koskimel-lysgra-19", "navn": "Spon melamin Koskimel 258 SF lys grå", "leverandor": "Fritzøe Engros", "artnr": "13035", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2750, 1830], "pris": null, "pris_anslag": 1260, "pris_kilde": "Anslag ~250 kr/m².", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "skuff", "front"], "retning": false, "dekor": {"c": "#c4c3be", "r": 0.7}}, {"id": "fritzoe-koskimel-morkgra-19", "navn": "Spon melamin Koskimel 508 SF mørk grå", "leverandor": "Fritzøe Engros", "artnr": "13036", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2750, 1830], "pris": null, "pris_anslag": 1260, "pris_kilde": "Anslag ~250 kr/m².", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": false, "dekor": {"c": "#4a4b4d", "r": 0.7}}, {"id": "fritzoe-kaindl-svart-19", "navn": "Spon melamin Kaindl 2190 PE svart", "leverandor": "Fritzøe Engros", "artnr": "13058", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2800, 2070], "pris": null, "pris_anslag": 1450, "pris_kilde": "Anslag ~250 kr/m².", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": false, "dekor": {"c": "#1f1f1f", "r": 0.8}}, {"id": "optimera-diamondgrey-19", "navn": "Melaminplate 19 mm U963 ST9 Diamond Grey (kun hele pakker)", "leverandor": "Optimera", "artnr": "101248891", "url": "https://www.optimera.no/byggevarer/bygningsplater/sponplater/melamin-10x2800x2070-w980-sm-spon-hvit---kun-hele-pakker", "tykkelse": 19, "tykkelse_malt": null, "format": [2800, 2070], "pris": null, "pris_anslag": 1450, "pris_kilde": "Anslag. NB: 'kun hele pakker' – sjekk om de selger enkeltplate.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": false, "dekor": {"c": "#6d6f70", "r": 0.75}}, {"id": "fritzoe-kaindl-eik-dew-19", "navn": "Spon melamin Kaindl K2751 AE eik aviva dew", "leverandor": "Fritzøe Engros", "artnr": "20689", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2800, 2070], "pris": null, "pris_anslag": 1750, "pris_kilde": "Anslag ~300 kr/m² for tredekor.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": true, "dekor": {"wood": ["#d8bf9c", "#94754f"], "r": 0.7}}, {"id": "fritzoe-kaindl-eik-siena-19", "navn": "Spon melamin Kaindl K2795 AE eik aviva siena", "leverandor": "Fritzøe Engros", "artnr": "20691", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2800, 2070], "pris": null, "pris_anslag": 1750, "pris_kilde": "Anslag ~300 kr/m² for tredekor.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": true, "dekor": {"wood": ["#b98a5c", "#6b4528"], "r": 0.7}}, {"id": "fritzoe-fimaplast-yoku-eik-19", "navn": "Spon melamin Fimaplast 688B Yoku lys eik", "leverandor": "Fritzøe Engros", "artnr": "22456", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2850, 2100], "pris": null, "pris_anslag": 1800, "pris_kilde": "Anslag ~300 kr/m² for tredekor.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": true, "dekor": {"wood": ["#e0cba8", "#a3865d"], "r": 0.7}}, {"id": "fritzoe-fimaplast-atlas-eik-19", "navn": "Spon melamin Fimaplast 41G atlas eik", "leverandor": "Fritzøe Engros", "artnr": "23199", "url": "https://www.fritzoeengros.no/kategori/mdf-og-spon/sponplate/melaminbelagt", "tykkelse": 19, "tykkelse_malt": null, "format": [2850, 2100], "pris": null, "pris_anslag": 1800, "pris_kilde": "Anslag ~300 kr/m² for tredekor.", "pris_dato": "2026-11-15", "roller": ["ytre", "korpus", "front"], "retning": true, "dekor": {"wood": ["#c69a6a", "#7a5434"], "r": 0.7}}, {"id": "anslag-mdf-19-malt", "navn": "MDF 19 mm rå – males selv (EKSEMPEL, ikke sjekket)", "leverandor": "(byggevare)", "artnr": "", "url": "", "tykkelse": 19, "tykkelse_malt": null, "format": [2440, 1220], "pris": null, "pris_anslag": 700, "pris_kilde": "Grovt anslag, ikke sjekket. + maling/lakk og tid.", "pris_dato": "2026-11-15", "roller": ["front", "ytre"], "retning": false, "malbar": true, "dekor": {"c": "#9aa58f", "r": 0.85}}, {"id": "anslag-bjorkefiner-18", "navn": "Bjørkekryssfiner 18 mm (EKSEMPEL, ikke sjekket)", "leverandor": "(trelast)", "artnr": "", "url": "", "tykkelse": 18, "tykkelse_malt": null, "format": [2500, 1250], "pris": null, "pris_anslag": 1900, "pris_kilde": "Grovt anslag, ikke sjekket. Synlig lagkant, må lakkeres.", "pris_dato": "2026-11-15", "roller": ["front", "ytre", "korpus"], "retning": true, "dekor": {"wood": ["#e6d3b0", "#b89d74"], "r": 0.6}}, {"id": "anslag-valnott-finer-19", "navn": "MDF med valnøttfiner 19 mm (EKSEMPEL, ikke sjekket)", "leverandor": "(plateforhandler)", "artnr": "", "url": "", "tykkelse": 19, "tykkelse_malt": null, "format": [2500, 1250], "pris": null, "pris_anslag": 3800, "pris_kilde": "Grovt anslag, ikke sjekket. Trenger finerkantlist + olje/lakk.", "pris_dato": "2026-11-15", "roller": ["front", "ytre"], "retning": true, "dekor": {"wood": ["#6b4a33", "#2f1e13"], "r": 0.6}}, {"id": "maxbo-huntonit-6", "navn": "Huntonit trefiberplate halvhard 6 mm (brun)", "leverandor": "Maxbo", "artnr": "", "url": "https://allebyggpriser.no/tilbud/www.maxbo.no:960400/", "tykkelse": 6, "tykkelse_malt": null, "format": [2440, 1220], "pris": 533, "pris_anslag": null, "pris_kilde": "allebyggpriser.no (Maxbo)", "pris_dato": "2026-11-14", "roller": ["skuffebunn", "bakplate"], "retning": false, "dekor": {"c": "#8a6a4a", "r": 0.9}}, {"id": "obs-moelven-6", "navn": "Moelven trefiberplate standard 6 mm (brun)", "leverandor": "Obs Bygg", "artnr": "2329569", "url": "https://www.obsbygg.no/bygningsplater/trefiberplater/2329569", "tykkelse": 6, "tykkelse_malt": null, "format": [2440, 1220], "pris": 549, "pris_anslag": null, "pris_kilde": "obsbygg.no", "pris_dato": "2026-11-14", "roller": ["skuffebunn", "bakplate"], "retning": false, "dekor": {"c": "#8a6a4a", "r": 0.9}}, {"id": "obs-moelven-3", "navn": "Moelven trefiberplate standard 3 mm (brun)", "leverandor": "Obs Bygg", "artnr": "2191114", "url": "https://www.obsbygg.no/bygningsplater/trefiberplater/2191114", "tykkelse": 3, "tykkelse_malt": null, "format": [2440, 1220], "pris": 269, "pris_anslag": null, "pris_kilde": "obsbygg.no", "pris_dato": "2026-11-14", "roller": ["bakplate"], "retning": false, "dekor": {"c": "#8a6a4a", "r": 0.9}}, {"id": "fritzoe-mdf-3-hvit", "navn": "MDF-plate 3 mm hvitmalt 1 side (Fibraprint)", "leverandor": "Fritzøe Engros", "artnr": "", "url": "https://www.plankepriser.no/produkt/mdf-plate-3x2440x1220-hvitmalt-1s-fibraprint-fritzoe-engros-66906209", "tykkelse": 3, "tykkelse_malt": null, "format": [2440, 1220], "pris": null, "pris_anslag": 350, "pris_kilde": "Anslag.", "pris_dato": "2026-11-15", "roller": ["bakplate"], "retning": false, "dekor": {"c": "#f3f2ee", "r": 0.6}}, {"leverandor": "Thaugland (Abildsø/Storo/Vækerø)", "artnr": "", "url": "https://thaugland.no/?s=melamin&post_type=product", "tykkelse": 18, "tykkelse_malt": null, "pris_anslag": null, "pris_kilde": "thaugland.no, inkl. mva, på lager", "pris_dato": "2026-11-15", "roller": ["skuff", "korpus", "ytre", "front"], "retning": false, "dekor": {"c": "#eceae4", "r": 0.8}, "id": "thaugland-hobby-hvit-18-600", "navn": "Fritzøe hobbyplate melamin hvit 18×600×2400 4S", "format": [2400, 600], "pris": 850}, {"leverandor": "Thaugland (Abildsø/Storo/Vækerø)", "artnr": "", "url": "https://thaugland.no/?s=melamin&post_type=product", "tykkelse": 18, "tykkelse_malt": null, "pris_anslag": null, "pris_kilde": "thaugland.no, inkl. mva, på lager", "pris_dato": "2026-11-15", "roller": ["skuff", "korpus", "ytre", "front"], "retning": false, "dekor": {"c": "#eceae4", "r": 0.8}, "id": "thaugland-hobby-hvit-18-700", "navn": "Fritzøe hobbyplate melamin hvit 18×700×2400 4S", "format": [2400, 700], "pris": 983}], "valg": {"front": "fritzoe-kaindl-eik-dew-19", "ytre": "fritzoe-kaindl-eik-dew-19", "korpus": "fritzoe-kaindl-1570-hvit-19", "skuff": "fritzoe-kaindl-1570-hvit-19", "skuffebunn": "maxbo-huntonit-6", "bakplate": "obs-moelven-3"}, "roles": ["front", "ytre", "korpus", "skuff", "skuffebunn", "bakplate"], "role_name": {"front": "Fronter", "ytre": "Topp + sider", "korpus": "Bunn, mellomvegg, bunnlist", "skuff": "Skuffebokser", "skuffebunn": "Skuffebunner", "bakplate": "Bakplate"}, "nest": {"bed": [2440, 1220], "kerf": 4, "min_bit": 150, "gap": 10, "margin": 10}}};
+const I = D.info;
+
+// status panel
+const s = D.status, st = document.getElementById('status');
+const ready = !s.err.length && !s.block.length;
+const list = (t, a, c) => a.length ? `<h2>${t}</h2><ul class="${c}">${a.map(x => `<li>${x.replace(/</g,'&lt;')}</li>`).join('')}</ul>` : '';
+st.innerHTML = `<h2 style="margin-top:16px">Sjekk av lagret plan (params.json)</h2><div class="big ${ready ? 'ok' : 'err'}">Klar til fresing: ${ready ? 'JA' : 'NEI'}</div>` +
+  list('Feil', s.err, 'err') + list('Blokkert – mangler input', s.block, 'warn') + list('Advarsler', s.warn, 'warn') + list('OK', s.ok, 'ok');
+const kv = [['Korpus', `${I.W} × ${I.DEP} × ${I.HS}`], ['Tykkelse k/f/s/b', `${I.T} / ${I.tf} / ${I.ts} / ${I.tb}`], ['Åpning', I.Wo],
+  ['Skuffeboks', `${I.bw} × ${I.Ls} × ${I.bh}`], ['Front', `${I.fw} × ${I.fh}`], ['Totalhøyde', Math.round(I.total_h)]];
+document.getElementById('kv').innerHTML = kv.map(([k, v]) => `<span>${k}</span><span>${v}</span>`).join('');
+
+// scene
+const canvas = document.getElementById('c');
+const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+renderer.setPixelRatio(devicePixelRatio);
+const scene = new THREE.Scene();
+const cam = new THREE.PerspectiveCamera(35, 1, 10, 20000);
+cam.position.set(1400, 1100, -2200);
+const ctl = new OrbitControls(cam, canvas);
+ctl.target.set(I.W / 2, 300, I.DEP / 2); ctl.update();
+scene.add(new THREE.HemisphereLight(0xffffff, 0x8a8070, 2.2));
+const dl = new THREE.DirectionalLight(0xffffff, 1.6); dl.position.set(800, 2000, 1500); scene.add(dl);
+
+// ---- materials. Wood decors are drawn procedurally (no image files); UVs are in mm so the grain has
+//      a real scale and runs along the long side of each face.
+function woodTex(base, dark, seed) {
+  const W = 1024, H = 256, cv = document.createElement('canvas'); cv.width = W; cv.height = H;
+  const g = cv.getContext('2d'); let r = seed;
+  const rnd = () => (r = (r * 16807) % 2147483647) / 2147483647;
+  g.fillStyle = base; g.fillRect(0, 0, W, H);
+  for (let i = 0; i < 260; i++) {            // grain lines: long, slightly wavy, varying darkness
+    const y0 = rnd() * H, amp = 2 + rnd() * 6, f = 1 + rnd() * 3, ph = rnd() * 6.28;
+    g.strokeStyle = dark; g.globalAlpha = 0.04 + rnd() * 0.16; g.lineWidth = 0.5 + rnd() * 2.2;
+    g.beginPath();
+    for (let x = 0; x <= W; x += 16) { const y = y0 + amp * Math.sin(x / W * 6.28 * f + ph); x ? g.lineTo(x, y) : g.moveTo(x, y); }
+    g.stroke();
+  }
+  g.globalAlpha = 1;
+  const t = new THREE.CanvasTexture(cv);
+  t.wrapS = t.wrapT = THREE.RepeatWrapping; t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+const MATS = {
+  hvit:      { n: 'Hvit melamin',      c: 0xf1f0ec, r: .5 },
+  hvitmatt:  { n: 'Hvit matt',         c: 0xeceae4, r: .9 },
+  kasjmir:   { n: 'Kasjmir / beige',   c: 0xd9cfc0, r: .7 },
+  lysgra:    { n: 'Lys grå',           c: 0xc4c3be, r: .7 },
+  antrasitt: { n: 'Antrasitt',         c: 0x3c3e41, r: .7 },
+  sort:      { n: 'Sort matt',         c: 0x1d1d1d, r: .85 },
+  salvie:    { n: 'Salviegrønn',       c: 0x9aa58f, r: .8 },
+  oliven:    { n: 'Olivengrønn',       c: 0x5f6346, r: .8 },
+  blaa:      { n: 'Dueblå',            c: 0x8496a3, r: .8 },
+  marine:    { n: 'Marineblå',         c: 0x27394c, r: .75 },
+  terrakotta:{ n: 'Terrakotta',        c: 0xb0644a, r: .8 },
+  eik:       { n: 'Eik (dekor)',       wood: ['#c9a27a', '#7a5434'], r: .7 },
+  hvitolje:  { n: 'Hvitoljet eik',     wood: ['#e2d5c1', '#a08a6c'], r: .75 },
+  ask:       { n: 'Ask (dekor)',       wood: ['#ddc9a8', '#8f7653'], r: .7 },
+  valnott:   { n: 'Valnøtt (dekor)',   wood: ['#6b4a33', '#2f1e13'], r: .65 },
+  royktEik:  { n: 'Røkt eik',          wood: ['#5c4636', '#261a12'], r: .7 },
+  stal:      { n: 'Børstet stål',      c: 0xb5b8bb, r: .35, m: .9 },
+  messing:   { n: 'Messing',           c: 0xc8a454, r: .3, m: 1 },
+  krom:      { n: 'Krom',              c: 0xe4e6e8, r: .12, m: 1 },
+};
+const CHOICE = {   // cosmetic only (not on the cut list)
+  bein:   ['sort','antrasitt','hvit','stal','messing','krom','eik','valnott'],
+  handtak:['sort','stal','messing','krom','hvit','antrasitt','eik','valnott'],
+};
+const DEFAULT = { bein: 'sort', handtak: 'sort' };
+const texCache = {};
+function makeMat(key, grp, d = MATS[key]) {
+  const o = { roughness: d.r, metalness: d.m || 0 };
+  if (d.wood) { texCache[key] ??= woodTex(d.wood[0], d.wood[1], 1 + key.length * 977); o.map = texCache[key]; o.color = 0xffffff; }
+  else o.color = d.c;
+  return new THREE.MeshStandardMaterial(o);
+}
+// box UVs in mm (1 texture = 1200 × 300 mm), grain along the longer side of each face, random offset per part
+function mmUV(g, dx, dy, dz) {
+  const p = g.attributes.position, n = g.attributes.normal, uv = g.attributes.uv;
+  const ou = Math.random(), ov = Math.random(), ext = { x: dx, y: dy, z: dz };
+  for (let i = 0; i < p.count; i++) {
+    const ax = Math.abs(n.getX(i)) > .5 ? ['z', 'y'] : Math.abs(n.getY(i)) > .5 ? ['x', 'z'] : ['x', 'y'];
+    const [a, b] = ext[ax[0]] >= ext[ax[1]] ? ax : [ax[1], ax[0]];
+    const get = k => k === 'x' ? p.getX(i) : k === 'y' ? p.getY(i) : p.getZ(i);
+    uv.setXY(i, get(a) / 1200 + ou, get(b) / 300 + ov);
+  }
+  uv.needsUpdate = true;
+}
+const NAME = { korpus: 'Korpus', front: 'Fronter', skuff: 'Skuffebokser', skinne: 'Skinner', bein: 'Bein', handtak: 'Håndtak' };
+const meshes = [];
+// assembly coords: X width, Y depth (+ back), Z up  ->  three: x = X, y = Z, z = -Y (front at z=0, viewer at +z,
+// so the left of the dresser is on the left of the screen)
+for (const a of D.asm) {
+  const [x, y, z, dx, dy, dz] = a.b;
+  const g = new THREE.BoxGeometry(dx, dz, dy);
+  mmUV(g, dx, dz, dy);
+  const m = new THREE.Mesh(g, a.grp === 'skinne' ? new THREE.MeshStandardMaterial({ color: 0x8f969c, roughness: .4, metalness: .7 }) : null);
+  const e = new THREE.LineSegments(new THREE.EdgesGeometry(g), new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: .25 }));
+  m.add(e);
+  m.userData = { a, base: new THREE.Vector3(x + dx / 2, z + dz / 2, -(y + dy / 2)) };
+  m.position.copy(m.userData.base);
+  scene.add(m); meshes.push(m);
+}
+// ---- handles (not in the cut list – just for the look): bar handle on the front's centre, c/c from params
+const HCC = I.hcc || 192;
+for (const a of D.asm.filter(a => a.grp === 'front')) {
+  const [x, y, z, dx, dy, dz] = a.b, id = a.label.split(' ').pop();
+  const cx = x + dx / 2, cz = z + dz / 2, L = HCC + 40, R = 6, OUT = 32;
+  const g = new THREE.CylinderGeometry(R, R, L, 24); g.rotateZ(Math.PI / 2);
+  const bar = new THREE.Mesh(g, null);
+  for (const s of [-1, 1]) {
+    const pg = new THREE.CylinderGeometry(4.5, 4.5, OUT, 16); pg.rotateX(Math.PI / 2);
+    const post = new THREE.Mesh(pg, null); post.position.set(s * HCC / 2, 0, -OUT / 2); bar.add(post);
+  }
+  const b = [cx - L / 2, y - OUT - R, cz - R, L, OUT + R, 2 * R];
+  bar.userData = { a: { grp: 'handtak', label: 'Håndtak ' + id, b }, base: new THREE.Vector3(cx, cz, -(y - OUT)) };
+  bar.position.copy(bar.userData.base);
+  scene.add(bar); meshes.push(bar);
+}
+// ---- cosmetic: legs + handles (remembered per browser)
+let choice = { ...DEFAULT };
+try { Object.assign(choice, JSON.parse(localStorage.getItem('kommode-mat') || '{}')); } catch (e) {}
+function applyMat(grp) {
+  const mat = makeMat(choice[grp], grp);
+  for (const m of meshes) if (m.userData.a.grp === grp) { m.material = mat; m.children.forEach(c => { if (c.isMesh) c.material = mat; }); }
+}
+const lookEl = document.getElementById('look');
+for (const grp of Object.keys(CHOICE)) {
+  if (!CHOICE[grp].includes(choice[grp])) choice[grp] = DEFAULT[grp];
+  const sp = document.createElement('span'); sp.textContent = NAME[grp];
+  const sel = document.createElement('select');
+  sel.innerHTML = CHOICE[grp].map(k => `<option value="${k}">${MATS[k].n}</option>`).join('');
+  sel.value = choice[grp];
+  sel.onchange = () => { choice[grp] = sel.value; applyMat(grp); try { localStorage.setItem('kommode-mat', JSON.stringify(choice)); } catch (e) {} };
+  lookEl.append(sp, sel); applyMat(grp);
+}
+
+// ---- sheet products from materialer.json: pick per role -> 3D colour + re-nest + price, live.
+//      The nesting below is a line-for-line port of nestlib.py (split_sheet, Bin, _pack1, pack, plan),
+//      so the numbers match what `python3 kommode.py` writes for the same choice.
+const M = D.mat, KAT = Object.fromEntries(M.katalog.map(m => [m.id, m]));
+const ROLE_OF = { K: 'front', A: 'ytre', C: 'ytre', CH: 'ytre', B: 'korpus', D: 'korpus', H: 'korpus', S: 'skuff', SH: 'skuff', E1: 'skuff', E2: 'skuff', SB: 'skuffebunn', G: 'bakplate' };
+const THK = { front: 'front', ytre: 'korpus', korpus: 'korpus', skuff: 'skuff', skuffebunn: 'skuffebunn', bakplate: 'bakplate' };
+let valg = { ...M.valg }, paint = {};
+try { const v = JSON.parse(localStorage.getItem('kommode-valg') || '{}');
+      for (const r of M.roles) if (KAT[v[r]]) valg[r] = v[r];
+      paint = JSON.parse(localStorage.getItem('kommode-farge') || '{}'); } catch (e) {}
+
+function splitSheet(fmt, bed, kerf, minBit) {
+  const L = Math.max(...fmt), W = Math.min(...fmt), BL = Math.max(...bed), BW = Math.min(...bed);
+  const cut = (n, m) => { const out = []; let rest = n;
+    while (rest > 0) { const t = Math.min(rest, m); out.push(t); rest -= t + kerf; }
+    const k = out.filter(x => x >= minBit); return k.length ? k : out.slice(0, 1); };
+  const r = []; for (const a of cut(L, BL)) for (const b of cut(W, BW)) r.push([a, b]); return r;
+}
+class Bin {
+  constructor(W, H, margin, gap) { this.W = W; this.H = H; this.free = [[margin, margin, W - 2 * margin + gap, H - 2 * margin + gap]]; this.placed = []; }
+  find(w, h) { let best = null;
+    for (const [fx, fy, fw, fh] of this.free) if (w <= fw && h <= fh) {
+      const sc = [Math.min(fw - w, fh - h), Math.max(fw - w, fh - h)];
+      if (!best || sc[0] < best[0][0] || (sc[0] === best[0][0] && sc[1] < best[0][1])) best = [sc, fx, fy]; }
+    return best; }
+  place(x, y, w, h) { const nf = [];
+    for (const [fx, fy, fw, fh] of this.free) {
+      if (x >= fx + fw || x + w <= fx || y >= fy + fh || y + h <= fy) { nf.push([fx, fy, fw, fh]); continue; }
+      if (x > fx) nf.push([fx, fy, x - fx, fh]);
+      if (x + w < fx + fw) nf.push([x + w, fy, fx + fw - x - w, fh]);
+      if (y > fy) nf.push([fx, fy, fw, y - fy]);
+      if (y + h < fy + fh) nf.push([fx, y + h, fw, fy + fh - y - h]); }
+    const same = (a, b) => a[0] === b[0] && a[1] === b[1] && a[2] === b[2] && a[3] === b[3];
+    this.free = nf.filter(r => !nf.some(o => !same(r, o) && r[0] >= o[0] && r[1] >= o[1] && r[0] + r[2] <= o[0] + o[2] && r[1] + r[3] <= o[1] + o[3])); }
+}
+const lt = (a, b) => { for (let i = 0; i < a.length; i++) { if (a[i] < b[i]) return true; if (a[i] > b[i]) return false; } return false; };
+function pack1(items, sizes, rot, margin, gap) {
+  const bins = [];
+  for (const it of items) {
+    const opts = [[it.L, it.B, false]].concat(rot ? [[it.B, it.L, true]] : []);
+    let placed = false;
+    for (const b of bins) { let best = null;
+      for (const [w, h, r] of opts) { const f = b.find(w + gap, h + gap); if (f && (!best || lt(f[0], best[0]))) best = [f[0], f[1], f[2], w, h, r]; }
+      if (best) { const [, x, y, w, h, r] = best; b.place(x, y, w + gap, h + gap); b.placed.push({ ...it, x, y, rot: r }); placed = true; break; } }
+    if (placed) continue;
+    for (;;) {
+      if (bins.length >= sizes.length) return null;
+      const b = new Bin(...sizes[bins.length], margin, gap); b.idx = bins.length; bins.push(b);
+      let hit = null;
+      for (const [w, h, r] of opts) { const f = b.find(w + gap, h + gap); if (f) { hit = [f, w, h, r]; break; } }
+      if (hit) { const [f, w, h, r] = hit; b.place(f[1], f[2], w + gap, h + gap); b.placed.push({ ...it, x: f[1], y: f[2], rot: r }); break; }
+    }
+  }
+  return bins;
+}
+function pack(items, sizes, rot, margin, gap) {
+  let best = null;
+  for (const key of [i => -(i.L * i.B), i => -Math.max(i.L, i.B), i => -i.B, i => -i.L, i => -(i.L + i.B)]) {
+    const bins = pack1([...items].sort((a, b) => key(a) - key(b)), sizes, rot, margin, gap);
+    if (!bins) continue;
+    const used = bins.filter(b => b.placed.length);
+    const sc = [Math.max(...used.map(b => b.idx)), used.length, -bins[0].placed.length];
+    if (!best || lt(sc, best[0])) best = [sc, bins];
+  }
+  return best && best[1].filter(b => b.placed.length);
+}
+function plan(items, pieces, rot, margin, gap) {
+  for (let n = 1; n <= 8; n++) {
+    const sizes = []; for (let k = 0; k < n; k++) sizes.push(...pieces);
+    const bins = pack(items, sizes, rot, margin, gap);
+    if (bins) return { bins, sheets: Math.floor(Math.max(...bins.map(b => b.idx)) / pieces.length) + 1 };
+  }
+  return null;
+}
+function evaluate(v) {
+  const t = r => KAT[v[r]].tykkelse;
+  const issues = [];
+  if (t('ytre') !== t('korpus')) issues.push(`Topp/sider (${t('ytre')} mm) og korpus (${t('korpus')} mm) må ha samme tykkelse.`);
+  const th = { front: t('front'), korpus: t('korpus'), skuff: t('skuff'), skuffebunn: t('skuffebunn'), bakplate: t('bakplate') };
+  const parts = M.lists[M.keys.map(k => String(th[k])).join('|')];
+  if (!parts) return { issues: issues.concat('Ingen delliste for denne tykkelseskombinasjonen.'), rows: [], total: 0 };
+  const groups = {};
+  for (const [code, role, qty, L, B] of parts) {
+    const id = v[role]; (groups[id] ??= { m: KAT[id], items: [], roles: new Set(), area: 0 });
+    groups[id].roles.add(role); groups[id].area += L * B * qty / 1e6;
+    for (let i = 0; i < qty; i++) groups[id].items.push({ code, L, B });
+  }
+  const rows = []; let total = 0, est = false;
+  for (const [id, g] of Object.entries(groups)) {
+    const pieces = splitSheet(g.m.format, M.nest.bed, M.nest.kerf, M.nest.min_bit);
+    const p = plan(g.items, pieces, !g.m.retning, M.nest.margin, M.nest.gap);
+    const price = g.m.pris ?? g.m.pris_anslag ?? 0, anslag = g.m.pris == null;
+    if (!p) { issues.push(`${g.m.navn}: delene får ikke plass (for store for platen?).`); continue; }
+    const sum = price * p.sheets; total += sum; est ||= anslag;
+    rows.push({ m: g.m, roles: [...g.roles].sort((a, b) => M.roles.indexOf(a) - M.roles.indexOf(b)), sheets: p.sheets, price, anslag, sum,
+                area: g.area, use: g.area / (p.sheets * g.m.format[0] * g.m.format[1] / 1e6), bins: p.bins.length });
+  }
+  return { rows, total, est, issues };
+}
+const kr = n => Math.round(n).toLocaleString('nb-NO').replace(/ /g, ' ');
+const BASE = evaluate(M.valg);
+function productMat(r) {
+  const m = KAT[valg[r]];
+  const d = m.malbar && paint[r] ? { ...m.dekor, c: paint[r] } : m.dekor;
+  if (d.wood) texCache[m.id] ??= woodTex(d.wood[0], d.wood[1], 1 + m.id.length * 977);
+  return new THREE.MeshStandardMaterial(d.wood ? { map: texCache[m.id], color: 0xffffff, roughness: d.r } : { color: d.c, roughness: d.r });
+}
+function applyProducts() {
+  const mats = Object.fromEntries(M.roles.map(r => [r, productMat(r)]));
+  for (const m of meshes) { const r = ROLE_OF[m.userData.a.code]; if (r) m.material = mats[r]; }
+}
+const costEl = document.getElementById('cost');
+function renderCost() {
+  const E = evaluate(valg), d = E.total - BASE.total;
+  const same = M.roles.every(r => valg[r] === M.valg[r]);
+  costEl.innerHTML = `<h1 style="margin-bottom:2px">Plater: ${E.est ? '~' : ''}${kr(E.total)} kr</h1>
+    <div class="sub" style="color:var(--mute);font-size:12px">${same ? 'Samme som lagret plan i params.json.' :
+      `Lagret plan: ${BASE.est ? '~' : ''}${kr(BASE.total)} kr → <b class="${d > 0 ? 'err' : 'ok'}">${d > 0 ? '+' : ''}${kr(d)} kr</b>`}
+      &nbsp;· hele plater, uten kantlist/kapping/frakt. ~ = anslag.</div>
+    ${E.issues.length ? `<ul class="err">${E.issues.map(x => `<li>${x}</li>`).join('')}</ul>` : ''}
+    <table>${E.rows.map(r => `<tr><td>${r.m.navn}<div class="sub">${r.m.leverandor}${r.m.artnr ? ' · ' + r.m.artnr : ''} · ${r.m.format.join('×')} · ${r.m.tykkelse} mm<br>
+        ${r.roles.map(x => M.role_name[x]).join(', ')}</div>
+        <div class="bar" title="brukt ${Math.round(r.use * 100)} %"><i style="width:${Math.round(r.use * 100)}%"></i></div></td>
+      <td class="n">${r.sheets} × ${r.anslag ? '~' : ''}${kr(r.price)}<div class="sub">brukt ${Math.round(r.use * 100)} %</div></td>
+      <td class="n"><b>${r.anslag ? '~' : ''}${kr(r.sum)}</b></td></tr>`).join('')}</table>
+    <details><summary>Bruk dette valget (DXF-er, rapport)</summary>
+      <p class="sub" style="color:var(--mute);font-size:12px">Erstatt "materialvalg" i params.json med dette og kjør <code>python3 kommode.py</code>.</p>
+      <textarea readonly id="snip">"materialvalg": ${JSON.stringify(Object.fromEntries(M.roles.map(r => [r, valg[r]])), null, 2)},</textarea>
+      <button id="cp">Kopier</button> <button id="rs">Tilbake til lagret plan</button></details>`;
+  document.getElementById('cp').onclick = () => { const t = document.getElementById('snip'); t.select(); navigator.clipboard?.writeText(t.value).catch(() => {}); };
+  document.getElementById('rs').onclick = () => { valg = { ...M.valg }; buildSelects(); onChange(); };
+}
+const matEl = document.getElementById('mat');
+function buildSelects() {
+  matEl.innerHTML = '';
+  for (const r of M.roles) {
+    const sp = document.createElement('span'); sp.textContent = M.role_name[r];
+    const sel = document.createElement('select');
+    sel.innerHTML = M.katalog.filter(m => m.roller.includes(r)).map(m =>
+      `<option value="${m.id}">${m.navn.replace(/^Spon melamin /, '')} · ${m.tykkelse} mm · ${m.pris == null ? '~' : ''}${kr(m.pris ?? m.pris_anslag)} kr</option>`).join('');
+    sel.value = valg[r]; sel.title = KAT[valg[r]].pris_kilde || '';
+    sel.onchange = () => { valg[r] = sel.value; sel.title = KAT[valg[r]].pris_kilde || ''; buildSelects(); onChange(); };
+    matEl.append(sp, sel);
+    if (KAT[valg[r]].malbar) {
+      const c = document.createElement('input'); c.type = 'color'; c.value = paint[r] || KAT[valg[r]].dekor.c;
+      c.oninput = () => { paint[r] = c.value; applyProducts(); try { localStorage.setItem('kommode-farge', JSON.stringify(paint)); } catch (e) {} };
+      matEl.append(c);
+    }
+  }
+}
+function onChange() {
+  applyProducts(); renderCost();
+  try { localStorage.setItem('kommode-valg', JSON.stringify(valg)); } catch (e) {}
+}
+buildSelects(); onChange();
+const centre = new THREE.Vector3(I.W / 2, I.HS / 2, -I.DEP / 2);
+const grps = document.getElementById('grps');
+for (const k of Object.keys(NAME)) {
+  const l = document.createElement('label');
+  l.innerHTML = `<input type="checkbox" checked> ${NAME[k]}`;
+  l.firstChild.onchange = ev => meshes.forEach(m => { if (m.userData.a.grp === k) m.visible = ev.target.checked; });
+  grps.appendChild(l);
+}
+// ---- drawers: every drawer part's label ends with its id (e.g. "1V"); front, box, bottom and the
+//      inner slide member move together. Travel = full extension (slide length minus a little).
+const TRAVEL = I.Ls - 20;
+const drawers = {};           // id -> { cur, goal }
+for (const m of meshes) {
+  const a = m.userData.a;
+  if (['front', 'skuff', 'skinne', 'handtak'].includes(a.grp)) {
+    m.userData.dr = a.label.split(' ').pop();
+    drawers[m.userData.dr] ??= { cur: 0, goal: 0 };
+  }
+}
+const ex = document.getElementById('ex'), op = document.getElementById('op');
+function layout() {
+  const e = +ex.value, o = +op.value;
+  for (const m of meshes) {
+    const a = m.userData.a, p = m.userData.base.clone();
+    const dr = drawers[m.userData.dr];
+    if (dr) {
+      const t = Math.max(dr.cur, o);
+      p.z += t * TRAVEL * (a.grp === 'skinne' ? 0.5 : 1);   // slide's middle member travels half
+    }
+    const d = m.userData.base.clone().sub(centre); p.add(d.multiplyScalar(e * 0.6));
+    if (a.grp === 'front' || a.grp === 'handtak') p.z += e * 250;
+    m.position.copy(p);
+  }
+}
+ex.oninput = op.oninput = layout;
+document.getElementById('cls').onclick = () => { op.value = 0; for (const d of Object.values(drawers)) d.goal = 0; layout(); };
+
+// ---- framing: fit the whole dresser (incl. legs, top overhang, opened drawers) in the free area
+//      between the side panels, and centre it there.
+// Built straight from the part data (not expandByObject: world matrices aren't updated before the
+// first render, which put the box around the origin and pushed the dresser into a corner).
+const bbox = new THREE.Box3();
+for (const m of meshes) {
+  const [x, y, z, dx, dy, dz] = m.userData.a.b;
+  bbox.expandByPoint(new THREE.Vector3(x, z, -y)).expandByPoint(new THREE.Vector3(x + dx, z + dz, -(y + dy)));
+}
+bbox.max.z += TRAVEL * 0.5;                      // leave room for drawers coming out
+const ctlEl = document.getElementById('ctl'), stEl = document.getElementById('st');
+function frame() {
+  const w = innerWidth, h = innerHeight, wide = w > 700;
+  const left = wide ? ctlEl.offsetWidth + 24 : 0, right = wide ? stEl.offsetWidth + 24 : 0;
+  const bottom = wide ? 0 : stEl.offsetHeight + 24, top = wide ? 0 : ctlEl.offsetHeight + 24;
+  // shift the projection so the camera's centre lies in the middle of the free area
+  cam.setViewOffset(w, h, (right - left) / 2, (bottom - top) / 2, w, h);
+  const vw = Math.max(200, w - left - right), vh = Math.max(200, h - top - bottom);
+  const c = bbox.getCenter(new THREE.Vector3()), size = bbox.getSize(new THREE.Vector3());
+  const r = size.length() / 2;
+  const fovV = THREE.MathUtils.degToRad(cam.fov), fovH = 2 * Math.atan(Math.tan(fovV / 2) * vw / h);
+  const fit = Math.min(fovV * vh / h, fovH);
+  const dist = r / Math.sin(fit / 2) * 0.92;
+  const dir = new THREE.Vector3(0.45, 0.38, 1).normalize();   // front, slightly right and above
+  ctl.target.copy(c);
+  cam.position.copy(c).addScaledVector(dir, dist);
+  cam.near = dist / 50; cam.far = dist * 10; cam.updateProjectionMatrix();
+  ctl.update();
+}
+document.getElementById('ctr').onclick = frame;
+canvas.addEventListener('dblclick', frame);
+
+// ---- hover + click
+const tip = document.getElementById('tip'), ray = new THREE.Raycaster(), mv = new THREE.Vector2();
+function pick(ev) {
+  const r = canvas.getBoundingClientRect();
+  mv.set((ev.clientX - r.left) / r.width * 2 - 1, -(ev.clientY - r.top) / r.height * 2 + 1);
+  ray.setFromCamera(mv, cam);
+  return ray.intersectObjects(meshes.filter(m => m.visible), false)[0];
+}
+canvas.addEventListener('pointermove', ev => {
+  const h = pick(ev);
+  canvas.style.cursor = h && h.object.userData.dr ? 'pointer' : '';
+  if (h) { const a = h.object.userData.a, b = a.b;
+    tip.style.display = 'block'; tip.style.left = ev.clientX + 14 + 'px'; tip.style.top = ev.clientY + 14 + 'px';
+    tip.textContent = `${a.label}  ${b[3]} × ${b[4]} × ${b[5]} mm`; } else tip.style.display = 'none';
+});
+let down = null;
+canvas.addEventListener('pointerdown', ev => { down = [ev.clientX, ev.clientY]; });
+canvas.addEventListener('pointerup', ev => {
+  if (!down || Math.hypot(ev.clientX - down[0], ev.clientY - down[1]) > 5) return;   // was a drag, not a click
+  const h = pick(ev), id = h && h.object.userData.dr;
+  if (id) { const d = drawers[id]; d.goal = d.goal > 0.5 ? 0 : 1; }
+});
+
+function resize() { renderer.setSize(innerWidth, innerHeight, false); cam.aspect = innerWidth / innerHeight; frame(); }
+addEventListener('resize', resize); resize();
+renderer.setAnimationLoop(() => {
+  let moving = false;
+  for (const d of Object.values(drawers)) {
+    if (Math.abs(d.goal - d.cur) > 0.001) { d.cur += (d.goal - d.cur) * 0.15; moving = true; }
+    else d.cur = d.goal;
+  }
+  if (moving) layout();
+  ctl.update(); renderer.render(scene, cam);
+});
+</script>
+</body>
+</html>
