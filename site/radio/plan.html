@@ -1,0 +1,554 @@
+<title>Field Radio Foundry</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a vertical deck of full-width "plates" like sheets in a technical drawing set; each plate has a title block, interactive sims sit on a drafting grid. */
+:root{
+  --bg:#eef0ea; --paper:#f8f9f5; --ink:#1d2621; --muted:#5b6660; --line:#c9cfc6; --grid:#dfe3dc;
+  --accent:#c2620a; --accent-soft:#f3dcc4; --signal:#2f6f8f; --ok:#2e7d4f; --bad:#b3362b; --warn:#a67a00;
+  --jam:rgba(179,54,43,.14);
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --paper:#1b231f; --ink:#e3e8e2; --muted:#9aa69f; --line:#34413a; --grid:#232d28;
+  --accent:#ef8a2c; --accent-soft:#3d2a17; --signal:#6fb2d2; --ok:#5cbf83; --bad:#e46a5d; --warn:#d9b13b;
+  --jam:rgba(228,106,93,.16); color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141a17; --paper:#1b231f; --ink:#e3e8e2; --muted:#9aa69f; --line:#34413a; --grid:#232d28;
+  --accent:#ef8a2c; --accent-soft:#3d2a17; --signal:#6fb2d2; --ok:#5cbf83; --bad:#e46a5d; --warn:#d9b13b;
+  --jam:rgba(228,106,93,.16); color-scheme:dark }
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:16px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 96px}
+.plate{max-width:1120px;margin:0 auto;padding-block:56px 40px;border-bottom:1px solid var(--line);scroll-margin-top:12px}
+.tb{display:flex;flex-wrap:wrap;gap:8px 18px;align-items:baseline;font-family:var(--f-mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:14px}
+.tb b{color:var(--accent);font-weight:500}
+h1,h2,h3{font-family:var(--f-display);font-weight:600;letter-spacing:.01em;text-wrap:balance;margin:0}
+h1{font-size:clamp(48px,9vw,104px);line-height:.92;text-transform:uppercase}
+h2{font-size:clamp(32px,5vw,52px);line-height:1;text-transform:uppercase;margin-bottom:14px}
+h3{font-size:22px;text-transform:uppercase;letter-spacing:.03em}
+p{margin:0;max-width:66ch}
+.lede{font-size:clamp(17px,2vw,20px);color:var(--ink);max-width:62ch}
+.muted{color:var(--muted)}
+.mono{font-family:var(--f-mono);font-variant-numeric:tabular-nums}
+.small{font-size:13px}
+.stack{display:flex;flex-direction:column;gap:14px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr));gap:24px}
+.grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,250px),1fr));gap:18px}
+.grid2>*,.grid3>*{min-width:0}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:18px;
+  background-image:linear-gradient(var(--grid) 1px,transparent 1px),linear-gradient(90deg,var(--grid) 1px,transparent 1px);background-size:24px 24px}
+.card{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:16px}
+.tag{display:inline-block;font-family:var(--f-mono);font-size:11px;letter-spacing:.06em;text-transform:uppercase;padding:2px 7px;border-radius:2px;border:1px solid currentColor}
+.t-ok{color:var(--ok)}.t-bad{color:var(--bad)}.t-warn{color:var(--warn)}.t-acc{color:var(--accent)}.t-sig{color:var(--signal)}
+.est{font-family:var(--f-mono);font-size:11px;color:var(--warn)}
+button,.btn{font:500 14px var(--f-body);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:8px 14px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+button:focus-visible,input:focus-visible,select:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+label{font-size:13px;color:var(--muted);display:block;margin-bottom:4px}
+input[type=range]{width:100%;accent-color:var(--accent)}
+select{font:14px var(--f-body);padding:7px;background:var(--paper);color:var(--ink);border:1px solid var(--line);border-radius:3px}
+.scroll-x{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:14px}
+th,td{text-align:left;padding:8px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500}
+td.num{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+canvas,svg{display:block;max-width:100%}
+
+/* hero */
+.hero{padding-block:72px 48px}
+.hero .kick{font-family:var(--f-mono);color:var(--accent);font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin-bottom:18px}
+.hero h1 span{color:var(--accent)}
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,210px),1fr));gap:0;margin-top:36px;border-top:2px solid var(--ink)}
+.stat{padding:14px 16px 6px 0;border-right:1px solid var(--line)}
+.stat:last-child{border-right:0}
+.stat .v{font-family:var(--f-display);font-size:44px;font-weight:600;line-height:1}
+.stat .k{font-size:13px;color:var(--muted);margin-top:4px}
+
+/* ladder */
+.ladder .row{display:grid;grid-template-columns:minmax(120px,210px) 1fr;gap:12px;align-items:center;padding:7px 0;border-bottom:1px dashed var(--line)}
+.ladder .bar{height:20px;background:var(--line);border-radius:2px;position:relative}
+.ladder .bar i{position:absolute;left:0;top:0;bottom:0;border-radius:2px;background:var(--muted)}
+.ladder .bar.us i{background:var(--accent)}
+.ladder .bar span{position:absolute;left:calc(var(--w) + 8px);top:0;font-family:var(--f-mono);font-size:12px;line-height:20px;white-space:nowrap}
+.ladder .nm{font-size:14px}
+.ladder .nm small{display:block;color:var(--muted);font-size:12px}
+
+/* options */
+.opt{cursor:pointer;text-align:left;display:flex;flex-direction:column;gap:8px;padding:16px;width:100%}
+.opt h3{font-size:24px}
+.opt[aria-pressed="true"]{background:var(--accent-soft);color:var(--ink);border-color:var(--accent)}
+.meter{display:grid;grid-template-columns:130px 1fr 26px;gap:8px;align-items:center;font-size:13px;margin-top:6px}
+.meter .m{height:8px;background:var(--line);border-radius:4px;overflow:hidden}
+.meter .m i{display:block;height:100%;background:var(--signal);transition:width .4s}
+.rec{border-left:3px solid var(--accent);padding-left:14px}
+
+/* sim legends */
+.legend{display:flex;flex-wrap:wrap;gap:14px;font-size:13px;color:var(--muted)}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+.readout{display:flex;flex-wrap:wrap;gap:18px}
+.readout div{min-width:110px}
+.readout .v{font-family:var(--f-display);font-size:38px;font-weight:600;line-height:1}
+.readout .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
+
+/* loop */
+.pipe{display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-family:var(--f-mono);font-size:12px}
+.pipe span{border:1px solid var(--line);background:var(--paper);padding:6px 9px;border-radius:2px}
+.pipe span.hot{border-color:var(--accent);color:var(--accent)}
+.pipe em{color:var(--muted);font-style:normal}
+.rules{list-style:none;margin:0;padding:0;font-family:var(--f-mono);font-size:12.5px}
+.rules li{display:grid;grid-template-columns:44px 1fr 46px;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.rules li b{font-weight:500}
+.log{font-family:var(--f-mono);font-size:12.5px;min-height:3.2em;color:var(--muted)}
+.log b{color:var(--accent);font-weight:500}
+
+/* phases */
+.phases{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:0;border-top:2px solid var(--ink)}
+.phase{padding:14px 16px 14px 0;border-right:1px solid var(--line)}
+.phase:last-child{border-right:0}
+.phase .when{font-family:var(--f-mono);font-size:12px;color:var(--accent)}
+.phase ul{margin:8px 0 0;padding-left:18px;font-size:14px}
+.phase li{margin-bottom:4px}
+.phase .cost{font-family:var(--f-mono);font-size:12px;color:var(--muted);margin-top:8px}
+
+ul.clean{margin:0;padding-left:18px}
+ul.clean li{margin-bottom:6px}
+
+/* nav */
+.nav{position:fixed;right:max(16px,calc(env(safe-area-inset-right,0px) + 16px));bottom:calc(16px + env(safe-area-inset-bottom,0px));display:flex;gap:6px;align-items:center;z-index:20;
+  background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:6px 8px;font-family:var(--f-mono);font-size:12px;box-shadow:0 4px 18px rgba(0,0,0,.12)}
+.nav button{padding:4px 10px}
+.foot{max-width:1120px;margin:0 auto;padding-top:28px;font-size:12px;color:var(--muted)}
+.foot a{color:var(--signal)}
+</style>
+
+<section class="plate hero" id="start">
+  <div class="kick">Plan · Hardware for Ukraine · Draft 1 · 22 Nov 2026</div>
+  <h1>Field Radio<br><span>Foundry</span></h1>
+  <p class="lede" style="margin-top:22px">Rugged squad radios and drop-anywhere mesh relays for troops in Ukraine, built from proven RF modules and designed by an AI loop that draws every part, checks it against hard rules and redraws it until it passes. Same method as the furniture checker, pointed at a harder problem.</p>
+  <div class="stats">
+    <div class="stat"><div class="v mono">~$10k+</div><div class="k">Western tactical handheld (L3Harris class). Mostly arrives as aid.</div></div>
+    <div class="stat"><div class="v mono">~$370</div><div class="k">Himera G1 Pro, Ukrainian-made (15 000 UAH via Come Back Alive)</div></div>
+    <div class="stat"><div class="v mono t-acc">$90–140</div><div class="k">Our target unit cost at 10k/yr: mesh relay node / squad radio <span class="est">model estimate</span></div></div>
+    <div class="stat"><div class="v mono">32 wk</div><div class="k">From kickoff to a 500-unit pilot with a partner unit</div></div>
+  </div>
+</section>
+
+<section class="plate" id="market">
+  <div class="tb"><b>Sheet 02</b><span>Market</span><span>Unit price, log scale</span></div>
+  <h2>Where the price gap is</h2>
+  <div class="grid2">
+    <div class="stack">
+      <p>Ukrainian troops have relied heavily on cheap commercial walkie-talkies that were never meant for a battlefield. Western military radios cost tens of thousands of dollars each. Himera already sells a jam-resistant handheld at roughly $370 and is now exporting to NATO.</p>
+      <p><b>So another handheld is not the opening.</b> The open space is the network around the handheld: cheap relay nodes you can drop on a treeline, mount on a drone or leave in a basement, so squad radios keep a path back when one link is jammed. That is where volume is huge and current options cost thousands.</p>
+      <p class="small muted">Prices marked <span class="est">est.</span> are rough public ranges, not quotes. Verify with procurement contacts before the pitch.</p>
+    </div>
+    <div class="sheet ladder" id="ladder"></div>
+  </div>
+</section>
+
+<section class="plate" id="strategy">
+  <div class="tb"><b>Sheet 03</b><span>Decision</span><span>Combine · Hybrid · Scratch</span></div>
+  <h2>Combine devices or build from scratch?</h2>
+  <p class="lede" style="margin-bottom:20px">Pick an approach to see how it scores. Scores are 1–10, higher is better.</p>
+  <div class="grid3" id="opts"></div>
+  <div class="card rec" style="margin-top:20px">
+    <h3 style="margin-bottom:6px">Recommendation: hybrid</h3>
+    <p>Buy the hard, certified part (the RF transceiver module or SDR chip with its reference design). Build everything around it ourselves: carrier board, enclosure, battery pack, antenna, firmware and the network layer. Claude does most of its useful work exactly there: mechanical drawings, board outlines, BOMs, test procedures, and the rules that check them. Full scratch spends a year on RF and certification that Himera and others already solved. Pure combining caps how cheap and how rugged you can get.</p>
+  </div>
+</section>
+
+<section class="plate" id="cost">
+  <div class="tb"><b>Sheet 04</b><span>Simulation</span><span>Unit cost model</span></div>
+  <h2>Cost simulator</h2>
+  <div class="grid2">
+    <div class="stack">
+      <div><label>Approach</label><div class="seg" id="cApproach"></div></div>
+      <div><label for="cVol">Volume per year: <b class="mono" id="cVolOut"></b></label><input id="cVol" type="range" min="2" max="4.7" step="0.05" value="4"></div>
+      <div><label for="cRegion">Assembly and test done in</label>
+        <select id="cRegion"><option value="1.7">Norway</option><option value="1" selected>Poland (EMS partner)</option><option value="0.8">Ukraine (partner line)</option></select></div>
+      <div class="readout">
+        <div><div class="v mono t-acc" id="cUnit">–</div><div class="k">Unit cost</div></div>
+        <div><div class="v mono" id="cVsH">–</div><div class="k">vs Himera G1 Pro</div></div>
+        <div><div class="v mono" id="cBudget">–</div><div class="k">Yearly spend</div></div>
+      </div>
+      <p class="small muted">Planning model, not a quote. Module prices, tooling and NRE (engineering + certification) are assumptions you can see in the breakdown. NRE is spread over one year's volume.</p>
+    </div>
+    <div class="stack">
+      <div class="sheet"><canvas id="cCurve" width="560" height="260" aria-label="Unit cost versus volume chart"></canvas></div>
+      <div id="cBreak"></div>
+    </div>
+  </div>
+</section>
+
+<section class="plate" id="field">
+  <div class="tb"><b>Sheet 05</b><span>Simulation</span><span>Network under jamming</span></div>
+  <h2>Why relays beat a single repeater</h2>
+  <div class="grid2" style="grid-template-columns:minmax(0,2fr) minmax(0,1fr)">
+    <div class="sheet" style="padding:8px"><canvas id="fCanvas" width="820" height="470" aria-label="Field network simulation: drag the jammer, click to drop relays"></canvas></div>
+    <div class="stack">
+      <div class="seg" id="fMode">
+        <button data-m="star" aria-pressed="false">Single repeater</button>
+        <button data-m="mesh" aria-pressed="true">Mesh + relays</button>
+      </div>
+      <p class="small">Drag the red jammer. In mesh mode, click the map to drop a relay node (up to 6), click one again to remove it.</p>
+      <div class="readout">
+        <div><div class="v mono" id="fConn">–</div><div class="k">Squads connected</div></div>
+        <div><div class="v mono" id="fHops">–</div><div class="k">Max hops</div></div>
+      </div>
+      <div class="legend">
+        <span><i style="background:var(--signal)"></i>Command post</span>
+        <span><i style="background:var(--ok)"></i>Squad, linked</span>
+        <span><i style="background:var(--bad)"></i>Squad, cut off</span>
+        <span><i style="background:var(--accent)"></i>Relay node</span>
+      </div>
+      <div class="seg"><button id="fReset">Reset</button><button id="fAuto">Place relays for me</button></div>
+      <p class="small muted">Abstract model: links work within a fixed range, and range drops to a third inside the jamming zone. Real terrain, power and frequency planning are far messier, but the shape of the result holds.</p>
+    </div>
+  </div>
+</section>
+
+<section class="plate" id="loop">
+  <div class="tb"><b>Sheet 06</b><span>Method</span><span>From the furniture checker</span></div>
+  <h2>The AI design loop</h2>
+  <div class="pipe" id="pipe" style="margin-bottom:18px">
+    <span data-s="0">Spec in plain text</span><em>→</em>
+    <span data-s="1">Claude writes CadQuery + KiCad</span><em>→</em>
+    <span data-s="2">Drawings, STEP, Gerbers, BOM</span><em>→</em>
+    <span data-s="3">Rule checker (plain code)</span><em>→</em>
+    <span data-s="4">Fix and redraw</span><em>↺</em>
+    <span data-s="5">Fault library grows</span>
+  </div>
+  <div class="grid2">
+    <div class="sheet" style="padding:10px">
+      <svg id="encl" viewBox="0 0 520 360" aria-label="Relay node enclosure drawing, changing as the loop iterates"></svg>
+      <div class="log" id="log"></div>
+      <div class="seg" style="margin-top:8px"><button id="lPlay" aria-pressed="true">Pause</button><button id="lStep">Step</button><span class="mono small muted" id="lIter" style="align-self:center"></span></div>
+    </div>
+    <div class="stack">
+      <ul class="rules" id="rules"></ul>
+      <div class="card small">
+        <b>Evidence the method works.</b> The furniture checker (built today) went from catching <span class="mono">24%</span> to <span class="mono">100%</span> of training faults and from <span class="mono">4%</span> to <span class="mono">72%</span> of a blind held-out set, with 0 false alarms, by letting an agent write rules and keeping only those that pass a test gate. The radio version swaps drawer slides and Minifix holes for gaskets, RF keep-outs and drop tests.
+      </div>
+    </div>
+  </div>
+  <div class="grid2" style="margin-top:22px">
+    <div><h3 style="margin-bottom:8px">Claude drafts</h3><ul class="clean">
+      <li>Parametric enclosure (CadQuery/build123d) → STEP, 2D drawings with tolerances, 3D-print and CNC files</li>
+      <li>Carrier board schematic and layout from code (KiCad + atopile/SKiDL), around the module's reference design</li>
+      <li>BOM with alternates, assembly instructions, test and acceptance procedures</li>
+      <li>New rules + tests whenever a prototype fails in the lab or field</li></ul></div>
+    <div><h3 style="margin-bottom:8px">Humans and instruments decide</h3><ul class="clean">
+      <li>RF matching, antenna tuning, emissions: measured with a VNA and spectrum analyzer, simulated in openEMS</li>
+      <li>Encryption and key handling: use an approved scheme, never home-made crypto</li>
+      <li>Field acceptance: soldiers' feedback is the final rule source</li>
+      <li>Rules stay plain code with tests, never a model's opinion of a drawing</li></ul></div>
+  </div>
+</section>
+
+<section class="plate" id="machines">
+  <div class="tb"><b>Sheet 07</b><span>Workshop</span><span>Prices approximate, USD</span></div>
+  <h2>Which machines</h2>
+  <p class="lede" style="margin-bottom:18px">Own the fast iteration (prints, small boards, RF measurement). Rent the volume (PCB fabs, contract assembly, injection moulding).</p>
+  <div class="scroll-x card" style="padding:0 6px">
+  <table>
+    <thead><tr><th>Stage</th><th>Machine</th><th>Use</th><th>Approx.</th></tr></thead>
+    <tbody>
+      <tr><td>Prototype</td><td>Bambu Lab H2D / X1C (FDM, PETG/ASA/PA-CF)</td><td>Enclosure fit checks overnight, jigs</td><td class="num">$1.2–2.5k</td></tr>
+      <tr><td>Prototype</td><td>Formlabs Form 4 (SLA, tough resins)</td><td>Gasket grooves, button caps, snap fits at true tolerance</td><td class="num">$4.5k</td></tr>
+      <tr><td>Prototype</td><td>Makera Carvera desktop CNC</td><td>Aluminium heat spreaders, antenna brackets</td><td class="num">$5–6k</td></tr>
+      <tr><td>Boards</td><td>Neoden YY1 pick-and-place + small reflow oven + stencil frame</td><td>10–50 carrier boards per day in house</td><td class="num">$4–6k</td></tr>
+      <tr><td>RF lab</td><td>LiteVNA / NanoVNA, TinySA Ultra</td><td>Antenna tuning at every bench</td><td class="num">$100–250</td></tr>
+      <tr><td>RF lab</td><td>Siglent spectrum analyzer with tracking generator, RF shield box</td><td>Emissions, receiver sensitivity, filter checks</td><td class="num">$3–6k</td></tr>
+      <tr><td>Ruggedness</td><td>Drop rig (1.5 m), IP67 dunk tank, used climate chamber</td><td>−20 °C winter starts, rain, mud</td><td class="num">$3–8k</td></tr>
+      <tr><td>Fixtures</td><td>Fellesverkstedet ShopBot (wood CNC)</td><td>Assembly fixtures, test racks, shipping crates. Not for metal parts.</td><td class="num">membership</td></tr>
+      <tr><td>Volume</td><td>PCB fab + assembly (Eurocircuits, Aisler, or Polish/Ukrainian EMS)</td><td>Panels of carrier boards, conformal coating</td><td class="num">per unit</td></tr>
+      <tr><td>Volume</td><td>Injection moulding tool (Protolabs or Polish moulder)</td><td>Above ~2 000 units, enclosure drops from ~$40 to ~$5</td><td class="num">$10–25k tool</td></tr>
+    </tbody>
+  </table></div>
+  <p class="small muted" style="margin-top:10px">Starter lab total ≈ $25–35k. Prefer EU fabs for anything defence-related: supply-chain trust and export control are easier than with Asian fabs.</p>
+</section>
+
+<section class="plate" id="egbe">
+  <div class="tb"><b>Sheet 08</b><span>Tooling</span><span>Egbe from RSI Hack #7</span></div>
+  <h2>Where Egbe fits</h2>
+  <div class="grid2">
+    <div class="stack">
+      <p>Egbe is infrastructure for agents to run businesses: research, outreach email, ads, hosting, Stripe and analytics, organised as <b>loops</b> ("a decision you make more than once"). Its docs list no PCB-fab, CAD or parts-ordering integrations, so it should not run the design loop.</p>
+      <p>It fits the <b>business loop</b> next to the design loop: finding grant and procurement calls, running supplier RFQ outreach, and turning unit feedback into spec changes. Humans stay on the loop and approve each outward message.</p>
+      <p class="small muted">Pricing: free to start, $10 credit, 15% fee on paid usage. Anything sent to the military or to suppliers needs human sign-off and nothing export-controlled in the prompts.</p>
+    </div>
+    <div class="sheet"><svg id="loops" viewBox="0 0 480 300" aria-label="Two loops: design loop in our own Claude agent, business loop in Egbe"></svg></div>
+  </div>
+</section>
+
+<section class="plate" id="plan">
+  <div class="tb"><b>Sheet 09</b><span>Delivery</span><span>Kickoff to fielded units</span></div>
+  <h2>Delivery plan</h2>
+  <div class="phases">
+    <div class="phase"><div class="when">Weeks 0–6 · Requirements</div><h3>Partner first</h3><ul>
+      <li>Find a Ukrainian partner through Brave1 and a volunteer fund. Get the real requirement from one brigade's signals officer.</li>
+      <li>Choose the RF module, test 3 on the bench.</li>
+      <li>Port the furniture checker: first 15 enclosure + board rules, seed fault library.</li></ul><div class="cost">≈ $60k incl. starter lab</div></div>
+    <div class="phase"><div class="when">Weeks 6–16 · Prototypes</div><h3>20 units</h3><ul>
+      <li>Loop generates enclosure + carrier board revisions daily. Print, assemble and measure in house.</li>
+      <li>Lab: range, battery life at −20 °C, drop, IP67.</li>
+      <li>Field trial with the partner unit, away from the front line.</li></ul><div class="cost">≈ $80k</div></div>
+    <div class="phase"><div class="when">Weeks 16–32 · Pilot</div><h3>500 units</h3><ul>
+      <li>EMS partner in Poland or Ukraine, first moulding tool.</li>
+      <li>Export licence (DEKSA in Norway) and Ukrainian codification.</li>
+      <li>Ship via partner fund, with spares, batteries and a 1-page field card.</li></ul><div class="cost">≈ $120k + units</div></div>
+    <div class="phase"><div class="when">Week 32+ · Scale</div><h3>10k / year</h3><ul>
+      <li>Firmware updates every few weeks as Russian EW adapts.</li>
+      <li>Every field failure becomes a new checker rule.</li>
+      <li>Funding: Brave1 grants, NATO DIANA, EU defence fund, donor procurement.</li></ul><div class="cost">≈ $0.9–1.4M / yr at target cost</div></div>
+  </div>
+</section>
+
+<section class="plate" id="risks">
+  <div class="tb"><b>Sheet 10</b><span>Reality check</span></div>
+  <h2>Risks and what we do about them</h2>
+  <div class="scroll-x"><table>
+    <thead><tr><th>Risk</th><th>Why it matters</th><th>Mitigation</th></tr></thead>
+    <tbody>
+      <tr><td><span class="tag t-bad">High</span> Electronic warfare moves fast</td><td>A radio that worked in spring can be useless by autumn.</td><td>Software-defined module, field-updatable firmware, a front-line partner who reports what changes.</td></tr>
+      <tr><td><span class="tag t-bad">High</span> Export control</td><td>Military radios and crypto are controlled items. Shipping without a licence is a crime.</td><td>Talk to DEKSA and a defence lawyer in week 1. Keep controlled details out of public repos and AI prompts.</td></tr>
+      <tr><td><span class="tag t-warn">Med</span> RF expertise</td><td>AI can draw a board; it cannot tune an antenna.</td><td>Hire or partner with one experienced RF engineer. Measurements gate every rule.</td></tr>
+      <tr><td><span class="tag t-warn">Med</span> Competition</td><td>Himera and others are ahead on handhelds.</td><td>Start with relays that work alongside existing radios. Offer the AI design loop to Ukrainian makers as a service.</td></tr>
+      <tr><td><span class="tag t-warn">Med</span> Encryption approval</td><td>Units will not trust unapproved crypto.</td><td>Use the module's approved scheme or a partner's certified stack.</td></tr>
+      <tr><td><span class="tag t-ok">Low</span> Manufacturing</td><td>Enclosures and carrier boards are routine for EMS houses.</td><td>The checker's DFM rules mirror the fab's own limits.</td></tr>
+    </tbody>
+  </table></div>
+  <div class="card rec" style="margin-top:22px">
+    <h3 style="margin-bottom:6px">Next three actions</h3>
+    <ol style="margin:0;padding-left:20px">
+      <li>Book a call with Brave1 and one volunteer fund that buys radios: ask what breaks and what a relay node must do.</li>
+      <li>Fork the furniture checker into a radio checker: 15 enclosure and board rules, 20 seeded faults, the same catch-rate score.</li>
+      <li>Order three candidate RF modules plus a LiteVNA and TinySA, and measure before drawing anything final.</li>
+    </ol>
+  </div>
+</section>
+
+<div class="foot">Sources: <a href="https://mezha.media/en/oboronka/himera-yak-ukrajincyam-vdalosya-stvoriti-raciji-yaki-konkuruyut-z-motorola-305074">Mezha on Himera</a> · <a href="https://euromaidanpress.com/2025/10/07/nato-buys-ukrainian-radios-russian-jamming/">Euromaidan Press</a> · <a href="https://www.aol.com/ukrainian-walkie-talkie-maker-caught-133336648.html">Business Insider via AOL</a> · <a href="https://www.pravda.com.ua/eng/news/2025/10/06/8001469">Ukrainska Pravda</a> · <a href="https://docs.egbe.ai/concepts/loops/">Egbe docs</a>. Cost figures marked as estimates are planning assumptions.</div>
+
+<nav class="nav" aria-label="Sheets"><button id="nPrev" aria-label="Previous sheet">↑</button><span id="nPos">1 / 10</span><button id="nNext" aria-label="Next sheet">↓</button></nav>
+
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const redrawers=[];
+const onTheme=()=>redrawers.forEach(f=>f());
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change',onTheme);
+new MutationObserver(onTheme).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+function hidpi(cv){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1,W=+cv.getAttribute('width'),H=+cv.getAttribute('height');
+  cv.style.width='100%';cv.style.height='auto';const w=Math.max(1,r.width||W);cv.width=Math.round(w*d);cv.height=Math.round(w*H/W*d);
+  const c=cv.getContext('2d');c.setTransform(cv.width/W,0,0,cv.height/H,0,0);return c;}
+
+/* ---- ladder ---- */
+const L=[
+ ['Consumer walkie-talkie','No encryption, easy to locate and jam',35,false,true],
+ ['Commercial DMR (Motorola class)','Widely used, not built for EW',700,false,true],
+ ['Himera G1 Pro','Ukrainian, jam-resistant',370,false,false],
+ ['MANET mesh radio','Silvus / Persistent class',15000,false,true],
+ ['Western tactical handheld','L3Harris class, "tens of thousands"',20000,false,true],
+ ['Our relay node (target)','Hybrid, 10k / yr',95,true,false],
+ ['Our squad radio (target)','Hybrid, 10k / yr',140,true,false]];
+const lo=Math.log10(20),hi=Math.log10(40000);
+$('#ladder').innerHTML=L.map(([n,s,p,us,est])=>{const w=((Math.log10(p)-lo)/(hi-lo)*72).toFixed(1)+'%';
+ return `<div class="row"><div class="nm">${n}<small>${s}</small></div><div class="bar ${us?'us':''}" style="--w:${w}"><i style="width:${w}"></i><span>$${p.toLocaleString('en-US')}${est?' <em class="est">est.</em>':''}</span></div></div>`}).join('')+
+ '<p class="small muted" style="margin-top:8px">Bar length on a log scale from $20 to $40k.</p>';
+
+/* ---- options ---- */
+const O={
+ combine:{name:'Combine devices',d:'Buy commercial radios and add encryption dongles, mesh modules and rugged cases.',s:[9,4,4,8,3]},
+ hybrid:{name:'Hybrid',d:'Certified RF module inside our own board, enclosure, battery, antenna and firmware.',s:[7,8,7,7,9]},
+ scratch:{name:'From scratch',d:'Own RF front end, own SDR design, own everything. Maximum control, maximum risk.',s:[2,9,9,3,7]}};
+const crit=['Time to field','Unit cost at 10k','EW resilience','Certification risk','AI leverage'];
+let pick='hybrid';
+function renderOpts(){ $('#opts').innerHTML=Object.entries(O).map(([k,o])=>`<button class="opt card" data-k="${k}" aria-pressed="${k===pick}"><h3>${o.name}</h3><span class="small">${o.d}</span>${o.s.map((v,i)=>`<div class="meter"><span>${crit[i]}</span><span class="m"><i style="width:${v*10}%"></i></span><span class="mono">${v}</span></div>`).join('')}</button>`).join('');
+ document.querySelectorAll('.opt').forEach(b=>b.onclick=()=>{pick=b.dataset.k;renderOpts();cApp=pick;renderCostSeg();cost();});}
+
+/* ---- cost model ---- */
+// each component: [label, cost@100, cost@10k, labour-sensitive]
+const M={
+ combine:{nre:40000,tool:0,c:[['Commercial radio',190,165,0],['Encryption / mesh add-on',60,45,0],['Rugged case',30,18,0],['Antenna',15,9,0],['Integration labour',30,20,1],['Test & QA',12,8,1]]},
+ hybrid:{nre:150000,tool:20000,c:[['RF module',58,36,0],['Carrier PCB + assembly',42,9,1],['Enclosure',42,5,0],['Battery pack',18,10,0],['Antenna',12,4,0],['Test & QA',28,6,1]]},
+ scratch:{nre:650000,tool:20000,c:[['RF chipset + front end',30,15,0],['Main PCB + assembly',65,13,1],['Enclosure',42,5,0],['Battery pack',18,10,0],['Antenna',12,4,0],['Test, cal & QA',45,9,1]]}};
+let cApp='hybrid';
+function unit(app,v,reg){const m=M[app],t=Math.min(1.35,Math.max(0,Math.log10(v/100)/2));
+ const parts=m.c.map(([n,a,b,lab])=>[n,a*Math.pow(b/a,t)*(lab?reg:1)]);
+ if(m.tool&&v>=2000)parts.push(['Moulding tool (amortised)',m.tool/v]);
+ if(m.tool&&v>=2000){const e=parts.find(p=>p[0]==='Enclosure');}
+ else{const e=parts.find(p=>p[0]==='Enclosure'); if(e) e[1]=Math.max(e[1],app==='combine'?e[1]:34*Math.pow(.8,t));}
+ parts.push(['Engineering + certification (NRE)',m.nre/v]);
+ return parts;}
+const fmt=x=>x>=1e6?'$'+(x/1e6).toFixed(2)+'M':x>=1e4?'$'+Math.round(x/1e3)+'k':'$'+Math.round(x).toLocaleString('en-US');
+function renderCostSeg(){ $('#cApproach').innerHTML=Object.keys(M).map(k=>`<button data-k="${k}" aria-pressed="${k===cApp}">${O[k].name}</button>`).join('');
+ $('#cApproach').querySelectorAll('button').forEach(b=>b.onclick=()=>{cApp=b.dataset.k;renderCostSeg();cost();});}
+let cctx;
+function cost(){const v=Math.round(Math.pow(10,+$('#cVol').value)),reg=+$('#cRegion').value;
+ $('#cVolOut').textContent=v.toLocaleString('en-US')+' units';
+ const parts=unit(cApp,v,reg),tot=parts.reduce((s,p)=>s+p[1],0);
+ $('#cUnit').textContent=fmt(tot);
+ const r=tot/370;$('#cVsH').textContent=r<1?'−'+Math.round((1-r)*100)+'%':'+'+Math.round((r-1)*100)+'%';
+ $('#cVsH').className='v mono '+(r<1?'t-ok':'t-bad');
+ $('#cBudget').textContent=fmt(tot*v);
+ const mx=Math.max(...parts.map(p=>p[1]));
+ $('#cBreak').innerHTML='<table><tbody>'+parts.map(([n,c])=>`<tr><td>${n}</td><td style="width:40%"><div style="height:8px;background:var(--line);border-radius:4px"><div style="height:8px;border-radius:4px;background:${n.startsWith('Engineering')?'var(--muted)':'var(--accent)'};width:${(c/mx*100).toFixed(1)}%"></div></div></td><td class="num">${'$'+(c<10?c.toFixed(2):Math.round(c))}</td></tr>`).join('')+'</tbody></table>';
+ drawCurve(v,reg);}
+function drawCurve(v,reg){const cv=$('#cCurve');cctx=hidpi(cv);const c=cctx,W=560,H=260,p={l:52,r:14,t:14,b:34};
+ c.clearRect(0,0,W,H);const x=lv=>p.l+(lv-2)/(4.7-2)*(W-p.l-p.r);const yl=[10,3000],y=val=>p.t+(1-(Math.log10(Math.min(Math.max(val,yl[0]),yl[1]))-1)/(Math.log10(yl[1])-1))*(H-p.t-p.b);
+ c.font='11px IBM Plex Mono, monospace';c.fillStyle=css('--muted');c.strokeStyle=css('--line');c.lineWidth=1;
+ [10,30,100,300,1000,3000].forEach(t=>{c.beginPath();c.moveTo(p.l,y(t));c.lineTo(W-p.r,y(t));c.stroke();c.textAlign='right';c.fillText('$'+t,p.l-6,y(t)+4);});
+ [[2,'100'],[3,'1k'],[4,'10k'],[4.7,'50k']].forEach(([lv,t])=>{c.textAlign='center';c.fillText(t,x(lv),H-p.b+16);});
+ c.fillText('units per year',(p.l+W-p.r)/2,H-4);
+ // refs
+ c.setLineDash([4,4]);c.strokeStyle=css('--signal');c.beginPath();c.moveTo(p.l,y(370));c.lineTo(W-p.r,y(370));c.stroke();
+ c.setLineDash([]);c.fillStyle=css('--signal');c.textAlign='left';c.fillText('Himera G1 Pro ~$370',p.l+6,y(370)-6);
+ const cols={combine:css('--muted'),hybrid:css('--accent'),scratch:css('--ink')};
+ Object.keys(M).forEach(k=>{c.strokeStyle=cols[k];c.lineWidth=k===cApp?2.6:1.2;c.globalAlpha=k===cApp?1:.55;c.beginPath();
+  for(let lv=2;lv<=4.7;lv+=.02){const val=unit(k,Math.pow(10,lv),reg).reduce((s,q)=>s+q[1],0);lv===2?c.moveTo(x(lv),y(val)):c.lineTo(x(lv),y(val));}c.stroke();
+  const ev=unit(k,Math.pow(10,4.7),reg).reduce((s,q)=>s+q[1],0);c.fillStyle=cols[k];c.textAlign='right';c.fillText(O[k].name,W-p.r-2,y(ev)-6);});
+ c.globalAlpha=1;const lv=Math.log10(v),val=unit(cApp,v,reg).reduce((s,q)=>s+q[1],0);
+ c.fillStyle=css('--accent');c.beginPath();c.arc(x(lv),y(val),5,0,7);c.fill();}
+$('#cVol').oninput=cost;$('#cRegion').onchange=cost;
+renderOpts();renderCostSeg();cost();redrawers.push(cost);addEventListener('resize',cost);
+
+/* ---- field sim ---- */
+const FW=820,FH=470,R=165;
+const CP={x:60,y:240},REP={x:250,y:110};
+const squadsInit=[[430,90],[520,160],[610,80],[470,260],[600,250],[700,170],[520,370],[690,350],[760,260]];
+let squads,relays,jam,mode='mesh',drag=false;
+function resetF(){squads=squadsInit.map(([x,y])=>({x,y}));relays=[];jam={x:350,y:240,r:115};}
+resetF();
+const fcv=$('#fCanvas');let fctx=hidpi(fcv);
+function rng(n){return Math.hypot(n.x-jam.x,n.y-jam.y)<jam.r?R*0.33:R;}
+function graph(){const nodes=[{...CP,t:'cp'},...squads.map(s=>({...s,t:'sq'})),...(mode==='mesh'?relays.map(r=>({...r,t:'rl'})):[{...REP,t:'rep'}])];
+ const E=[];for(let i=0;i<nodes.length;i++)for(let j=i+1;j<nodes.length;j++){const a=nodes[i],b=nodes[j];
+  if(mode==='star'){const ok=(a.t==='cp'||a.t==='rep'||b.t==='cp'||b.t==='rep')&&!(a.t==='sq'&&b.t==='sq'); if(!ok)continue;}
+  const d=Math.hypot(a.x-b.x,a.y-b.y);const ra=a.t==='rep'?R*1.6:rng(a),rb=b.t==='rep'?R*1.6:rng(b);if(d<Math.min(ra,rb)&&!(a.t==='cp'&&b.t==='rep'&&false))E.push([i,j]);}
+ const hop=Array(nodes.length).fill(-1),par=Array(nodes.length).fill(-1);hop[0]=0;const q=[0];
+ while(q.length){const u=q.shift();E.forEach(([a,b])=>{const v=a===u?b:b===u?a:-1;if(v>=0&&hop[v]<0){hop[v]=hop[u]+1;par[v]=u;q.push(v);}});}
+ return {nodes,E,hop,par};}
+let t0=performance.now();
+function drawF(now){const c=fctx,{nodes,E,hop,par}=graph();c.clearRect(0,0,FW,FH);
+ // terrain hints
+ c.strokeStyle=css('--line');c.lineWidth=1;c.setLineDash([2,5]);
+ for(let k=0;k<5;k++){c.beginPath();for(let x=0;x<=FW;x+=20){const y=60+k*90+Math.sin(x/90+k)*18;x?c.lineTo(x,y):c.moveTo(x,y);}c.stroke();}
+ c.setLineDash([]);
+ c.fillStyle=css('--muted');c.font='11px IBM Plex Mono, monospace';c.fillText('REAR',16,FH-12);c.textAlign='right';c.fillText('FORWARD POSITIONS →',FW-12,FH-12);c.textAlign='left';
+ // jam
+ c.fillStyle=css('--jam');c.beginPath();c.arc(jam.x,jam.y,jam.r,0,7);c.fill();
+ c.strokeStyle=css('--bad');c.setLineDash([5,4]);c.stroke();c.setLineDash([]);
+ c.fillStyle=css('--bad');c.beginPath();c.arc(jam.x,jam.y,9,0,7);c.fill();c.fillText('JAMMER · drag',jam.x+14,jam.y+4);
+ // edges
+ E.forEach(([a,b])=>{const used=par[a]===b||par[b]===a;c.strokeStyle=used?css('--signal'):css('--line');c.lineWidth=used?2:1;c.globalAlpha=used?.9:.7;
+  c.beginPath();c.moveTo(nodes[a].x,nodes[a].y);c.lineTo(nodes[b].x,nodes[b].y);c.stroke();});c.globalAlpha=1;
+ // packets
+ if(!reduce){const ph=((now-t0)/1400)%1;nodes.forEach((n,i)=>{if(n.t==='sq'&&hop[i]>0){let path=[i];while(par[path[path.length-1]]>=0)path.push(par[path[path.length-1]]);
+   const seg=path.length-1,f=ph*seg,s=Math.min(seg-1,Math.floor(f)),u=f-s,A=nodes[path[s]],B=nodes[path[s+1]];
+   c.fillStyle=css('--signal');c.beginPath();c.arc(A.x+(B.x-A.x)*u,A.y+(B.y-A.y)*u,3,0,7);c.fill();}});}
+ // nodes
+ nodes.forEach((n,i)=>{if(n.t==='cp'){c.fillStyle=css('--signal');c.fillRect(n.x-11,n.y-11,22,22);c.fillStyle=css('--ink');c.fillText('COMMAND POST',n.x-30,n.y+28);}
+  else if(n.t==='rep'){c.strokeStyle=css('--signal');c.lineWidth=2;c.beginPath();c.moveTo(n.x,n.y-14);c.lineTo(n.x-11,n.y+9);c.lineTo(n.x+11,n.y+9);c.closePath();c.stroke();c.fillStyle=css('--ink');c.fillText('HILLTOP REPEATER',n.x-50,n.y+26);}
+  else if(n.t==='rl'){c.fillStyle=css('--accent');c.beginPath();c.moveTo(n.x,n.y-9);c.lineTo(n.x+9,n.y);c.lineTo(n.x,n.y+9);c.lineTo(n.x-9,n.y);c.fill();}
+  else{c.fillStyle=hop[i]>0?css('--ok'):css('--bad');c.beginPath();c.arc(n.x,n.y,8,0,7);c.fill();c.strokeStyle=css('--paper');c.lineWidth=2;c.stroke();}});
+ const sq=nodes.map((n,i)=>[n,i]).filter(([n])=>n.t==='sq'),con=sq.filter(([,i])=>hop[i]>0);
+ $('#fConn').textContent=con.length+' / '+sq.length;$('#fConn').className='v mono '+(con.length===sq.length?'t-ok':con.length>sq.length/2?'t-warn':'t-bad');
+ $('#fHops').textContent=con.length?Math.max(...con.map(([,i])=>hop[i])):'–';
+ if(!reduce)requestAnimationFrame(drawF);}
+function fpos(e){const r=fcv.getBoundingClientRect();return {x:(e.clientX-r.left)/r.width*FW,y:(e.clientY-r.top)/r.height*FH};}
+fcv.addEventListener('pointerdown',e=>{const p=fpos(e);if(Math.hypot(p.x-jam.x,p.y-jam.y)<28){drag=true;fcv.setPointerCapture(e.pointerId);return;}
+ if(mode!=='mesh')return;const hit=relays.findIndex(r=>Math.hypot(r.x-p.x,r.y-p.y)<14);if(hit>=0)relays.splice(hit,1);else if(relays.length<6)relays.push(p);if(reduce)drawF(0);});
+fcv.addEventListener('pointermove',e=>{if(!drag)return;const p=fpos(e);jam.x=Math.max(0,Math.min(FW,p.x));jam.y=Math.max(0,Math.min(FH,p.y));if(reduce)drawF(0);});
+fcv.addEventListener('pointerup',()=>drag=false);
+fcv.style.touchAction='none';
+document.querySelectorAll('#fMode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;document.querySelectorAll('#fMode button').forEach(x=>x.setAttribute('aria-pressed',x===b));if(reduce)drawF(0);});
+$('#fReset').onclick=()=>{resetF();if(reduce)drawF(0);};
+$('#fAuto').onclick=()=>{mode='mesh';document.querySelectorAll('#fMode button').forEach(x=>x.setAttribute('aria-pressed',x.dataset.m==='mesh'));
+ // greedy: try grid points, keep the one that connects most squads
+ relays=[];for(let k=0;k<6;k++){let best=null,bs=-1;for(let x=40;x<FW;x+=40)for(let y=40;y<FH;y+=40){relays.push({x,y});const g=graph();const s=g.nodes.filter((n,i)=>n.t==='sq'&&g.hop[i]>0).length*100-g.nodes.reduce((m,n,i)=>Math.max(m,g.hop[i]),0);relays.pop();if(s>bs){bs=s;best={x,y};}}
+  relays.push(best);const g=graph();if(g.nodes.every((n,i)=>n.t!=='sq'||g.hop[i]>0))break;}if(reduce)drawF(0);};
+redrawers.push(()=>{fctx=hidpi(fcv);if(reduce)drawF(0);});addEventListener('resize',()=>{fctx=hidpi(fcv);if(reduce)drawF(0);});
+reduce?drawF(0):requestAnimationFrame(drawF);
+
+/* ---- design loop ---- */
+const RULES=[
+ ['R01','Wall ≥ 2.2 mm (drop 1.5 m)'],['R02','Gasket compression 20–30 %'],['R03','Screw bosses ≤ 60 mm apart'],
+ ['R04','PCB-to-wall clearance ≥ 0.8 mm'],['R05','No copper under antenna feed'],['R06','Buttons ≥ 12 mm (gloves)'],
+ ['R07','Corner radius ≥ 3 mm'],['R08','Draft ≥ 1° for moulding'],['R09','18650 cell clearance + vent'],['R10','SMA port sealed, strain relief']];
+// iteration states: parameters + which rules pass + log message
+const IT=[
+ {w:1.4,rad:1,boss:2,gas:0,btn:8,ant:'top',pass:[3,4],msg:'iter 0: first draft from spec "relay node, 18650, SMA, IP67". 2/10 rules pass.'},
+ {w:2.4,rad:1,boss:2,gas:0,btn:8,ant:'top',pass:[0,3,4],msg:'iter 1: <b>R01</b> wall 1.4 mm fails drop model → 2.4 mm.'},
+ {w:2.4,rad:4,boss:2,gas:0,btn:8,ant:'top',pass:[0,3,4,6],msg:'iter 2: <b>R07</b> sharp corners crack on drop → radius 4 mm.'},
+ {w:2.4,rad:4,boss:2,gas:1,btn:8,ant:'top',pass:[0,1,3,4,6],msg:'iter 3: <b>R02</b> no seal → gasket groove 1.6 × 2.0 mm, compression 25 %.'},
+ {w:2.4,rad:4,boss:4,gas:1,btn:8,ant:'top',pass:[0,1,2,3,4,6],msg:'iter 4: <b>R03</b> lid bows between 2 screws → 4 bosses, 52 mm pitch.'},
+ {w:2.4,rad:4,boss:4,gas:1,btn:14,ant:'top',pass:[0,1,2,3,4,5,6],msg:'iter 5: <b>R06</b> 8 mm button unusable with gloves → 14 mm.'},
+ {w:2.4,rad:4,boss:4,gas:1,btn:14,ant:'side',pass:[0,1,2,3,4,5,6,9],msg:'iter 6: <b>R10</b> SMA on top fills with rain → side port, O-ring, boot.'},
+ {w:2.4,rad:4,boss:4,gas:1,btn:14,ant:'side',vent:1,pass:[0,1,2,3,4,5,6,8,9],msg:'iter 7: <b>R09</b> cell touches wall → +1.5 mm, pressure vent added.'},
+ {w:2.4,rad:4,boss:4,gas:1,btn:14,ant:'side',vent:1,draft:1,pass:[0,1,2,3,4,5,6,7,8,9],msg:'iter 8: <b>R08</b> 1.5° draft added. 10/10 pass → ready for SLA print and lab.'}];
+let it=0,playing=!reduce,timer;
+function renderLoop(){const s=IT[it],svg=$('#encl'),ink=css('--ink'),mut=css('--muted'),acc=css('--accent'),sig=css('--signal'),ln=css('--line');
+ const X=60,Y=50,W=300,H=200,w=s.w*6,r=s.rad*4;
+ let g=`<rect x="${X}" y="${Y}" width="${W}" height="${H}" rx="${r}" fill="none" stroke="${ink}" stroke-width="2"/>`;
+ g+=`<rect x="${X+w}" y="${Y+w}" width="${W-2*w}" height="${H-2*w}" rx="${Math.max(0,r-w/2)}" fill="none" stroke="${ink}" stroke-width="1" stroke-dasharray="${s.w<2?'3 3':'0'}"/>`;
+ if(s.gas)g+=`<rect x="${X+w+6}" y="${Y+w+6}" width="${W-2*w-12}" height="${H-2*w-12}" rx="${Math.max(0,r-w)}" fill="none" stroke="${acc}" stroke-width="2.5" stroke-dasharray="7 3"/>`;
+ const bp=s.boss===2?[[X+w+14,Y+H/2],[X+W-w-14,Y+H/2]]:[[X+w+16,Y+w+16],[X+W-w-16,Y+w+16],[X+w+16,Y+H-w-16],[X+W-w-16,Y+H-w-16]];
+ bp.forEach(([a,b])=>g+=`<circle cx="${a}" cy="${b}" r="7" fill="none" stroke="${ink}"/><circle cx="${a}" cy="${b}" r="2.5" fill="${ink}"/>`);
+ // pcb + cell
+ g+=`<rect x="${X+70}" y="${Y+50}" width="120" height="${H-100}" fill="none" stroke="${sig}" stroke-width="1.5"/><text x="${X+130}" y="${Y+H/2+4}" text-anchor="middle" font-size="10" font-family="IBM Plex Mono" fill="${sig}">PCB + RF MODULE</text>`;
+ const cx=X+205+(s.vent?6:0);g+=`<rect x="${cx}" y="${Y+40}" width="${s.vent?40:46}" height="${H-80}" rx="8" fill="none" stroke="${mut}" stroke-width="1.5"/><text x="${cx+(s.vent?20:23)}" y="${Y+H-50}" text-anchor="middle" font-size="9" font-family="IBM Plex Mono" fill="${mut}">18650</text>`;
+ if(s.vent)g+=`<circle cx="${X+W-w-30}" cy="${Y+H-w-14}" r="5" fill="none" stroke="${acc}"/><text x="${X+W-w-40}" y="${Y+H+16}" font-size="9" font-family="IBM Plex Mono" fill="${acc}">VENT</text>`;
+ // button
+ const bs=s.btn*1.8;g+=`<circle cx="${X+40}" cy="${Y+H/2}" r="${bs/2}" fill="none" stroke="${ink}" stroke-width="1.5"/><text x="${X+40}" y="${Y+H/2+bs/2+12}" text-anchor="middle" font-size="9" font-family="IBM Plex Mono" fill="${mut}">Ø${s.btn}</text>`;
+ // antenna
+ if(s.ant==='top')g+=`<rect x="${X+W/2-8}" y="${Y-22}" width="16" height="22" fill="none" stroke="${ink}"/><line x1="${X+W/2}" y1="${Y-22}" x2="${X+W/2}" y2="${Y-46}" stroke="${ink}" stroke-width="3"/><text x="${X+W/2+14}" y="${Y-30}" font-size="9" font-family="IBM Plex Mono" fill="${mut}">SMA</text>`;
+ else g+=`<rect x="${X+W}" y="${Y+30}" width="22" height="16" fill="none" stroke="${ink}"/><line x1="${X+W+22}" y1="${Y+38}" x2="${X+W+60}" y2="${Y+38}" stroke="${ink}" stroke-width="3"/><text x="${X+W+26}" y="${Y+24}" font-size="9" font-family="IBM Plex Mono" fill="${mut}">SMA + boot</text>`;
+ // dims
+ g+=`<line x1="${X}" y1="${Y+H+30}" x2="${X+W}" y2="${Y+H+30}" stroke="${mut}"/><text x="${X+W/2}" y="${Y+H+44}" text-anchor="middle" font-size="10" font-family="IBM Plex Mono" fill="${mut}">${s.vent?'101.5':'100'} mm</text>`;
+ g+=`<text x="${X}" y="${Y+H+70}" font-size="10" font-family="IBM Plex Mono" fill="${mut}">wall ${s.w} · r ${s.rad} · bosses ${s.boss} · ${s.gas?'gasket':'no gasket'} · draft ${s.draft?'1.5°':'0°'}</text>`;
+ // title block
+ g+=`<rect x="380" y="290" width="132" height="62" fill="none" stroke="${ln}"/><text x="388" y="306" font-size="9" font-family="IBM Plex Mono" fill="${mut}">RELAY NODE · LID</text><text x="388" y="322" font-size="9" font-family="IBM Plex Mono" fill="${mut}">REV ${String.fromCharCode(65+it)} · PA12</text><text x="388" y="342" font-size="13" font-family="Barlow Condensed" font-weight="600" fill="${s.pass.length===10?css('--ok'):acc}">${s.pass.length}/10 RULES PASS</text>`;
+ svg.innerHTML=g;
+ $('#rules').innerHTML=RULES.map(([id,t],i)=>{const ok=s.pass.includes(i);return `<li><b>${id}</b><span>${t}</span><span class="${ok?'t-ok':'t-bad'}">${ok?'PASS':'FAIL'}</span></li>`}).join('');
+ $('#log').innerHTML=s.msg;$('#lIter').textContent='iteration '+it+' / '+(IT.length-1);
+ const stage=it===0?1:it===IT.length-1?5:[3,4][it%2];document.querySelectorAll('#pipe span').forEach(e=>e.classList.toggle('hot',+e.dataset.s===stage));}
+function tick(){it=(it+1)%IT.length;renderLoop();}
+function setPlay(p){playing=p;$('#lPlay').textContent=p?'Pause':'Play';$('#lPlay').setAttribute('aria-pressed',p);clearInterval(timer);if(p)timer=setInterval(tick,2000);}
+$('#lPlay').onclick=()=>setPlay(!playing);$('#lStep').onclick=()=>{setPlay(false);tick();};
+if(reduce)it=IT.length-1;renderLoop();setPlay(playing);redrawers.push(renderLoop);
+
+/* ---- loops diagram ---- */
+function renderLoops(){const ink=css('--ink'),mut=css('--muted'),acc=css('--accent'),sig=css('--signal'),pap=css('--paper');
+ const box=(x,y,w,t,c)=>`<rect x="${x}" y="${y}" width="${w}" height="30" rx="3" fill="${pap}" stroke="${c}"/><text x="${x+w/2}" y="${y+19}" text-anchor="middle" font-size="11" font-family="IBM Plex Sans" fill="${ink}">${t}</text>`;
+ let g=`<text x="120" y="22" text-anchor="middle" font-size="16" font-family="Barlow Condensed" font-weight="600" fill="${acc}">DESIGN LOOP · our Claude agent</text>`;
+ g+=`<text x="360" y="22" text-anchor="middle" font-size="16" font-family="Barlow Condensed" font-weight="600" fill="${sig}">BUSINESS LOOP · Egbe</text>`;
+ g+=`<ellipse cx="120" cy="150" rx="92" ry="100" fill="none" stroke="${acc}" stroke-dasharray="4 4"/><ellipse cx="360" cy="150" rx="92" ry="100" fill="none" stroke="${sig}" stroke-dasharray="4 4"/>`;
+ g+=box(50,58,140,'Generate CAD + board',acc)+box(50,108,140,'Run rule checker',acc)+box(50,158,140,'Print · build · measure',acc)+box(50,208,140,'Field failure → rule',acc);
+ g+=box(290,58,140,'Find grants + tenders',sig)+box(290,108,140,'Supplier RFQ emails',sig)+box(290,158,140,'Unit feedback intake',sig)+box(290,208,140,'Pricing + reporting',sig);
+ g+=`<path d="M212 170 C 250 150, 250 150, 288 172" fill="none" stroke="${mut}" marker-end="url(#ar)"/><path d="M288 124 C 250 140, 250 140, 212 120" fill="none" stroke="${mut}" marker-end="url(#ar)"/>`;
+ g+=`<text x="240" y="196" text-anchor="middle" font-size="9" font-family="IBM Plex Mono" fill="${mut}">BOM, cost</text><text x="240" y="112" text-anchor="middle" font-size="9" font-family="IBM Plex Mono" fill="${mut}">requirements</text>`;
+ g+=`<text x="240" y="288" text-anchor="middle" font-size="11" font-family="IBM Plex Sans" fill="${mut}">Humans approve: every release, every outward email</text>`;
+ g=`<defs><marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto"><path d="M0 0L10 5L0 10z" fill="${mut}"/></marker></defs>`+g;
+ $('#loops').innerHTML=g;}
+renderLoops();redrawers.push(renderLoops);
+
+/* ---- nav ---- */
+const plates=[...document.querySelectorAll('.plate')];
+function cur(){let k=0;plates.forEach((p,i)=>{if(p.getBoundingClientRect().top<innerHeight*.4)k=i;});return k;}
+function go(d){const k=Math.max(0,Math.min(plates.length-1,cur()+d));plates[k].scrollIntoView({behavior:reduce?'auto':'smooth'});}
+$('#nPrev').onclick=()=>go(-1);$('#nNext').onclick=()=>go(1);
+addEventListener('scroll',()=>{$('#nPos').textContent=(cur()+1)+' / '+plates.length;},{passive:true});
+addEventListener('keydown',e=>{if(e.target.closest('input,select,textarea'))return;if(e.key==='ArrowRight'||e.key==='PageDown'){e.preventDefault();go(1);}if(e.key==='ArrowLeft'||e.key==='PageUp'){e.preventDefault();go(-1);}});
+})();
+</script>

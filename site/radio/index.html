@@ -1,0 +1,204 @@
+<title>RN-1 Drawing Set</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a drawing-set index — 3D assembly on top, then the sheets, checks, faults and BOM as numbered registers. */
+:root{
+  --bg:#eef0ea; --paper:#f8f9f5; --ink:#1d2621; --muted:#5b6660; --line:#c9cfc6; --grid:#dfe3dc;
+  --accent:#c2620a; --accent-soft:#f3dcc4; --signal:#2f6f8f; --ok:#2e7d4f; --bad:#b3362b; --warn:#a67a00; --stage:#e4e8e1;
+  --f-display:"Barlow Condensed","Arial Narrow",system-ui,sans-serif;
+  --f-body:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --f-mono:"IBM Plex Mono",ui-monospace,Menlo,monospace;
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#141a17; --paper:#1b231f; --ink:#e3e8e2; --muted:#9aa69f; --line:#34413a; --grid:#232d28;
+  --accent:#ef8a2c; --accent-soft:#3d2a17; --signal:#6fb2d2; --ok:#5cbf83; --bad:#e46a5d; --warn:#d9b13b; --stage:#101512; color-scheme:dark }}
+:root[data-theme="dark"]{
+  --bg:#141a17; --paper:#1b231f; --ink:#e3e8e2; --muted:#9aa69f; --line:#34413a; --grid:#232d28;
+  --accent:#ef8a2c; --accent-soft:#3d2a17; --signal:#6fb2d2; --ok:#5cbf83; --bad:#e46a5d; --warn:#d9b13b; --stage:#101512; color-scheme:dark }
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.55;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:0 60px}
+.wrap{max-width:1180px;margin:0 auto}
+header{padding-block:40px 18px;border-bottom:2px solid var(--ink);display:flex;flex-wrap:wrap;gap:12px 28px;align-items:end;justify-content:space-between}
+h1,h2{font-family:var(--f-display);font-weight:600;text-transform:uppercase;margin:0;text-wrap:balance}
+h1{font-size:clamp(40px,7vw,72px);line-height:.95}
+h1 span{color:var(--accent)}
+h2{font-size:30px;letter-spacing:.01em;margin-bottom:10px}
+.kick{font-family:var(--f-mono);font-size:12px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.pills{display:flex;flex-wrap:wrap;gap:8px}
+.pill{font-family:var(--f-mono);font-size:12px;padding:4px 10px;border-radius:2px;border:1px solid currentColor}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.muted{color:var(--muted)}.acc{color:var(--accent)}
+section{padding-block:34px 10px}
+.tb{font-family:var(--f-mono);font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px}
+.tb b{color:var(--accent);font-weight:500}
+p{max-width:70ch;margin:0 0 10px}
+.viewer{display:grid;grid-template-columns:minmax(0,1fr) 260px;gap:16px}
+@media (max-width:760px){.viewer{grid-template-columns:1fr}}
+.stage{position:relative;background:var(--stage);border:1px solid var(--line);border-radius:4px;aspect-ratio:16/10;max-width:100%;overflow:hidden}
+.stage canvas{display:block;width:100%;height:100%}
+.stage .hint{position:absolute;left:10px;bottom:8px;font-family:var(--f-mono);font-size:11px;color:var(--muted)}
+.panel{display:flex;flex-direction:column;gap:14px}
+label{font-size:13px;color:var(--muted)}
+input[type=range]{width:100%;accent-color:var(--accent)}
+.toggles{display:flex;flex-direction:column;gap:4px;font-size:13px}
+.toggles label{color:var(--ink);display:flex;gap:8px;align-items:center;cursor:pointer}
+.sw{width:12px;height:12px;border-radius:2px;display:inline-block}
+button{font:500 13px var(--f-body);color:var(--ink);background:var(--paper);border:1px solid var(--line);border-radius:3px;padding:7px 12px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--paper)}
+button:focus-visible,input:focus-visible{outline:2px solid var(--signal);outline-offset:2px}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,260px),1fr));gap:14px}
+.sheet{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px;cursor:zoom-in;text-align:left;display:flex;flex-direction:column;gap:6px}
+.sheet img{background:#fff;border:1px solid var(--line);aspect-ratio:420/297;width:100%;object-fit:contain}
+.sheet b{font-family:var(--f-mono);font-size:12px;font-weight:500}
+.sheet span{font-size:13px;color:var(--muted)}
+.scroll{overflow-x:auto;border:1px solid var(--line);border-radius:4px;background:var(--paper)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th,td{text-align:left;padding:7px 10px;border-bottom:1px solid var(--line);vertical-align:top}
+th{font-family:var(--f-mono);font-size:11px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);font-weight:500;background:var(--paper)}
+td.m{font-family:var(--f-mono);font-variant-numeric:tabular-nums;white-space:nowrap}
+.st{font-family:var(--f-mono);font-size:11px;padding:1px 6px;border:1px solid currentColor;border-radius:2px}
+.files{font-family:var(--f-mono);font-size:12.5px;background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:14px;overflow-x:auto;white-space:pre;line-height:1.6}
+dialog{border:0;padding:0;max-width:min(96vw,1400px);width:100%;background:#fff;border-radius:4px}
+dialog::backdrop{background:rgba(10,14,12,.7)}
+dialog img{display:block;width:100%;height:auto}
+dialog .bar{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--paper);color:var(--ink);font-family:var(--f-mono);font-size:12px}
+.grid2{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:20px}
+.grid2>*{min-width:0}
+</style>
+
+<div class="wrap">
+<header>
+  <div>
+    <div class="kick">Field Radio Foundry · Drawing set · Rev A · 22 Nov 2026</div>
+    <h1>RN-1 <span>Relay Node</span></h1>
+  </div>
+  <div class="pills" id="pills"><span class="pill muted">loading checks…</span></div>
+</header>
+
+<section>
+  <div class="tb"><b>00</b> Assembly</div>
+  <div class="viewer">
+    <div class="stage" id="stage"><span class="hint">drag to orbit · scroll to zoom</span></div>
+    <div class="panel">
+      <div><label for="explode">Explode</label><input id="explode" type="range" min="0" max="1" step="0.01" value="0.55"></div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap"><button id="cut" aria-pressed="false">Section at y = 0</button><button id="spin" aria-pressed="true">Auto-rotate</button></div>
+      <div class="toggles" id="toggles"></div>
+      <p class="muted" style="font-size:13px;margin:0">Outer size 104.8 × 68.8 × 49.5 mm with strap blocks. Purchased parts are shown as envelopes.</p>
+    </div>
+  </div>
+</section>
+
+<section>
+  <div class="tb"><b>01–06</b> Sheets (A3, click to enlarge)</div>
+  <div class="sheets" id="sheets"></div>
+</section>
+
+<section class="grid2">
+  <div>
+    <div class="tb"><b>CHK</b> Rule checker</div>
+    <h2>Checks</h2>
+    <div class="scroll"><table id="checks"><thead><tr><th>Rule</th><th>What</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+  </div>
+  <div>
+    <div class="tb"><b>FLT</b> Fault library</div>
+    <h2>Planted faults</h2>
+    <p class="muted" style="font-size:13px">Broken variants the checker must reject. f11 slipped through the first version of R12 (straight-line cable length); the rule now uses routed length.</p>
+    <div class="scroll"><table id="faults"><thead><tr><th>Fault</th><th>Rule</th><th>Result</th></tr></thead><tbody></tbody></table></div>
+  </div>
+</section>
+
+<section>
+  <div class="tb"><b>BOM</b> Parts list, planning prices</div>
+  <h2>Bill of materials</h2>
+  <div class="scroll"><table id="bom"><thead><tr><th>ID</th><th>Qty</th><th>Item</th><th>Spec</th><th>Make / buy</th><th>Est. USD</th></tr></thead><tbody></tbody></table></div>
+</section>
+
+<section>
+  <div class="tb"><b>FILES</b> On your Mac</div>
+  <h2>Where the files are</h2>
+<div class="files">~/Downloads/field-radio-foundry/rn1/out/
+  step/       RN1-00_assembly.step + one STEP per part    → CAD, CNC, injection-mould quotes
+  stl/        base, lid, gasket, button cap, ring          → 3D printing (SLA / SLS / FDM / TPU)
+  drawings/   PDF + SVG + DXF per part (A3, dimensioned)   → workshop, quotes, review
+  pcb/        RN1-06 .kicad_pcb (outline, holes, keep-outs) + outline DXF
+  BOM.csv     report.txt     checks.json
+
+Edit rn1/params.json, then:
+  .venv/bin/python -m rn1.build     # rebuild solids, drawings, BOM, run 19 rules
+  .venv/bin/python -m rn1.score     # catch rate: train / mined / held-out / known-good</div>
+</section>
+</div>
+
+<dialog id="dlg"><div class="bar"><span id="dlgT"></span><button id="dlgX">Close</button></div><img id="dlgI" alt=""></dialog>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/build/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.147.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function(){
+const $=s=>document.querySelector(s);
+const css=n=>getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+const reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+const SHEETS=[['RN1-01_base','RN1-01 Base','Printed shell, inserts, rails, strap tunnels'],['RN1-02_lid','RN1-02 Lid','Gasket groove, button seat, label recess'],
+ ['RN1-03_gasket','RN1-03 Lid gasket','Ø2 silicone cord, 309 mm cut'],['RN1-04_button_cap','RN1-04 Button cap','Silicone membrane button, sealed bead'],
+ ['RN1-05_retainer_ring','RN1-05 Retainer ring','Press fit, clamps the button bead'],['RN1-06_carrier_pcb','RN1-06 Carrier PCB','Outline, holes, module and button keep-outs']];
+$('#sheets').innerHTML=SHEETS.map(([f,t,s])=>`<button class="sheet" data-f="${f}" data-t="${t}"><img src="drawings/${f}.svg" alt="${t} drawing" loading="lazy"><b>${t}</b><span>${s}</span></button>`).join('');
+const dlg=$('#dlg');
+document.querySelectorAll('.sheet').forEach(b=>b.onclick=()=>{$('#dlgI').src='drawings/'+b.dataset.f+'.svg';$('#dlgT').textContent=b.dataset.t;dlg.showModal();});
+$('#dlgX').onclick=()=>dlg.close();dlg.addEventListener('click',e=>{if(e.target===dlg)dlg.close();});
+
+fetch('data.json').then(r=>r.json()).then(D=>{
+  const res=D.checks.results,fail=res.filter(r=>r.status==='FAIL').length,pass=res.filter(r=>r.status==='PASS').length;
+  const caught=D.faults.filter(f=>f.caught).length;
+  $('#pills').innerHTML=`<span class="pill ${fail?'bad':'ok'}">${fail?'NOT READY':'READY FOR PROTOTYPE'}</span><span class="pill ok">${pass}/${pass+fail} rules pass</span><span class="pill ${caught===D.faults.length?'ok':'bad'}">${caught}/${D.faults.length} faults caught</span>`;
+  $('#checks tbody').innerHTML=res.map(r=>`<tr><td class="m">${r.id}</td><td>${r.title}<br><span class="muted" style="font-size:12px">${r.detail}</span></td><td><span class="st ${r.status==='PASS'?'ok':r.status==='FAIL'?'bad':'muted'}">${r.status}</span></td></tr>`).join('');
+  $('#faults tbody').innerHTML=D.faults.map(f=>`<tr><td><span class="m">${f.id}</span> ${f.desc}<br><span class="muted" style="font-size:12px">${f.detail}</span></td><td class="m">${f.rule}</td><td><span class="st ${f.caught?'ok':'bad'}">${f.caught?'CAUGHT':'MISSED'}</span></td></tr>`).join('');
+  $('#bom tbody').innerHTML=D.bom.map(b=>b.id?`<tr><td class="m">${b.id}</td><td class="m">${b.qty}</td><td>${b.item}</td><td class="muted">${b.spec}</td><td>${b.make_buy}</td><td class="m">${(+b.est_line_usd).toFixed(2)}</td></tr>`:`<tr><td></td><td></td><td colspan="3"><b>${b.item}</b></td><td class="m"><b>$${b.est_line_usd}</b></td></tr>`).join('');
+}).catch(()=>{$('#pills').innerHTML='<span class="pill bad">check data failed to load</span>';});
+
+/* ---- 3D ---- */
+if(!window.THREE){$('#stage').insertAdjacentHTML('beforeend','<p style="padding:20px">3D viewer could not load.</p>');return;}
+const PARTS={
+ 'RN1-01_base':{name:'Base',col:'#3b4540',ex:[0,0,0]},
+ 'RN1-02_lid':{name:'Lid',col:'#4a5650',ex:[0,0,70]},
+ 'RN1-03_gasket':{name:'Gasket',col:'#c2620a',ex:[0,0,42]},
+ 'RN1-04_button_cap':{name:'Button cap',col:'#e8e2c8',ex:[0,0,100],op:.85},
+ 'RN1-05_retainer_ring':{name:'Retainer ring',col:'#8a948e',ex:[0,0,30]},
+ 'buy_rf_module':{name:'RF module (env.)',col:'#b8c2c8',ex:[0,0,18]},
+ 'buy_tact_switch':{name:'Tact switch',col:'#222',ex:[0,0,18]},
+ 'buy_battery_holder':{name:'2×18650 holder',col:'#2f6f8f',ex:[0,0,0]},
+ 'buy_sma_inside':{name:'SMA jack',col:'#d4af37',ex:[30,0,0]},
+ 'buy_vent_inside':{name:'Pressure vent',col:'#777',ex:[-30,0,0]}};
+const stage=$('#stage');
+const renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});renderer.setPixelRatio(Math.min(2,devicePixelRatio));renderer.localClippingEnabled=true;
+stage.prepend(renderer.domElement);
+const scene=new THREE.Scene(),cam=new THREE.PerspectiveCamera(32,1.6,1,3000);cam.position.set(190,-230,170);cam.up.set(0,0,1);
+scene.add(new THREE.HemisphereLight(0xffffff,0x445044,0.9));const dl=new THREE.DirectionalLight(0xffffff,0.8);dl.position.set(100,-150,300);scene.add(dl);
+const ctl=new THREE.OrbitControls(cam,renderer.domElement);ctl.target.set(0,0,30);ctl.enableDamping=true;ctl.autoRotate=!reduce;ctl.autoRotateSpeed=1.2;
+const clip=new THREE.Plane(new THREE.Vector3(0,1,0),0);let cut=false;
+const meshes={};
+function fit(){const r=stage.getBoundingClientRect();renderer.setSize(r.width,r.height,false);cam.aspect=r.width/r.height;cam.updateProjectionMatrix();}
+addEventListener('resize',fit);
+fetch('meshes.json').then(r=>r.json()).then(M=>{
+  // PCB from its STEP is not exported as STL; draw a box for it
+  Object.entries(PARTS).forEach(([k,p])=>{const m=M[k];if(!m)return;
+    const bin=Uint8Array.from(atob(m.pos),c=>c.charCodeAt(0));const g=new THREE.BufferGeometry();g.setAttribute('position',new THREE.BufferAttribute(new Float32Array(bin.buffer),3));g.computeVertexNormals();
+    const mat=new THREE.MeshStandardMaterial({color:p.col,roughness:.65,metalness:k.includes('sma')?.6:.05,transparent:!!p.op,opacity:p.op||1,side:THREE.DoubleSide,clippingPlanes:[]});
+    const mesh=new THREE.Mesh(g,mat);scene.add(mesh);meshes[k]=mesh;});
+  const pcb=new THREE.Mesh(new THREE.BoxGeometry(92,40,1.6),new THREE.MeshStandardMaterial({color:'#2e6b3f',roughness:.6,side:THREE.DoubleSide,clippingPlanes:[]}));
+  pcb.position.set(0,0,27.8);scene.add(pcb);meshes['pcb']=pcb;PARTS['pcb']={name:'Carrier PCB',col:'#2e6b3f',ex:[0,0,18],base:[0,0,27.8]};
+  $('#toggles').innerHTML=Object.entries(PARTS).filter(([k])=>meshes[k]).map(([k,p])=>`<label><input type="checkbox" data-k="${k}" checked><span class="sw" style="background:${p.col}"></span>${p.name}</label>`).join('');
+  document.querySelectorAll('#toggles input').forEach(c=>c.onchange=()=>{meshes[c.dataset.k].visible=c.checked;});
+  apply();fit();
+});
+function apply(){const e=+$('#explode').value;Object.entries(meshes).forEach(([k,m])=>{const p=PARTS[k],b=p.base||[0,0,0];m.position.set(b[0]+p.ex[0]*e,b[1]+p.ex[1]*e,b[2]+p.ex[2]*e);m.material.clippingPlanes=cut?[clip]:[];m.material.needsUpdate=true;});}
+$('#explode').oninput=apply;
+$('#cut').onclick=()=>{cut=!cut;$('#cut').setAttribute('aria-pressed',cut);apply();};
+$('#spin').onclick=()=>{ctl.autoRotate=!ctl.autoRotate;$('#spin').setAttribute('aria-pressed',ctl.autoRotate);};
+if(reduce)$('#spin').setAttribute('aria-pressed','false');
+(function loop(){requestAnimationFrame(loop);ctl.update();renderer.render(scene,cam);})();
+fit();
+})();
+</script>

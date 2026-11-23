@@ -125,7 +125,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
   <header>
     <div class="eyebrow">Self-improving checker · 8-drawer chest · ShopBot Alpha PRS, Fellesverkstedet Oslo</div>
     <h1>Catch it before the router does.</h1>
-    <p class="lede">A chest of drawers generated from parameters and cut from melamine sheets. Machine time costs 568 kr an hour, so mistakes have to be caught in the files. Agents invent realistic faults, other agents write rules for the ones it misses, and an optimizer cuts cost without ever leaving what the checker allows.</p>
+    <p class="lede">A chest of drawers generated from parameters and cut from melamine sheets. Machine time costs about $53 an hour, so mistakes have to be caught in the files. Agents invent realistic faults, other agents write rules for the ones it misses, and an optimizer cuts cost without ever leaving what the checker allows.</p>
     <div class="stats" id="stats"></div>
   </header>
 
@@ -147,7 +147,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
         <span class="term">Caught = stopped with an error. Warnings do not count.</span></div>
       <div class="card"><span class="n">5</span><h3>Then optimise the cost</h3>
         <p>With a trustworthy checker, a hill-climbing optimizer can try hundreds of material and layout choices and keep only those the checker passes. The look stays fixed; only the hidden boards, column count and nesting change.</p>
-        <span class="term">~370 designs tried in 35 s · Oslo and Bay Area prices</span></div>
+        <span class="term">~370 designs tried in 35 s · Oslo and Bay Area, all in USD</span></div>
     </div>
   </section>
 
@@ -241,7 +241,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
       </div>
       <div class="read">
         <div><b>Horizontal axis</b>Candidate designs tried by the optimizer, in order. Each one is a full generate → nest → check run (well under a second).</div>
-        <div><b>Vertical axis</b>Total cost in kroner: whole sheets bought, spindle time at 568 kr/h (formula time × 1.5), and hardware per drawer.</div>
+        <div><b>Vertical axis</b>Total cost in US dollars (Oslo prices converted at the rate below): whole sheets bought, spindle time at about $53/h (formula time × 1.5), and hardware per drawer.</div>
         <div><b>What to look for</b>The lines only step down. Red dots are cheaper-looking designs the checker refused, for example 18 mm board that breaks the Minifix joints.</div>
       </div>
     </div>
@@ -249,7 +249,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
     <div id="regionwrap" hidden>
       <h3 style="margin:28px 0 6px">Same optimizer, Bay Area materials</h3>
       <p class="mute" id="regionnote"></p>
-      <div class="card tbl"><table id="region"><thead><tr><th>Option</th><th>Oslo</th><th>Oslo in USD</th><th>Bay Area</th><th>Where the money goes (Oslo &rarr; Bay Area, USD)</th></tr></thead><tbody></tbody></table></div>
+      <div class="card tbl"><table id="region"><thead><tr><th>Option</th><th>Oslo</th><th>Bay Area</th><th>Where the money goes (Oslo &rarr; Bay Area, USD)</th></tr></thead><tbody></tbody></table></div>
     </div>
   </section>
 
@@ -271,7 +271,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
   </section>
 
   <div class="foot">
-    <span>Board prices are partly estimates until quotes arrive; hardware is estimated at 320 kr per drawer. Spindle time is the feed × length formula times 1.5.</span>
+    <span>Board prices are partly estimates until quotes arrive; hardware is estimated at about $30 per drawer. Norwegian prices are converted to USD at an assumed rate. Spindle time is the feed × length formula times 1.5.</span>
     <span id="stamp"></span>
   </div>
 </div>
@@ -281,7 +281,20 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
 const D = /*DATA*/null;
 const $ = s => document.querySelector(s);
 const pct = (a, b) => b ? Math.round(100 * a / b) : null;
-const kr = v => v == null ? '–' : Math.round(v).toLocaleString('nb-NO').replace(/ /g, ' ') + ' kr';
+const FX = (D.opt_us && D.opt_us.nok_per_usd) || 10.8;
+const kr = v => v == null ? '–' : '$' + Math.round(v).toLocaleString('en-US');
+const toUSD = r => { if (!r) return r; for (const k of ['cost', 'sheets', 'cnc_kr', 'hardware', 'best']) if (r[k] != null) r[k] = r[k] / FX;
+  (r.materials || []).forEach(m => { m.kr = m.kr / FX; }); return r; };
+if (D.opt) { toUSD(D.opt.today); ['loose', 'strict'].forEach(k => D.opt[k] && toUSD(D.opt[k].best)); }
+(D.opt_hist || []).forEach(toUSD);
+const EN = [[/Spon melamin /, 'Melamine chipboard '], [/eik aviva dew/, 'oak Aviva Dew'], [/eik aviva siena/, 'oak Aviva Siena'], [/ hvit/g, ' white'],
+  [/lys grå/, 'light grey'], [/mørk grå/, 'dark grey'], [/ svart/, ' black'], [/Yoku lys eik/, 'Yoku light oak'], [/atlas eik/, 'Atlas oak'],
+  [/trefiberplate halvhard/, 'hardboard'], [/trefiberplate standard/, 'hardboard'], [/trefiberplate/, 'hardboard'], [/\s*\(brun\)/, ''],
+  [/Hobbyplate melamin/, 'Melamine hobby board'], [/hobbyplate melamin/, 'melamine hobby board'], [/MDF-plate 3 mm hvitmalt 1 side/, 'MDF 3 mm, white one side'],
+  [/Bjørkekryssfiner/, 'Birch plywood'], [/MDF med valnøttfiner/, 'MDF with walnut veneer'], [/males selv/, 'paint yourself'],
+  [/Melaminplate/, 'Melamine board'], [/kun hele pakker/, 'full packs only'], [/kantlist langsider/, 'banded long edges'],
+  [/EKSEMPEL, ikke sjekket/, 'example, unchecked'], [/Sponplate melamin/, 'Melamine chipboard']];
+const en = t => EN.reduce((a, [re, b]) => a.replace(re, b), t || '');
 const NS = 'http://www.w3.org/2000/svg';
 const H = D.hist, last = H[H.length - 1], first = H[0];
 const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) });
@@ -341,12 +354,12 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const runs = [false, true].map(st => E.filter(e => e.strict === st));
   const nMax = Math.max(...runs.map(r => r.length));
   const costs = E.map(e => e.cost).filter(v => v != null);
-  const lo = Math.floor(Math.min(...costs) / 1000) * 1000, hi = Math.ceil(Math.max(...costs) / 1000) * 1000;
+  const lo = Math.floor(Math.min(...costs) / 100) * 100, hi = Math.ceil(Math.max(...costs) / 100) * 100;
   const W = 960, Hh = 400, m = { l: 84, r: 28, t: 20, b: 52 };
   const x = n => m.l + 8 + (n - 1) * (W - m.l - m.r - 16) / Math.max(1, nMax - 1);
   const y = v => m.t + (hi - v) * (Hh - m.t - m.b) / (hi - lo);
-  const ticks = []; const step = (hi - lo) > 6000 ? 2000 : 1000; for (let v = lo; v <= hi; v += step) ticks.push(v);
-  let s = axes(W, Hh, m, ticks, v => (v / 1000).toLocaleString('nb-NO') + ' 000', y, 'Total cost (kr)', 'Candidate designs tried by the optimizer');
+  const ticks = []; const step = (hi - lo) > 600 ? 200 : 100; for (let v = lo; v <= hi; v += step) ticks.push(v);
+  let s = axes(W, Hh, m, ticks, v => '$' + v.toLocaleString('en-US'), y, 'Total cost (USD)', 'Candidate designs tried by the optimizer');
   for (const n of [1, 50, 100, 150, 200].filter(n => n <= nMax)) s += `<text x="${x(n)}" y="${Hh - m.b + 18}" text-anchor="middle" font-size="11.5" fill="var(--mute)">${n}</text>`;
   runs.forEach((r, k) => r.forEach((e, i) => {
     if (e.cost == null) return;
@@ -372,10 +385,10 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const card = (r, title, cls, note) => !r ? '' : `<div class="card opt ${cls}">
     <div class="eyebrow">${title}</div>
     <div class="price">${kr(r.cost)}</div>
-    <div class="delta" style="color:${r === t ? 'var(--mute)' : r.cost <= t.cost ? 'var(--ok)' : 'var(--warn)'}">${r === t ? 'current params.json' : (r.cost <= t.cost ? '−' : '+') + kr(Math.abs(r.cost - t.cost)) + ' vs today'}</div>
+    <div class="delta" style="color:${r === t ? 'var(--mute)' : r.cost <= t.cost ? 'var(--ok)' : 'var(--warn)'}">${r === t ? 'current design' : (r.cost <= t.cost ? '−' : '+') + kr(Math.abs(r.cost - t.cost)) + ' vs today'}</div>
     <dl><dt>Sheets</dt><dd>${kr(r.sheets)}</dd><dt>Spindle time</dt><dd>${r.cnc_min} min · ${kr(r.cnc_kr)}</dd>
       <dt>Hardware</dt><dd>${kr(r.hardware)}</dd><dt>Drawers</dt><dd>${r.drawers} × ${r.box_width} mm wide</dd></dl>
-    <ul>${r.materials.map(mm => `<li>${mm.navn.replace(/\s*\(.*\)$/, '')}: ${mm.ark} sheet, ${mm.used}% used</li>`).join('')}</ul>
+    <ul>${r.materials.map(mm => `<li>${en(mm.navn).replace(/\s*\(.*\)$/, '')}: ${mm.ark} sheet, ${mm.used}% used</li>`).join('')}</ul>
     <p style="font-size:13px">${note}</p></div>`;
   $('#cmp').innerHTML = card(t, 'Today', '', 'Two columns. Drawers exceed Hettich’s 550 mm.')
     + card(a, 'Cheapest, any width', '', 'Same layout, cheaper white board that still fits one sheet.')
@@ -513,8 +526,8 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const fx = U.nok_per_usd, usd = v => '$' + Math.round(v).toLocaleString('en-US');
   const rows = [['Today’s design', O.today, U.today], ['Cheapest, any width', O.loose && O.loose.best, U.loose && U.loose.best],
                 ['Cheapest within Hettich', O.strict && O.strict.best, U.strict && U.strict.best]];
-  const part = (a, b, k, n) => `${n} ${usd(a[k] / fx)} → ${usd(b[k])}`;
-  $('#region tbody').innerHTML = rows.filter(r => r[1] && r[2]).map(([n, a, b]) => `<tr><td>${n}</td><td class="id">${kr(a.cost)}</td><td class="id">${usd(a.cost / fx)}</td><td class="id"><b>${usd(b.cost)}</b></td>
+  const part = (a, b, k, n) => `${n} ${usd(a[k])} → ${usd(b[k])}`;
+  $('#region tbody').innerHTML = rows.filter(r => r[1] && r[2]).map(([n, a, b]) => `<tr><td>${n}</td><td class="id">${usd(a.cost)}</td><td class="id"><b>${usd(b.cost)}</b></td>
     <td style="font-size:13px">${part(a, b, 'sheets', 'sheets')} · ${part(a, b, 'cnc_kr', 'machine')} · ${part(a, b, 'hardware', 'hardware')}<br><span class="mute">${b.materials.map(m => m.ark + '× ' + m.navn.replace(/\s*\(.*\)$/, '').replace(/ 3\/4in.*| 1\/[48]in.*| 4x8.*/, '')).join(', ')}</span></td></tr>`).join('');
   $('#regionnote').textContent = `Same machine (ShopBot, 2440×1220 bed), same rules, same oak-outside / white-inside look. US 4×8 sheets (2438×1219) have half the area of the 2800×2070 Norwegian sheets, so the oak needs two. Prices include ${(U.sales_tax * 100).toFixed(2)}% sales tax; machine $${U.machine_per_h}/h; hardware $${U.hw_per_drawer} per drawer. Most US prices are estimates. NOK→USD at ${fx} (assumed).`;
   $('#regionwrap').hidden = false;
