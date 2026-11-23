@@ -6,3 +6,5 @@
 {"step": "write", "target": "gm01", "rule": "g06_auto_gm01", "accepted": true, "train": 0.479, "transfer": 0.507, "heldout": 0.042, "fp_heldout": 2, "secs": 799, "t": "2026-11-23T11:26:40"}
 {"step": "write", "target": "gm02", "rule": "g07_auto_gm02", "accepted": true, "train": 0.535, "transfer": 0.54, "heldout": 0.042, "fp_heldout": 2, "secs": 2057, "t": "2026-11-23T12:00:57"}
 {"step": "write", "target": "gm03", "rule": "g08_auto_gm03", "accepted": true, "train": 0.618, "transfer": 0.624, "heldout": 0.049, "fp_heldout": 2, "secs": 1056, "t": "2026-11-23T12:18:33"}
+{"step": "mine", "ok": true, "agent": "ide its own sheet border. That isn't caused by my change, but a sheet-border check will flag that good design too.\n\n`faults/gx_mined.py` was changed by something else while I was editing it. All six entries, gm01 to gm06, are still in it. I didn't run the loop or open anything under `fc/gx/rules/`.\n", "t": "2026-11-23T12:21:10"}
+{"step": "write", "target": "gm04", "rule": "g09_auto_gm04", "accepted": false, "why": ["noise flag rate 20% -> 23%"], "secs": 868, "t": "2026-11-23T12:40:33"}

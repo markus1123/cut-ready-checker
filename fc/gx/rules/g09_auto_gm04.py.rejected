@@ -1,0 +1,45 @@
+from fc.core import Finding
+from fc.gx.core import gx_rule
+from shapely.strtree import STRtree
+
+MIN_GAP = 2.0       # mm: under the smallest end mill that through-cuts furniture sheet (1/8" = 3.175 mm; 6 mm is typical)
+TOUCH = 0.3         # mm: closer than this the outlines share one cut line (common-line nesting, within snap tolerance)
+MIN_PART = 2500.0   # mm2 (~50 x 50 mm): smaller loops are engraving/text/decoration or offcuts, not nested parts
+
+
+@gx_rule('G09', 'Neighbouring parts nested closer than the cutter is wide')
+def check(g):
+    """A profile cut removes a kerf as wide as the router bit, on a path half a bit-width outside each part (tool
+    compensation). Two parts nested side by side therefore need at least one bit diameter of sheet between their
+    outlines, or the toolpath around one part runs through the edge of its neighbour. Furniture sheet (9-25 mm
+    ply/MDF) is through-cut with 1/8" (3.175 mm) bits at the very smallest and usually 6-12 mm bits, because thinner
+    bits are too short and snap at full depth. A gap under 2 mm cannot be cut with any usable bit: one part is gouged
+    along its edge, and the strip of sheet that should hold both parts disappears, so they shift or are thrown.
+    CAM nesting (Vectric "part gap", Opendesk making guide) sets the gap to >= tool diameter for this reason.
+    Built designs in the corpus keep 2.5 mm or more.
+    Outlines that touch (gap under 0.3 mm, within drawing snap / machine tolerance) are common-line nesting - one
+    cut separates both parts - and are fine; overlaps are G02's job. Only real parts (>= ~50 x 50 mm) are compared:
+    tiny loops in an untyped DXF are mostly engraving, lettering or decoration, not pieces nested on the sheet."""
+    parts = [p for p in g.parts if p.outer is not None and not p.outer.is_empty and p.outer.area >= MIN_PART]
+    if len(parts) < 2:
+        return
+    outs = [p.outer for p in parts]
+    tree = STRtree(outs)
+    flagged = set()
+    for i, a in enumerate(outs):
+        for j in tree.query(a.buffer(MIN_GAP)):
+            j = int(j)
+            if j <= i:
+                continue
+            b = outs[j]
+            if a.intersects(b):
+                continue                       # touching / overlapping / nested inside: common line or G02
+            d = a.distance(b)
+            if TOUCH < d < MIN_GAP:
+                small = parts[i] if a.area <= b.area else parts[j]
+                if small.key in flagged:
+                    continue
+                flagged.add(small.key)
+                yield Finding('G09', 'error',
+                              'part is nested only %.1f mm from its neighbour (need >= %.1f mm, at least one cutter '
+                              'width): the toolpath around one part cuts into the other' % (d, MIN_GAP), small.key)
