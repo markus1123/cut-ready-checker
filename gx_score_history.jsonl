@@ -3,3 +3,4 @@
 {"t": "2026-11-23T11:02:34", "note": "loop: g05_auto_gt06 for gt06", "rules": 5, "train": 0.528, "transfer": 0.565, "heldout": 0.035, "fp": 2, "noise_flag": 0.194}
 {"t": "2026-11-23T11:09:49", "note": "loop start", "rules": 5, "train": 0.528, "transfer": 0.565, "heldout": 0.035, "fp": 2, "noise_flag": 0.194}
 {"t": "2026-11-23T11:26:40", "note": "loop: g06_auto_gm01 for gm01", "rules": 6, "train": 0.479, "transfer": 0.507, "heldout": 0.042, "fp": 2, "noise_flag": 0.194}
+{"t": "2026-11-23T12:00:57", "note": "loop: g07_auto_gm02 for gm02", "rules": 7, "train": 0.535, "transfer": 0.54, "heldout": 0.042, "fp": 2, "noise_flag": 0.194}
