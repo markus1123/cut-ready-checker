@@ -544,7 +544,7 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
     const st = [...H].reverse().find(h => (h.heldout_v || 1) === v && h.heldout_studied);
     const nxt = H.find(h => (h.heldout_v || 1) > v);
     const after = st ? [st.heldout_caught, st.heldout_n] : (v === 1 && nxt && nxt.retired_n ? [nxt.retired_caught, nxt.retired_n] : null);
-    return `<li><b>Test ${v}:</b> ${b ? b.heldout_caught + '/' + b.heldout_n + ' blind' : '–'}${after ? ' → ' + after[0] + '/' + after[1] + ' after studying its misses' : ' (current)'}</li>`;
+    return `<li><b>Test ${v}:</b> ${b ? b.heldout_caught + '/' + b.heldout_n + ' blind' : '–'}${after ? ' → ' + after[0] + '/' + after[1] + ' after studying its misses' : v === vers[vers.length - 1] ? ' (current test)' : ' → retired; the loop wrote rules for its misses'}</li>`;
   }).join('');
   $('#lessons').innerHTML = `
     <div class="card lesson" style="border-color:var(--accent)"><span class="eyebrow">Rounds</span><span class="big">${vers.length}</span>

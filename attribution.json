@@ -38,7 +38,11 @@
   "R36",
   "R37",
   "R38",
-  "R39"
+  "R39",
+  "R40",
+  "R41",
+  "R42",
+  "R43"
  ],
  "rows": [
   {
@@ -292,7 +296,8 @@
    "source": "",
    "gen": false,
    "rules": [
-    "R07"
+    "R07",
+    "R41"
    ]
   },
   {
@@ -636,7 +641,8 @@
    "source": "Classic carcass arithmetic error (forgot one board thickness)",
    "gen": false,
    "rules": [
-    "R03"
+    "R03",
+    "R41"
    ]
   },
   {
@@ -647,7 +653,8 @@
    "source": "Panel-in-groove sizing (groove depth minus play)",
    "gen": false,
    "rules": [
-    "R07"
+    "R07",
+    "R41"
    ]
   },
   {
@@ -659,7 +666,8 @@
    "gen": false,
    "rules": [
     "R03",
-    "R07"
+    "R07",
+    "R41"
    ]
   },
   {
@@ -683,7 +691,8 @@
    "rules": [
     "R01",
     "R02",
-    "R34"
+    "R34",
+    "R43"
    ]
   },
   {
@@ -728,7 +737,8 @@
    "source": "Manual nest edits / bed size mismatch",
    "gen": false,
    "rules": [
-    "R01"
+    "R01",
+    "R42"
    ]
   },
   {
@@ -799,7 +809,9 @@
     "R09",
     "R15",
     "R25",
-    "R28"
+    "R28",
+    "R40",
+    "R42"
    ]
   },
   {
@@ -866,7 +878,9 @@
    "gen": true,
    "rules": [
     "R02",
-    "R28"
+    "R28",
+    "R40",
+    "R41"
    ]
   },
   {
@@ -877,7 +891,8 @@
    "source": "axis swap in a coordinate transform",
    "gen": true,
    "rules": [
-    "R02"
+    "R02",
+    "R42"
    ]
   },
   {
@@ -933,7 +948,8 @@
    "source": "division by column count lost in a refactor",
    "gen": true,
    "rules": [
-    "R08"
+    "R08",
+    "R41"
    ]
   },
   {
@@ -944,7 +960,8 @@
    "source": "material/role mapping bug in the part list",
    "gen": false,
    "rules": [
-    "R01"
+    "R01",
+    "R42"
    ]
   },
   {
@@ -1000,7 +1017,8 @@
    "source": "groove not rotated together with a rotated part in the nester",
    "gen": false,
    "rules": [
-    "R02"
+    "R02",
+    "R42"
    ]
   },
   {
@@ -1050,7 +1068,7 @@
   },
   {
    "id": "y01",
-   "set": "heldout",
+   "set": "retired",
    "title": "Handle hole diameter typed as 3 mm for M4 handle bolts",
    "why": "The M4 handle bolts do not pass through the Ø3 holes in the fronts; drilling them out by hand on the finished oak fronts chips the decor and the handles end up crooked.",
    "source": "Hardware fit: thread size confused with tap-drill size",
@@ -1059,16 +1077,19 @@
   },
   {
    "id": "y02",
-   "set": "heldout",
+   "set": "retired",
    "title": "Minifix bolt pilot holes set to Ø8 (dowel size) instead of Ø5",
    "why": "The screw-in Minifix bolts have nothing to bite into in an Ø8 hole, so the carcass joints to the top, bottom and middle wall cannot be tightened; every joint hole is wrong.",
    "source": "Joinery: dowel diameter copied into the Minifix bolt field",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R40",
+    "R41"
+   ]
   },
   {
    "id": "y03",
-   "set": "heldout",
+   "set": "retired",
    "title": "Slide pilot depth set to 18 mm in 18.8 mm sides",
    "why": "Slide pilot holes go (almost) through the side panels and blow out on the visible oak outside face of the carcass at every slide screw.",
    "source": "Tooling: blind-hole depth entered as board thickness",
@@ -1080,16 +1101,18 @@
   },
   {
    "id": "y04",
-   "set": "heldout",
+   "set": "retired",
    "title": "Machine bed entered as 2500x1250 (sheet-ish size) instead of the router's 2440x1220",
    "why": "The dealer saws pieces bigger than the ShopBot bed and the nest uses the extra 60/30 mm: parts at the far end cannot be reached or clamped, the job overruns the machine limits.",
    "source": "Nesting/sheet: machine envelope taken from a quote instead of the workshop",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R42"
+   ]
   },
   {
    "id": "y05",
-   "set": "heldout",
+   "set": "retired",
    "title": "Rear leg positions 100 mm deeper than the carcass",
    "why": "The rear legs are marked outside the bottom panel: they hang off the back, cannot be screwed to the bottom and the chest rocks/tips backwards.",
    "source": "Assembly/safety: leg y measured from the top front edge instead of the carcass front",
@@ -1098,7 +1121,7 @@
   },
   {
    "id": "y06",
-   "set": "heldout",
+   "set": "retired",
    "title": "Side height typed 1653 instead of 653",
    "why": "A 1.65 m tall, 43 cm deep chest of drawers with only four drawers: sides and back are cut far too long and the finished piece is a tip-over hazard.",
    "source": "Geometry: extra digit in an outer dimension",
@@ -1109,16 +1132,18 @@
   },
   {
    "id": "y07",
-   "set": "heldout",
+   "set": "retired",
    "title": "Adjustable front-fixing holes in the drawer front ends set to Ø14",
    "why": "The 4x30 screws and their washers pull straight through the Ø14 holes, so the fronts cannot be fastened to the drawer boxes.",
    "source": "Hardware fit: washer diameter typed as the slot/hole size",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R40"
+   ]
   },
   {
    "id": "y08",
-   "set": "heldout",
+   "set": "retired",
    "title": "Minifix/joint positions set 8 mm from the front and back edges",
    "why": "Ø15 cam housings and bolt holes break out of the front edge of the sides/middle wall, the edge bores split the chipboard and the joints have no strength.",
    "source": "Joinery: edge distance from a 16 mm system drawing misread",
@@ -1127,59 +1152,67 @@
   },
   {
    "id": "y09",
-   "set": "heldout",
+   "set": "retired",
    "title": "Drawer-bottom HDF thickness typed 59 instead of 5.9",
    "why": "The bottom groove becomes ~60 mm wide on 120 mm drawer parts: it eats half the drawer side, crosses the confirmat holes and the box falls apart.",
    "source": "Materials: decimal point lost when entering a measured thickness",
    "gen": true,
    "rules": [
     "R21",
-    "R31"
+    "R31",
+    "R42"
    ]
   },
   {
    "id": "y10",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: back panel height taken from carcass depth (430) instead of side height",
    "why": "The back panel is cut 430 mm high on a 653 mm carcass: the back is open, the carcass is not squared and the panel sheet is wasted.",
    "source": "Generator: wrong variable for one dimension",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R41"
+   ]
   },
   {
    "id": "y11",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: drawer sides cut to carcass depth instead of slide length",
    "why": "Drawer sides become 430 mm while ends, bottoms and slides are for 400: the bottom no longer reaches the back groove, the box hits the back panel and drawers do not close.",
    "source": "Drawer mechanics: slide length vs carcass depth confusion",
    "gen": false,
    "rules": [
-    "R07"
+    "R07",
+    "R41"
    ]
   },
   {
    "id": "y12",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: confirmat holes in drawer sides offset to the inner face of the end boards",
    "why": "The 7 mm confirmat holes sit on the joint line instead of the centre of the 18.8 mm end: screws split out of the end grain and the drawer boxes cannot be assembled.",
    "source": "Joinery: hole at board thickness instead of half thickness",
    "gen": false,
    "rules": [
-    "R03"
+    "R03",
+    "R40"
    ]
   },
   {
    "id": "y13",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: only one handle hole on every drawer front",
    "why": "Two-bolt bar handles cannot be fitted; drilling the second hole by hand on finished oak fronts gives misaligned handles across all eight drawers.",
    "source": "Hardware: list-index bug drops the last op",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R40",
+    "R41"
+   ]
   },
   {
    "id": "y14",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: drawer bottom length and width swapped",
    "why": "Bottoms are cut 377 x 725 instead of 725 x 377: they cannot go into the drawer box grooves at all, all eight bottoms are scrap.",
    "source": "Geometry: L/B transposed for one part",
@@ -1190,16 +1223,18 @@
   },
   {
    "id": "y15",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: front-fixing screw holes drilled in the back end (E2) instead of the front end (E1)",
    "why": "There is no way to screw the fronts to the drawer boxes from inside; the holes in the back ends are useless.",
    "source": "Assembly: ops attached to the wrong part",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R40"
+   ]
   },
   {
    "id": "y16",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: side Minifix housings for the top drawn at the bottom end of the sides",
    "why": "The top-edge bolts in the sides have no cam housing to engage, the top cannot be locked down and there are stray Ø15 pockets near the bottom joint.",
    "source": "Joinery: y measured from the wrong reference edge",
@@ -1210,7 +1245,7 @@
   },
   {
    "id": "y17",
-   "set": "heldout",
+   "set": "retired",
    "title": "Generator bug: bottom groove width from drawer-side thickness instead of HDF thickness",
    "why": "Grooves are ~19 mm wide for a 6 mm bottom: the bottom rattles, the groove runs into the confirmat holes and the lower edge of the drawer parts breaks off.",
    "source": "Drawer mechanics: wrong thickness variable for a groove",
@@ -1222,18 +1257,19 @@
   },
   {
    "id": "y18",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: one sheet exported with its origin at the sheet centre",
    "why": "All coordinates are shifted by half a sheet into negative X/Y: with zero at the sheet corner the router runs off the sheet into clamps/limits and cuts the parts in the wrong places.",
    "source": "File format: drawing origin vs machine zero",
    "gen": false,
    "rules": [
-    "R01"
+    "R01",
+    "R42"
    ]
   },
   {
    "id": "y19",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: holes of one part left in part-local coordinates (not moved with the part)",
    "why": "The holes of one part are drilled near the sheet origin, through a neighbouring part or the margin, while the part itself is cut without its holes.",
    "source": "Export: block explode / transform not applied to child entities",
@@ -1244,7 +1280,7 @@
   },
   {
    "id": "y20",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: Minifix housing pockets shifted 8 mm on one sheet",
    "why": "The cam housings no longer line up with the edge-bored bolts, so the cams cannot catch the bolts and the carcass joints do not close.",
    "source": "Export: pocket layer offset (tool-compensation / layer offset applied twice)",
@@ -1255,7 +1291,7 @@
   },
   {
    "id": "y21",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: bottom-groove rectangles exported on the outer-contour layer",
    "why": "The CAM profiles every groove full depth: all drawer sides and ends are sliced into strips.",
    "source": "Layers: wrong layer mapping in the export",
@@ -1268,7 +1304,7 @@
   },
   {
    "id": "y22",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: sheet file truncated during transfer (last ~45% of entities and EOF missing)",
    "why": "Depending on the CAM, the import fails or silently loads only half of the parts/holes; the sheet is cut incomplete and the missing parts are discovered at assembly.",
    "source": "File transfer: USB stick pulled / upload interrupted",
@@ -1279,16 +1315,18 @@
   },
   {
    "id": "y23",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: decimal marker lost in contour-layer depth (Z18P8 -> Z188)",
    "why": "CAM layer mapping reads a 188 mm cut depth: the bit plunges through the sheet and spoilboard into the table, breaking the bit.",
    "source": "File format: layer-name encoding of depth corrupted",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R42"
+   ]
   },
   {
    "id": "y24",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: one part's contour exported rotated 90 deg while its holes are not",
    "why": "The part is cut to the wrong outline: its holes and grooves fall outside it and it cuts across its neighbours on the sheet.",
    "source": "Export: rotation applied to the outline but not to the machining",
@@ -1297,18 +1335,286 @@
     "R01",
     "R02",
     "R14",
-    "R33"
+    "R33",
+    "R42"
    ]
   },
   {
    "id": "y25",
-   "set": "heldout",
+   "set": "retired",
    "title": "DXF: slide pilot-hole layer frozen at export (all Ø3.175 pilots missing on one sheet)",
    "why": "The slide mounting holes are not drilled: slides must be positioned by hand, drawers end up crooked and the fronts do not line up.",
    "source": "Layers: frozen/off layer not exported",
    "gen": false,
    "rules": [
     "R02"
+   ]
+  },
+  {
+   "id": "h4_01",
+   "set": "heldout",
+   "title": "Dealer saw kerf entered as 0 mm (plater.sagsnitt)",
+   "why": "The panel saw removes ~4 mm per cut, but the offcut pieces are nested as if no material is lost: the second piece is drawn 4 mm larger than the real offcut, so parts nested at its far edge run off the board and are ruined.",
+   "source": "Designer input error (params.json), workshop experience; panel-saw kerf is always 3-4.5 mm",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "h4_02",
+   "set": "heldout",
+   "title": "Front edge reveal (kant_topp_bunn) typed negative",
+   "why": "Front stack becomes taller than the carcass: the top drawer front runs up into the top overhang and cannot close, the bottom one hangs below the carcass - all 8 oak fronts recut.",
+   "source": "Designer input error (params.json), workshop experience; sign error when entering an overlay \"overhang\" instead of a reveal",
+   "gen": true,
+   "rules": [
+    "R08",
+    "R28"
+   ]
+  },
+  {
+   "id": "h4_03",
+   "set": "heldout",
+   "title": "Front-fixing screw holes in E1 copied from the confirmat layout (on the confirmat bore)",
+   "why": "The 4x30 front screws are drilled straight across the 5 mm confirmat pilot in the end grain of the front end: the confirmat and the screw collide, the end board splits and the front cannot be fixed.",
+   "source": "Designer input error (params.json), workshop experience; positions reused from the wrong hole table",
+   "gen": false,
+   "rules": [
+    "R27"
+   ]
+  },
+  {
+   "id": "h4_04",
+   "set": "heldout",
+   "title": "Drawer side height lower than the slide (low-drawer option with a 46 mm slide)",
+   "why": "The slide body is taller than the drawer side: its screws run off the side, slide pilot holes break out of the edges and the drawer cannot be mounted.",
+   "source": "Designer input error (params.json), workshop experience; wrong row from the slide catalogue",
+   "gen": true,
+   "rules": [
+    "R02",
+    "R10"
+   ]
+  },
+  {
+   "id": "h4_05",
+   "set": "heldout",
+   "title": "Rear plinth strip position entered for its back face (flush-intent), generator uses the front face",
+   "why": "Strip sticks out behind the carcass back so the chest cannot stand against the wall, and its screw holes break out of the bottom panel back edge.",
+   "source": "Designer input error (params.json), workshop experience; reference-face confusion",
+   "gen": true,
+   "rules": []
+  },
+  {
+   "id": "h4_06",
+   "set": "heldout",
+   "title": "Top front overhang typed 10x too large (e.g. 210 instead of 21)",
+   "why": "A deep unsupported top far in front of the front legs: leaning on it or a child climbing opened drawers tips the chest forward (tip-over hazard), and a big oak part is wasted.",
+   "source": "Designer input error (params.json), workshop experience; decimal slip; furniture tip-over injuries (EN 14749 / ASTM F2057)",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "h4_07",
+   "set": "heldout",
+   "title": "Drawer bottom groove raised to half the box height (groove on the slide screw line)",
+   "why": "The groove runs exactly where the slide pilots go: slide screws end in the empty groove with no grip and the drawer side is weakened along the line carrying the load - drawers drop out under weight.",
+   "source": "Designer input error (params.json), workshop experience; \"hidden bottom\" tweak without checking the hardware",
+   "gen": true,
+   "rules": []
+  },
+  {
+   "id": "h4_08",
+   "set": "heldout",
+   "title": "Carcass depth typed as the slide length (430 -> 400)",
+   "why": "The slide needs more inside depth than its nominal length: drawers will not close fully against the back panel and the slide rear brackets clash with it - sides, bottom, top, middle wall all wrong depth.",
+   "source": "Designer input error (params.json), workshop experience; slide minimum inside depth (Hettich KA spec)",
+   "gen": true,
+   "rules": []
+  },
+  {
+   "id": "h4_09",
+   "set": "heldout",
+   "title": "Generator bug: spot-drill fallback lost - small-bit through holes sent as full-depth through cuts",
+   "why": "Holes smaller than the big bit (handle, slide pilots, plinth screws) are plunged through 18.8 mm with the 1/8\" bit whose flute is only 12.7 mm: shank rubs, bit overheats and snaps, burned holes.",
+   "source": "Generator regression (kommode.py build()); flute length vs. stock thickness, small-bit breakage",
+   "gen": false,
+   "rules": [
+    "R11"
+   ]
+  },
+  {
+   "id": "h4_10",
+   "set": "heldout",
+   "title": "Generator bug: drawer bottom quantity = rows instead of rows x columns",
+   "why": "Only half the drawer bottoms are cut: four drawers cannot be assembled, a second HDF job (and maybe sheet) needed.",
+   "source": "Generator regression (kommode.py build())",
+   "gen": false,
+   "rules": [
+    "R30"
+   ]
+  },
+  {
+   "id": "h4_11",
+   "set": "heldout",
+   "title": "Generator bug: middle wall quantity 0 (cols - 2)",
+   "why": "No middle wall is cut: the inner slides of both columns have nothing to mount on and the top/bottom holes for it lead nowhere - carcass cannot be assembled.",
+   "source": "Generator regression (kommode.py build()); off-by-one in a count",
+   "gen": false,
+   "rules": [
+    "R30"
+   ]
+  },
+  {
+   "id": "h4_12",
+   "set": "heldout",
+   "title": "Generator bug: back drawer end E2 has no bottom groove",
+   "why": "The drawer bottom is sized to sit in grooves on all four sides; with no groove in the back end it hits E2 and the box cannot be closed - 8 back ends recut.",
+   "source": "Generator regression (kommode.py build())",
+   "gen": false,
+   "rules": [
+    "R07"
+   ]
+  },
+  {
+   "id": "h4_13",
+   "set": "heldout",
+   "title": "Generator bug: top cut to the inner width (between the sides) instead of the full width",
+   "why": "The top no longer covers the sides and its bolt/dowel holes for the sides fall off the part: wasted oak top.",
+   "source": "Generator regression (kommode.py build()); length copied from the bottom panel formula",
+   "gen": true,
+   "rules": [
+    "R02",
+    "R04",
+    "R41"
+   ]
+  },
+  {
+   "id": "h4_14",
+   "set": "heldout",
+   "title": "Generator bug: drawer fronts assigned to the white carcass board instead of the oak front board",
+   "why": "All 8 fronts are nested and cut from white melamine: wrong finish, sheets wasted, oak sheet half empty.",
+   "source": "Generator regression (kommode.py build()); wrong material role",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "h4_15",
+   "set": "heldout",
+   "title": "Generator bug: top holes for the middle wall use the bottom panel coordinates (offset one board thickness)",
+   "why": "The top is measured from the outer edge but the bottom from inside the side: middle-wall bolt and dowel holes in the top miss the wall by ~19 mm, the wall stands crooked or cannot be joined.",
+   "source": "Generator regression (kommode.py build()); wrong coordinate reference",
+   "gen": false,
+   "rules": [
+    "R03",
+    "R04"
+   ]
+  },
+  {
+   "id": "h4_16",
+   "set": "heldout",
+   "title": "Generator bug: bottom panel edge bores for the side Minifix bolts dropped",
+   "why": "Nothing for the cam bolts to enter: the bottom is held to the sides only by dowels and the carcass racks or falls apart when moved.",
+   "source": "Generator regression (kommode.py build())",
+   "gen": false,
+   "rules": [
+    "R03"
+   ]
+  },
+  {
+   "id": "h4_17",
+   "set": "heldout",
+   "title": "Generator bug: grooves in the drawer ends half as deep as the bottom is sized for",
+   "why": "Bottom is long enough for the full groove depth but E1/E2 grooves are shallow: the drawer box will not close by several mm, glue/confirmats pull the joints open.",
+   "source": "Generator regression (kommode.py build())",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "h4_18",
+   "set": "heldout",
+   "title": "DXF: groove layer on the first drawer sheet exported with the full board (contour) depth",
+   "why": "The bottom groove is cut right through the drawer sides/ends: every part on the sheet splits along the groove line and the whole sheet is scrap.",
+   "source": "CAM/export/transfer error on the sheet DXF; depth copied from the contour layer when the CAM layer map was built",
+   "gen": false,
+   "rules": [
+    "R01"
+   ]
+  },
+  {
+   "id": "h4_19",
+   "set": "heldout",
+   "title": "DXF: drawer-bottom HDF sheet exported empty (only the sheet outline)",
+   "why": "The operator runs the job, nothing is cut: all 8 drawer bottoms missing at assembly time.",
+   "source": "CAM/export/transfer error on the sheet DXF",
+   "gen": false,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "h4_20",
+   "set": "heldout",
+   "title": "DXF: slide pilot holes on the oak sheet exported on a through-hole layer",
+   "why": "Blind slide pilots are drilled through the oak sides: rows of holes on the visible outside of the chest.",
+   "source": "CAM/export/transfer error on the sheet DXF; layer mapping error",
+   "gen": false,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "h4_21",
+   "set": "heldout",
+   "title": "DXF: bottom grooves overrun 40 mm past the part ends",
+   "why": "Grooves run out through the 10 mm gap into neighbouring parts: every neighbour gets a groove scar and is scrap.",
+   "source": "CAM/export/transfer error on the sheet DXF; lead-in/lead-out added on the geometry instead of in CAM",
+   "gen": false,
+   "rules": [
+    "R02",
+    "R42"
+   ]
+  },
+  {
+   "id": "h4_22",
+   "set": "heldout",
+   "title": "DXF: tool compensation applied twice - contours on the front sheet offset inward by a bit diameter",
+   "why": "CAM offsets again for the bit, so every front comes out one bit diameter too small each way: gaps everywhere, handle holes off-centre - all fronts recut.",
+   "source": "CAM/export/transfer error on the sheet DXF; double cutter compensation (CAM + exporter)",
+   "gen": false,
+   "rules": [
+    "R02"
+   ]
+  },
+  {
+   "id": "h4_23",
+   "set": "heldout",
+   "title": "DXF: one corner of the largest contour moved 5 mm (part out of square)",
+   "why": "Biggest part comes out as a trapezoid: carcass racks, gaps and joints do not close.",
+   "source": "CAM/export/transfer error on the sheet DXF; edited/snapped vertex in CAD",
+   "gen": false,
+   "rules": []
+  },
+  {
+   "id": "h4_24",
+   "set": "heldout",
+   "title": "DXF: confirmat through-holes drawn with the Ø10 countersink circle on the Ø7 layer",
+   "why": "Geometry and layer disagree; CAM follows the circle and cuts Ø10 holes, the confirmat heads pull straight through the drawer sides.",
+   "source": "CAM/export/transfer error on the sheet DXF",
+   "gen": false,
+   "rules": [
+    "R02",
+    "R34"
+   ]
+  },
+  {
+   "id": "h4_25",
+   "set": "heldout",
+   "title": "DXF: part labels stripped from the drawer-box sheets",
+   "why": "Mirrored S/SH sides and E1/E2 ends are indistinguishable: wrong-handed sides go together, slide holes face inward, front-fixing holes end up at the back.",
+   "source": "CAM/export/transfer error on the sheet DXF; text entities dropped by an export filter",
+   "gen": false,
+   "rules": [
+    "R02",
+    "R33"
    ]
   },
   {

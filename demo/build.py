@@ -17,7 +17,7 @@ loop = [{k: e.get(k) for k in ('t', 'step', 'fault', 'rule', 'accepted', 'false_
 rules = []
 for rid, fn in sorted(load_rules().items()):
     mod = sys.modules[fn.__module__].__file__
-    rules.append(dict(id=rid, desc=fn.desc, auto='_auto_' in os.path.basename(mod)))
+    rules.append(dict(id=rid, desc=fn.desc, auto='_auto' in os.path.basename(mod)))
 try:
     sys.path.insert(0, HERE)
     import faults.mined as fm
@@ -34,6 +34,9 @@ def short(n):
     if n.startswith('R27'): return '+ 5 general rules'
     if n.startswith('R32'): return '+ 8 file + assembly rules'
     if n.startswith('R18'): return '+ R18 slide width'
+    m = re.match(r'round (\d+): new blind', n)
+    if m: return 'Test ' + m.group(1) + ' (blind)'
+    if n.startswith('R32'): return '+ 8 file + assembly rules'
     m = re.match(r'loop: r(\d+)_auto', n)
     if m: return 'Loop R' + m.group(1)
     return n[:14]
@@ -49,6 +52,12 @@ p_at = os.path.join(HERE, 'attribution.json')
 attr = json.load(open(p_at)) if os.path.exists(p_at) else None
 if attr:
     attr['rows'] = [r for r in attr['rows'] if r['set'] != 'good']
+    _pub = [(r'\bkommode\.py\b', 'the generator'), (r'\bparams\.json\b', 'the design parameters'), (r'\bskinne\.json\b', 'the slide spec'),
+            (r'\b[\w-]+\.py\b', 'the code')]
+    for r in attr['rows']:
+        for k in ('title', 'why', 'source'):
+            for pat, rep in _pub:
+                r[k] = re.sub(pat, rep, r.get(k) or '')
 data = dict(attr=attr, opt_us=opt_us, hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
 tpl = open(os.path.join(HERE, 'demo', 'template.html')).read()
 open(os.path.join(HERE, 'demo', 'index.html'), 'w').write(tpl.replace('/*DATA*/null', json.dumps(data)))
