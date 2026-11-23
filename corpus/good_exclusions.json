@@ -1,0 +1,8 @@
+{
+ "kemelzaidan_open-source-furniture/atFab/rotational_stool/atfab_test_160909.dxf": "Header says inches ($INSUNITS=1) but geometry is mm (a '618 in' part). A real unit fault in the file, so it is not a known-good design. Flagged by G03 on 2026-11-23.",
+ "kemelzaidan_open-source-furniture/atFab/open_storage_cabinet/AtFAB_STG_170727/testing-inches.dxf": "Header says metres ($INSUNITS=6) but geometry is mm (3820 x 3680 'm'). Real unit fault in the file. G03, 2026-11-23.",
+ "web/fabacademy/2021-techworks-zaid-marji/table zaid.dxf": "Header says inches but geometry is mm (a 2440 x 1220 'in' sheet). Real unit fault. G03, 2026-11-23.",
+ "web/fabacademy/2023-singapore-bartholomew-ting/polar-bear-shelf-r1d-178plywood.dxf": "Header says inches but geometry is mm (2440 x 1220 'in'). Real unit fault. G03, 2026-11-23.",
+ "web/fabacademy/2023-rwanda-gedeon-bitegetsimana/Table top.DXF": "NEEDS REVIEW: 2021 x 2010 mm top fits no 2500x1250 sheet. Student may have cut it from a bigger panel or in two pieces. G03, 2026-11-23.",
+ "kemelzaidan_open-source-furniture/atFab/open_storage_cabinet/AtFAB_STG_170727/testing.dxf": "Header says metres ($INSUNITS=6), geometry is mm - same fault as testing-inches.dxf. 2026-11-23."
+}
