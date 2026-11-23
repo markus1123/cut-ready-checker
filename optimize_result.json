@@ -1,0 +1,187 @@
+{
+ "today": {
+  "x": {
+   "korpus": "fritzoe-kaindl-1570-hvit-19",
+   "skuff": "fritzoe-kaindl-1570-hvit-19",
+   "skuffebunn": "maxbo-huntonit-6",
+   "bakplate": "obs-moelven-3",
+   "kolonner": 2
+  },
+  "ok": true,
+  "cost": 7982,
+  "why": [],
+  "sheets": 3882,
+  "cnc_min": 150,
+  "cnc_kr": 1420,
+  "hardware": 2680,
+  "drawers": 8,
+  "box_width": 747,
+  "estimate": false,
+  "materials": [
+   {
+    "navn": "Spon melamin Kaindl K2751 AE eik aviva dew",
+    "ark": 1,
+    "kr": 1750,
+    "used": 40,
+    "roles": [
+     "front",
+     "ytre"
+    ]
+   },
+   {
+    "navn": "Spon melamin Kaindl 1570 PE hvit",
+    "ark": 1,
+    "kr": 1330,
+    "used": 56,
+    "roles": [
+     "korpus",
+     "skuff"
+    ]
+   },
+   {
+    "navn": "Huntonit trefiberplate halvhard 6 mm (brun)",
+    "ark": 1,
+    "kr": 533,
+    "used": 73,
+    "roles": [
+     "skuffebunn"
+    ]
+   },
+   {
+    "navn": "Moelven trefiberplate standard 3 mm (brun)",
+    "ark": 1,
+    "kr": 269,
+    "used": 35,
+    "roles": [
+     "bakplate"
+    ]
+   }
+  ]
+ },
+ "t": "2026-11-22T16:49:45",
+ "free_look": false,
+ "loose": {
+  "best": {
+   "x": {
+    "korpus": "fritzoe-koskimel-hvit-19",
+    "skuff": "fritzoe-koskimel-hvit-19",
+    "skuffebunn": "maxbo-huntonit-6",
+    "bakplate": "obs-moelven-3",
+    "kolonner": 2
+   },
+   "ok": true,
+   "cost": 7812,
+   "why": [],
+   "sheets": 3712,
+   "cnc_min": 150,
+   "cnc_kr": 1420,
+   "hardware": 2680,
+   "drawers": 8,
+   "box_width": 747,
+   "estimate": false,
+   "materials": [
+    {
+     "navn": "Spon melamin Kaindl K2751 AE eik aviva dew",
+     "ark": 1,
+     "kr": 1750,
+     "used": 40,
+     "roles": [
+      "front",
+      "ytre"
+     ]
+    },
+    {
+     "navn": "Spon melamin Koskimel SF hvit",
+     "ark": 1,
+     "kr": 1160,
+     "used": 65,
+     "roles": [
+      "korpus",
+      "skuff"
+     ]
+    },
+    {
+     "navn": "Huntonit trefiberplate halvhard 6 mm (brun)",
+     "ark": 1,
+     "kr": 533,
+     "used": 73,
+     "roles": [
+      "skuffebunn"
+     ]
+    },
+    {
+     "navn": "Moelven trefiberplate standard 3 mm (brun)",
+     "ark": 1,
+     "kr": 269,
+     "used": 35,
+     "roles": [
+      "bakplate"
+     ]
+    }
+   ]
+  },
+  "evaluations": 172
+ },
+ "strict": {
+  "best": {
+   "x": {
+    "korpus": "fritzoe-kaindl-eik-dew-19",
+    "skuff": "fritzoe-fimaplast-hvit-19-2440",
+    "skuffebunn": "maxbo-huntonit-6",
+    "bakplate": "obs-moelven-3",
+    "kolonner": 3
+   },
+   "ok": true,
+   "cost": 9054,
+   "why": [],
+   "sheets": 3242,
+   "cnc_min": 183,
+   "cnc_kr": 1732,
+   "hardware": 4080,
+   "drawers": 12,
+   "box_width": 483,
+   "estimate": false,
+   "materials": [
+    {
+     "navn": "Spon melamin Kaindl K2751 AE eik aviva dew",
+     "ark": 1,
+     "kr": 1750,
+     "used": 64,
+     "roles": [
+      "front",
+      "ytre",
+      "korpus"
+     ]
+    },
+    {
+     "navn": "Spon melamin Fimaplast SR209 78E hvit (2440×1220)",
+     "ark": 1,
+     "kr": 690,
+     "used": 82,
+     "roles": [
+      "skuff"
+     ]
+    },
+    {
+     "navn": "Huntonit trefiberplate halvhard 6 mm (brun)",
+     "ark": 1,
+     "kr": 533,
+     "used": 70,
+     "roles": [
+      "skuffebunn"
+     ]
+    },
+    {
+     "navn": "Moelven trefiberplate standard 3 mm (brun)",
+     "ark": 1,
+     "kr": 269,
+     "used": 35,
+     "roles": [
+      "bakplate"
+     ]
+    }
+   ]
+  },
+  "evaluations": 200
+ }
+}
