@@ -30,6 +30,8 @@ def short(n):
     if n.startswith('R03'): return '+ 3D joints'
     if n.startswith('R05'): return '+ 7 rules'
     if n.startswith('R08 fix'): return 'False-alarm fix'
+    if n.startswith('R19'): return '+ 8 manual rules'
+    if n.startswith('R18'): return '+ R18 slide width'
     m = re.match(r'loop: r(\d+)_auto', n)
     if m: return 'Loop R' + m.group(1)
     return n[:14]
@@ -41,7 +43,11 @@ p_us = os.path.join(HERE, 'optimize_result_bay_area.json')
 opt_us = json.load(open(p_us)) if os.path.exists(p_us) else None
 if opt_us:
     opt_us['nok_per_usd'] = json.load(open(os.path.join(HERE, 'regions', 'bay_area.json')))['nok_per_usd']
-data = dict(opt_us=opt_us, hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
+p_at = os.path.join(HERE, 'attribution.json')
+attr = json.load(open(p_at)) if os.path.exists(p_at) else None
+if attr:
+    attr['rows'] = [r for r in attr['rows'] if r['set'] != 'good']
+data = dict(attr=attr, opt_us=opt_us, hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
 tpl = open(os.path.join(HERE, 'demo', 'template.html')).read()
 open(os.path.join(HERE, 'demo', 'index.html'), 'w').write(tpl.replace('/*DATA*/null', json.dumps(data)))
 print('wrote demo/index.html', len(hist), 'scores', len(loop), 'loop steps', len(rules), 'rules')

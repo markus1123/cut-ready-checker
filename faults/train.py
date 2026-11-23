@@ -18,6 +18,15 @@ def _slide(key, val):
     return f
 
 
+def _dxf_re(pat, new):
+    import re
+
+    def f(files):
+        for k in files:
+            files[k] = re.sub(pat, new, files[k])
+    return f
+
+
 def _dxf_all(old, new):
     def f(files):
         for k in files:
@@ -78,7 +87,7 @@ FAULTS = [
           'Gap between fronts goes from 3 mm to -1 mm; fronts collide.',
           params=_set(['front', 'kantlist_tykkelse'], 2.0)),
     Fault('t29', 'DXF: Minifix housing pocket depth 18.8 (through the board)',
-          'Housing goes through the visible face.', dxf=_dxf_all('03_LOMME_D15_Z13P5', '03_LOMME_D15_Z18P8')),
+          'Housing goes through the visible face.', dxf=_dxf_re(r'03_LOMME_D15_Z[0-9P]+', '03_LOMME_D15_Z18P8')),
     Fault('t30', 'DXF header says inches',
           'VCarve imports the job 25.4x too big (or the operator rescales by guess).', dxf=_dxf_all('$INSUNITS\n70\n4', '$INSUNITS\n70\n1')),
     Fault('t32', 'Generator bug: drawer bottom 4 mm too wide',
@@ -92,4 +101,34 @@ FAULTS = [
           '8 right drawer sides get slide holes front<->back; slides cannot be mounted.',
           parts=lambda parts, asm, info: part(parts, 'SH').update(ops=[dict(o) for o in part(parts, 'S')['ops']]),
           source='found by R04 on the real kommode'),
+
+    # --- from manufacturer manuals (docs/rules-from-manuals.md), 2026-11-22
+    Fault('t35', 'Minifix housing depth for 18 mm board drilled in 19 mm board (13.5)',
+          'Cam sits 0.5 mm proud; bolt head misses the ramp, joint does not pull tight.',
+          params=_set(['korpus', 'minifix_hus_dybde'], 13.5), source='Häfele TCH 2023 p 7.13'),
+    Fault('t36', 'Minifix edge bore only 20 mm deep with B24 housing',
+          'Bolt head stops short of the cam; joint cannot be closed.',
+          params=_set(['korpus', 'minifix_kanthull_dybde'], 20), source='Häfele TCH 2023 p 7.13/7.18'),
+    Fault('t37', 'Groove feed 3000 mm/min with 5.6 mm hardboard (groove cut with the 1/8" bit)',
+          'Above Amana chipload for 1/8"; bit snaps mid-job or burns the groove.',
+          params=lambda P, S: (P['maskintid'].update(mating_not=3000), P['tykkelse_malt'].update(skuffebunn=5.6)),
+          source='Amana compression spiral sheet v12'),
+    Fault('t38', 'Contour feed 6000 mm/min at 9.5 mm per pass',
+          'Over Amana 1/4" limit for 1.5xD passes; chipped melamine, deflection, broken bit.',
+          params=lambda P, S: P['maskintid'].update(mating_kontur=6000), source='Amana compression spiral sheet v12'),
+    Fault('t39', 'Slide holes typed in from another length (KA 4532/400 with 37/165/357)',
+          'Rear screw misses the runner hole; runner sits crooked.',
+          params=_slide('korpus_hull', [[37, 0], [165, 0], [357, 0]]), source='Hettich MS 10547 p2'),
+    Fault('t40', '1 mm ABS banding on the fronts, cut sizes not reduced',
+          'Fronts grow 2 mm each way; the 3 mm gap closes to 1 mm and fronts rub.',
+          params=_set(['front', 'kantlist_tykkelse'], 1.0), source='Microvellum KB, cut size = finished - band'),
+    Fault('t41', 'Onion skin 1.5 mm',
+          'Parts do not separate; tearing them out chips the melamine face.',
+          params=lambda P, S: P['verksted'].update(holdning='onion', onion_skin=1.5), source='ShopBot hold-down guide p8'),
+    Fault('t42', 'Vacuum table only, small drawer parts without tabs',
+          'Small parts move in the last pass and get gouged.',
+          params=lambda P, S: (P['verksted'].update(holdning='vakuum'), P.update(kolonner=3)), source='ShopBot hold-down guide p7'),
+    Fault('t43', 'Slide screws Ø4x10',
+          'Only 8.8 mm in chipboard; runner pulls out under load.',
+          params=_slide('skrue_lengde', 10), source='Hettich MS 10547 p1'),
 ]

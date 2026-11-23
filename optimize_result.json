@@ -8,11 +8,11 @@
    "kolonner": 2
   },
   "ok": true,
-  "cost": 7982,
+  "cost": 8167,
   "why": [],
   "sheets": 3882,
-  "cnc_min": 150,
-  "cnc_kr": 1420,
+  "cnc_min": 170,
+  "cnc_kr": 1605,
   "hardware": 2680,
   "drawers": 8,
   "box_width": 747,
@@ -58,8 +58,13 @@
    }
   ]
  },
- "t": "2026-11-22T16:49:45",
+ "t": "2026-11-22T17:19:45",
  "free_look": false,
+ "region": "oslo",
+ "currency": "NOK",
+ "sales_tax": 0.0,
+ "machine_per_h": 568.0,
+ "hw_per_drawer": 320.0,
  "loose": {
   "best": {
    "x": {
@@ -70,11 +75,11 @@
     "kolonner": 2
    },
    "ok": true,
-   "cost": 7812,
+   "cost": 7997,
    "why": [],
    "sheets": 3712,
-   "cnc_min": 150,
-   "cnc_kr": 1420,
+   "cnc_min": 170,
+   "cnc_kr": 1605,
    "hardware": 2680,
    "drawers": 8,
    "box_width": 747,
@@ -132,11 +137,11 @@
     "kolonner": 3
    },
    "ok": true,
-   "cost": 9054,
+   "cost": 9282,
    "why": [],
    "sheets": 3242,
-   "cnc_min": 183,
-   "cnc_kr": 1732,
+   "cnc_min": 207,
+   "cnc_kr": 1960,
    "hardware": 4080,
    "drawers": 12,
    "box_width": 483,
@@ -182,6 +187,6 @@
     }
    ]
   },
-  "evaluations": 200
+  "evaluations": 199
  }
 }

@@ -145,7 +145,7 @@ def climb(P0, C0, S0, space, start, strict_width, log, restarts=3, seed=7):
                 r = ev(y)
                 if r['ok'] and (not cur['ok'] or r['cost'] < cur['cost']):
                     x, cur, improved = y, r, True
-                    print('  [%s] %5d '+CURRENCY+'  %s=%s' % ('strict' if strict_width else 'loose', r['cost'], k, v))
+                    print(('  [%s] %5d '+CURRENCY+'  %s=%s') % ('strict' if strict_width else 'loose', r['cost'], k, v))
                     break
     return best_overall, n
 
@@ -164,14 +164,14 @@ def main():
     nestlib.pack = _orig_pack
     base_greedy = evaluate(dict(start), P0, C0, S0, None)   # today's generator nesting, for reference
     nestlib.pack = pack
-    print('today: %s (greedy nesting %s) '+CURRENCY+', ok=%s' % (base['cost'], base_greedy['cost'], base['ok']))
+    print(('today: %s (greedy nesting %s) '+CURRENCY+', ok=%s') % (base['cost'], base_greedy['cost'], base['ok']))
     out = dict(today=base_greedy, t=time.strftime('%Y-%m-%dT%H:%M:%S'), free_look=free, region=region or 'oslo',
                currency=CURRENCY, sales_tax=TAX, machine_per_h=KR_PER_H, hw_per_drawer=HW_PER_DRAWER)
     with open(os.path.join(HERE, 'optimize_history%s.jsonl' % suf), 'w') as log:
         for strict in (False, True):
             best, n = climb(P0, C0, S0, space, start, strict, log)
             out['strict' if strict else 'loose'] = dict(best=best, evaluations=n)
-            print('%s: best %s kr after %d evaluations' % ('within Hettich width' if strict else 'any width', best and best['cost'], n))
+            print(('%s: best %s '+CURRENCY+' after %d evaluations') % ('within Hettich width' if strict else 'any width', best and best['cost'], n))
     json.dump(out, open(os.path.join(HERE, 'optimize_result%s.json' % suf), 'w'), indent=1, ensure_ascii=False)
 
 

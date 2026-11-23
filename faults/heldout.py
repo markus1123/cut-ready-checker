@@ -197,7 +197,7 @@ def h18(files):
 
 def h19(files):
     k = _sheet(files, 'plate1_')
-    files[k] = files[k].replace('03_LOMME_D15_Z13P5', '03_LOMME_D15_Z18P8')
+    files[k] = re.sub(r'03_LOMME_D15_Z[0-9P]+', '03_LOMME_D15_Z18P8', files[k])
 
 
 def h20(files):

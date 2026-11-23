@@ -10,8 +10,8 @@ from . import dxfread  # noqa: E402
 
 # A plausible "ready" state: boards measured, workshop confirmed, a slide bought and measured.
 # (Values are realistic stand-ins, not the user's real measurements.)
-READY_SLIDE = dict(verifisert=True, korpus_hull=[[37, 0], [165, 0], [357, 0]],
-                   korpus_hull_alternativ=[[69, 0], [197, 0], [389, 0]], skuff_hull=[[35, 0], [163, 0]])
+READY_SLIDE = dict(verifisert=True, korpus_hull=[[37, 0], [165, 0], [229, 0]],
+                   korpus_hull_alternativ=[[69, 0], [197, 0], [261, 0]], skuff_hull=[[37, 0], [165, 0], [291, 0]])
 READY_THK = {'korpus': 18.8, 'front': 18.8, 'skuff': 18.8, 'skuffebunn': 5.9, 'bakplate': 3.0}
 
 
@@ -68,7 +68,10 @@ def make(P=None, S=None, fault=None, keep=None):
     if fault and fault.dxf:
         files = {f: open(f).read() for f in glob.glob(os.path.join(out, '*.dxf'))}
         named = {os.path.basename(k): v for k, v in files.items()}
+        before = dict(named)
         fault.dxf(named)
+        if named == before:
+            raise RuntimeError('fault %s: DXF mutation changed nothing (inert fault - the generator output it targets no longer exists)' % fault.id)
         for k in files:
             open(k, 'w').write(named[os.path.basename(k)])
     d = Design(P, S, parts, asm, info, R, out)

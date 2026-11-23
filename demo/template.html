@@ -88,6 +88,35 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
 .pill.auto { background: var(--accent-soft); color: var(--accent); } .pill.hand { border: 1px solid var(--line); color: var(--mute); }
 .pill.yes { background: var(--accent-soft); color: var(--ok); } .pill.no { background: var(--bad-soft); color: var(--bad); }
 .foot { font-size: 13px; color: var(--mute); border-top: 1px solid var(--line); padding-top: 16px; display: grid; gap: 6px; }
+/* explainer */
+.explain { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.explain .card { padding: 18px; display: grid; gap: 8px; align-content: start; }
+.explain .n { font: 800 30px/1 var(--display); font-stretch: 75%; color: var(--accent); }
+.explain p { font-size: 14.5px; }
+.explain .term { font: 500 12.5px var(--mono); color: var(--mute); }
+/* catch map */
+:root { --seed: #5a6862; --loop: #0b6b58; --manual: #6a4fc0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --seed: #a9b6b0; --loop: #4cc3a6; --manual: #ab98f2; } }
+:root[data-theme="dark"] { --seed: #a9b6b0; --loop: #4cc3a6; --manual: #ab98f2; }
+.mapscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+#map { min-width: 820px; }
+#map .col:hover .hl { opacity: 1; }
+.scrub { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; font: 13px var(--mono); color: var(--mute); }
+.scrub input[type=range] { flex: 1 1 260px; accent-color: var(--accent); }
+.scrub button { font: 500 13px var(--mono); padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+.scrub button:hover { border-color: var(--accent); }
+.now { font: 13.5px/1.5 var(--body); color: var(--fg); min-height: 3em; }
+.now b { font-family: var(--mono); font-weight: 500; }
+.counts { display: flex; flex-wrap: wrap; gap: 6px 22px; font: 13px var(--mono); }
+.counts b { font: 700 20px var(--display); font-stretch: 78%; margin-right: 4px; }
+.tip { position: fixed; z-index: 10; max-width: 340px; pointer-events: none; background: var(--fg); color: var(--bg); padding: 10px 12px;
+  border-radius: 6px; font-size: 13px; line-height: 1.45; opacity: 0; transition: opacity .1s; }
+.tip b { font-family: var(--mono); font-weight: 500; }
+.lessons { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 14px; align-items: start; }
+.lesson { padding: 16px; display: grid; gap: 6px; align-content: start; border-top: 3px solid var(--accent); }
+.lesson .big { font: 800 34px/1 var(--display); font-stretch: 75%; }
+.lesson p { font-size: 13.5px; }
+.lesson ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--mute); }
 @media (max-width: 760px) { .stats { grid-template-columns: 1fr 1fr; } .cmp { grid-template-columns: 1fr; }
   .flow { grid-template-columns: 1fr 1fr; } .flow div { margin: 0 0 -1px 0; border-radius: 0 !important; } }
 </style>
@@ -99,6 +128,28 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
     <p class="lede">A chest of drawers generated from parameters and cut from melamine sheets. Machine time costs 568 kr an hour, so mistakes have to be caught in the files. Agents invent realistic faults, other agents write rules for the ones it misses, and an optimizer cuts cost without ever leaving what the checker allows.</p>
     <div class="stats" id="stats"></div>
   </header>
+
+  <section>
+    <div class="head"><div class="eyebrow">0 · How it works, in plain words</div><h2>An exam for the cutting files, and agents that keep making it harder</h2>
+      <p class="mute">A program (the generator) turns a few numbers – width, height, number of drawers, board thickness – into cutting files for the CNC router and a parts list. A single wrong hole, depth or mirrored part wastes a sheet and an hour of machine time. This project builds a checker that reads those files and refuses to send a bad job, and then improves that checker on its own.</p></div>
+    <div class="explain">
+      <div class="card"><span class="n">1</span><h3>Break it on purpose</h3>
+        <p>We write <i>faults</i>: small, realistic mistakes injected into a good design – a slide hole 12 mm too low, a pocket drilled through the face, an inch/mm mix-up in the file. Each fault is a test question with a known answer: “this must not be cut”.</p>
+        <span class="term">train 34 · mined 6 · held-out 25 · known-good 7</span></div>
+      <div class="card"><span class="n">2</span><h3>Rules are plain code</h3>
+        <p>A rule is a short Python check with a number and a reason from the workshop or a manufacturer: “Minifix housing in 19 mm board is 14.0 mm deep (Häfele p 7.13)”. No AI judges a design at check time – the same files always get the same answer.</p>
+        <span class="term">26 rules · each one tested against every fault</span></div>
+      <div class="card"><span class="n">3</span><h3>The loop (RSI)</h3>
+        <p>Recursive self-improvement, kept small and safe: one agent <b>mines</b> new faults from real failure modes, another <b>writes</b> a rule for one the checker misses, and a fixed <b>gate</b> keeps the rule only if it catches that fault, breaks nothing that was already caught, and raises zero false alarms on the known-good designs.</p>
+        <span class="term">6 of 6 loop rules accepted · every one is a git commit</span></div>
+      <div class="card"><span class="n">4</span><h3>Honest scoring</h3>
+        <p>The rule writers can read the training faults, so they will always ace those. The <b>held-out</b> faults were written by a separate red-team agent and never shown to them – that score is the one that says whether the rules generalise. The <b>known-good</b> designs catch rules that are too strict.</p>
+        <span class="term">Caught = stopped with an error. Warnings do not count.</span></div>
+      <div class="card"><span class="n">5</span><h3>Then optimise the cost</h3>
+        <p>With a trustworthy checker, a hill-climbing optimizer can try hundreds of material and layout choices and keep only those the checker passes. The look stays fixed; only the hidden boards, column count and nesting change.</p>
+        <span class="term">~370 designs tried in 35 s · Oslo and Bay Area prices</span></div>
+    </div>
+  </section>
 
   <section>
     <div class="head"><div class="eyebrow">1 · Quality</div><h2>How many faults are stopped before cutting</h2></div>
@@ -118,7 +169,33 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
   </section>
 
   <section>
-    <div class="head"><div class="eyebrow">2 · Found in the real chest</div><h2>What the generator's own check let through</h2></div>
+    <div class="head"><div class="eyebrow">2 · What the runs taught us</div><h2>Which rule catches which fault</h2>
+      <p class="mute">Every fault we have, run against every layer of the checker separately. Press play to watch the rule book grow in the order it was built – first the hand-written seed rules, then the six the loop wrote, then the eight taken from manufacturer manuals – and see which faults each addition picks up.</p></div>
+    <div class="card chart">
+      <div class="scrub"><button id="play" type="button">▶ Play</button>
+        <input id="ver" type="range" min="1" value="1" aria-label="Checker version">
+        <span id="vlab"></span></div>
+      <div class="counts" id="counts"></div>
+      <div class="now" id="now"></div>
+      <div class="mapscroll"><svg id="map" role="img" aria-label="Matrix of faults (columns) against checker rules (rows)"></svg></div>
+      <div class="legend">
+        <span><i class="dot" style="background:var(--seed);border-radius:2px"></i>Seed rule (written by hand at the start)</span>
+        <span><i class="dot" style="background:var(--loop);border-radius:2px"></i>Written by the loop agent</span>
+        <span><i class="dot" style="background:var(--manual);border-radius:2px"></i>From manufacturer manuals</span>
+        <span><i class="dot" style="background:var(--faint);opacity:.35;border-radius:2px"></i>Also catches it (backup)</span>
+        <span><i class="dot" style="border:1.5px dashed var(--faint);border-radius:2px"></i>Will catch it, not added yet</span>
+      </div>
+      <div class="read">
+        <div><b>Columns</b>One per fault, grouped into training, mined (written by the loop's miner) and held-out (never seen by any rule writer). Within a group they are sorted by the first rule that catches them, so the staircase shows the order things were learned. Hover a column for the fault.</div>
+        <div><b>Rows</b>The generator's own check, then each rule in the order it was added. A strong square marks the first rule that catches a fault; faint squares are backups. The bars on the right count how many faults each row catches, and how many only it catches.</div>
+        <div><b>Bottom strip</b>Green: the fault is stopped before cutting at this version. Red: it would reach the machine. The red columns that remain at the end are the checker's known blind spots.</div>
+      </div>
+    </div>
+    <div class="lessons" id="lessons"></div>
+  </section>
+
+  <section>
+    <div class="head"><div class="eyebrow">3 · Found in the real chest</div><h2>What the generator's own check let through</h2></div>
     <div class="bugs">
       <div class="card bug"><span class="tag">Fixed</span><h3>Left and right parts were identical</h3>
         <p>The right side, middle wall and 8 right drawer sides were copies of parts that must be mirrored. Slide marks landed 30 mm too far back and the edge band ended up on the back edge. The drawers would not have closed square.</p>
@@ -136,11 +213,23 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
         <p>Hettich's mounting sheet for the KA 4532 says 550 mm maximum. With two columns the boxes are 747 mm.</p>
         <div class="rule">Found by the manual-reading agent · R18</div>
         <div class="fix">Three columns or a heavier slide (priced below)</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Minifix housing 0.5 mm too shallow</h3>
+        <p>13.5 mm is Häfele's depth for 18 mm board. In 19 mm board the cam sits proud and the bolt head misses its ramp.</p>
+        <div class="rule">Caught by R19 · Häfele TCH 2023 p 7.13</div>
+        <div class="fix">Changed to 14.0 mm</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Slide screws nearly through 16 mm sides</h3>
+        <p>16 mm screws through a 1.2 mm runner leave 1 mm of board behind on 16 mm drawer sides; the melamine dimples on the inside.</p>
+        <div class="rule">Caught by R25 · Hettich MS 10547 p1</div>
+        <div class="fix">Ø4×14 as the manual says; hole pattern 37/165/229 and 37/165/291 entered</div></div>
+      <div class="card bug"><span class="tag">Fixed · from manuals</span><h3>Groove feed too fast for a 1/8″ bit</h3>
+        <p>With thinner hardboard the bottom groove drops under 6.35 mm and is cut with the 1/8″ bit at 3000 mm/min – Amana allows about 2030.</p>
+        <div class="rule">Caught by R21 · Amana compression spiral sheet</div>
+        <div class="fix">Groove feed set to 2000 mm/min</div></div>
     </div>
   </section>
 
   <section>
-    <div class="head"><div class="eyebrow">3 · Cost</div><h2>Cheaper, without leaving what the checker allows</h2>
+    <div class="head"><div class="eyebrow">4 · Cost</div><h2>Cheaper, without leaving what the checker allows</h2>
       <p class="mute">Hill climbing with random restarts over the hidden board choices, two or three columns, and nesting order. The look (oak fronts, top and sides) stays fixed. Every candidate is generated and run through all rules; anything that fails is thrown out.</p></div>
     <div class="card chart">
       <svg id="cost" role="img" aria-label="Optimizer cost per evaluated design"></svg>
@@ -165,7 +254,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
   </section>
 
   <section>
-    <div class="head"><div class="eyebrow">4 · The loop</div><h2>How a rule earns its place</h2></div>
+    <div class="head"><div class="eyebrow">5 · The loop</div><h2>How a rule earns its place</h2></div>
     <div class="flow">
       <div><b>Mine</b><span>An agent writes new faults from real failure modes: Hettich and Häfele manuals, CNC forums, cabinet practice.</span></div>
       <div><b>Score</b><span>Generator plus every rule runs on each fault. The checks read the DXF files and the 3D assembly, not the intent.</span></div>
@@ -176,7 +265,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
   </section>
 
   <section>
-    <div class="head"><div class="eyebrow">5 · Rule book</div><h2 id="rulesh">Rules</h2>
+    <div class="head"><div class="eyebrow">6 · Rule book</div><h2 id="rulesh">Rules</h2>
       <p class="mute">Deterministic code with thresholds, run on the files the workshop receives. No model gives an opinion at check time.</p></div>
     <div class="card tbl"><table id="rules"><thead><tr><th>Rule</th><th>What it checks</th><th>Written by</th></tr></thead><tbody></tbody></table></div>
   </section>
@@ -186,6 +275,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
     <span id="stamp"></span>
   </div>
 </div>
+<div class="tip" id="tip" role="tooltip"></div>
 
 <script>
 const D = /*DATA*/null;
@@ -290,6 +380,131 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   $('#cmp').innerHTML = card(t, 'Today', '', 'Two columns. Drawers exceed Hettich’s 550 mm.')
     + card(a, 'Cheapest, any width', '', 'Same layout, cheaper white board that still fits one sheet.')
     + card(b, 'Cheapest within Hettich', 'best', 'Three columns. The carcass moves onto the oak sheet, which was only 40% used.');
+})();
+
+
+// --- catch map
+(function () {
+  const A = D.attr; if (!A) return;
+  const meta = Object.fromEntries(D.rules.map(r => [r.id, r]));
+  const layers = ['gen', ...A.rules];
+  const origin = r => r === 'gen' ? 'gen' : meta[r] && meta[r].auto ? 'loop' : (+r.slice(1) >= 18 ? 'manual' : 'seed');
+  const col = { gen: 'var(--base)', seed: 'var(--seed)', loop: 'var(--loop)', manual: 'var(--manual)' };
+  const name = r => r === 'gen' ? 'Generator’s own check' : r + ' · ' + (meta[r] ? meta[r].desc : '');
+  const SETS = [['train', 'Training'], ['mined', 'Mined'], ['heldout', 'Held-out']];
+  const catchers = f => layers.filter(l => l === 'gen' ? f.gen : f.rules.includes(l));
+  const firstIdx = f => { const c = catchers(f); return c.length ? layers.indexOf(c[0]) : 999; };
+  const groups = SETS.map(([k, lab]) => ({ k, lab, rows: A.rows.filter(r => r.set === k).sort((a, b) => firstIdx(a) - firstIdx(b) || a.id.localeCompare(b.id)) }));
+  const all = groups.flatMap(g => g.rows);
+  const cw = 12, rh = 15, lw = 64, top = 46, gap = 22, barW = 150;
+  const xs = []; let x = lw;
+  groups.forEach(g => { g.x0 = x; g.rows.forEach(r => { xs.push(x); x += cw; }); g.x1 = x; x += gap; });
+  const W = x - gap + 18 + barW, gridB = top + layers.length * rh, Hh = gridB + 52;
+  const svg = $('#map'); svg.setAttribute('viewBox', `0 0 ${W} ${Hh}`);
+  const total = Object.fromEntries(layers.map(l => [l, 0])), only = Object.fromEntries(layers.map(l => [l, 0]));
+  all.forEach(f => { const c = catchers(f); c.forEach(l => total[l]++); if (c.length === 1) only[c[0]]++; });
+  const maxT = Math.max(...Object.values(total));
+
+  let s = '';
+  groups.forEach(g => {
+    s += `<text x="${g.x0}" y="16" font-size="12" font-weight="500" fill="var(--fg)">${g.lab}</text>
+      <text x="${g.x0}" y="31" font-size="11" fill="var(--mute)">${g.rows.length} faults</text>
+      <line x1="${g.x0}" x2="${g.x1 - 2}" y1="38" y2="38" stroke="var(--line)" stroke-width="1.5"/>`;
+  });
+  let prevO = null;
+  layers.forEach((l, i) => {
+    const y = top + i * rh, o = origin(l);
+    if (o !== prevO && i) s += `<line x1="4" x2="${W - barW - 10}" y1="${y}" y2="${y}" stroke="var(--line)" stroke-width="1"/>`;
+    prevO = o;
+    s += `<rect x="4" y="${y + 3}" width="4" height="${rh - 6}" fill="${col[o]}"/>
+      <text class="rl" data-l="${i}" x="${lw - 8}" y="${y + rh / 2 + 4}" text-anchor="end" font-size="11" fill="var(--mute)">${l === 'gen' ? 'Gen' : l}<title>${name(l).replace(/</g, '&lt;')}</title></text>`;
+    const bx = W - barW;
+    s += `<rect class="tb" data-l="${i}" x="${bx}" y="${y + 3}" width="${(barW - 64) * total[l] / maxT}" height="${rh - 6}" fill="${col[o]}" fill-opacity=".25"/>
+      <rect class="ob" data-l="${i}" x="${bx}" y="${y + 3}" width="${(barW - 64) * only[l] / maxT}" height="${rh - 6}" fill="${col[o]}"/>
+      <text class="bt" data-l="${i}" x="${bx + (barW - 64) * total[l] / maxT + 5}" y="${y + rh / 2 + 4}" font-size="10.5" fill="var(--mute)">${total[l]}${only[l] ? ' · ' + only[l] : ''}</text>`;
+  });
+  s += `<text x="${W - barW}" y="31" font-size="11" fill="var(--mute)">caught · only it</text>`;
+  // origin labels
+  // cells
+  all.forEach((f, j) => {
+    const cx = xs[j], c = catchers(f);
+    s += `<g class="col" data-j="${j}"><rect class="hl" x="${cx}" y="${top - 4}" width="${cw}" height="${gridB - top + 30}" fill="var(--accent)" fill-opacity=".08" opacity="0"/>`;
+    c.forEach(l => { const i = layers.indexOf(l);
+      s += `<rect class="cell" data-i="${i}" data-j="${j}" x="${cx + 1.5}" y="${top + i * rh + 2}" width="${cw - 3}" height="${rh - 4}" rx="1.5"/>`; });
+    s += `<rect class="res" data-j="${j}" x="${cx + 1.5}" y="${gridB + 8}" width="${cw - 3}" height="12" rx="1.5"/>`;
+    s += `<rect x="${cx}" y="${top - 4}" width="${cw}" height="${gridB - top + 30}" fill="transparent"/></g>`;
+  });
+  s += `<text x="${lw - 8}" y="${gridB + 18}" text-anchor="end" font-size="11" fill="var(--mute)">Result</text>`;
+  s += `<text x="${lw}" y="${Hh - 8}" font-size="11.5" fill="var(--mute)">Each column is one fault · each row one layer of the checker, oldest at the top</text>`;
+  svg.innerHTML = s;
+
+  const cells = [...svg.querySelectorAll('.cell')], res = [...svg.querySelectorAll('.res')];
+  const ver = $('#ver'); ver.max = layers.length; ver.value = layers.length;
+  function draw(v) {
+    const on = i => i < v;
+    cells.forEach(el => {
+      const i = +el.dataset.i, f = all[+el.dataset.j];
+      const firstOn = catchers(f).map(l => layers.indexOf(l)).find(on);
+      if (on(i)) { el.setAttribute('fill', col[origin(layers[i])]); el.setAttribute('fill-opacity', i === firstOn ? 1 : .3);
+        el.setAttribute('stroke', 'none'); el.removeAttribute('stroke-dasharray'); }
+      else { el.setAttribute('fill', 'none'); el.setAttribute('stroke', 'var(--faint)'); el.setAttribute('stroke-dasharray', '2 2'); el.setAttribute('stroke-width', 1); }
+    });
+    const cnt = {};
+    res.forEach(el => { const f = all[+el.dataset.j], ok = catchers(f).some(l => on(layers.indexOf(l)));
+      el.setAttribute('fill', ok ? 'var(--ok)' : 'var(--bad)'); el.setAttribute('fill-opacity', ok ? .85 : .9);
+      cnt[f.set] = cnt[f.set] || [0, 0]; cnt[f.set][1]++; if (ok) cnt[f.set][0]++; });
+    svg.querySelectorAll('[data-l]').forEach(el => el.style.opacity = +el.dataset.l < v ? 1 : .3);
+    $('#counts').innerHTML = SETS.map(([k, lab]) => cnt[k] ? `<span><b style="color:${k === 'heldout' ? 'var(--accent)' : 'var(--fg)'}">${cnt[k][0]}/${cnt[k][1]}</b>${lab.toLowerCase()} caught</span>` : '').join('')
+      + `<span><b>${v - 1}</b>rules</span>`;
+    const l = layers[v - 1], o = origin(l);
+    const gained = all.filter(f => catchers(f).map(c => layers.indexOf(c)).filter(on)[0] === v - 1);
+    $('#vlab').textContent = `version ${v} of ${layers.length}`;
+    $('#now').innerHTML = `<b style="color:${col[o]}">${l === 'gen' ? 'Generator only' : l}</b> ${l === 'gen' ? '– the checks the generator already had.' : '– ' + (meta[l] ? meta[l].desc : '')}`
+      + (gained.length ? ` <span class="mute">New catches: ${gained.map(f => f.id).join(', ')}.</span>` : total[l] ? ' <span class="mute">No new catches – it backs up rules that already existed.</span>' : ' <span class="mute">Catches none of the current faults: it only warns (warnings never block a cut), or no fault in the library exercises it yet.</span>');
+  }
+  draw(layers.length);
+  ver.addEventListener('input', () => { stop(); draw(+ver.value); });
+  let timer = null;
+  const stop = () => { clearInterval(timer); timer = null; $('#play').textContent = '▶ Play'; };
+  $('#play').addEventListener('click', () => {
+    if (timer) return stop();
+    let v = +ver.value >= layers.length ? 1 : +ver.value;
+    $('#play').textContent = '❚❚ Pause'; ver.value = v; draw(v);
+    timer = setInterval(() => { v++; if (v > layers.length) return stop(); ver.value = v; draw(v); }, 650);
+  });
+  const tip = $('#tip');
+  svg.addEventListener('mousemove', e => {
+    const g = e.target.closest('.col'); if (!g) { tip.style.opacity = 0; return; }
+    const f = all[+g.dataset.j], c = catchers(f);
+    tip.innerHTML = '';
+    const h = document.createElement('div'); h.innerHTML = `<b>${f.id}</b> · ${f.set}`; tip.appendChild(h);
+    for (const [t, cls] of [[f.title, ''], [f.why, 'w'], [c.length ? 'Caught by ' + c.map(l => l === 'gen' ? 'generator' : l).join(', ') : 'Not caught by any layer', 'c']]) {
+      if (!t) continue; const d = document.createElement('div'); d.textContent = t; if (cls) d.style.opacity = .8; tip.appendChild(d); }
+    tip.style.left = Math.min(e.clientX + 14, innerWidth - 360) + 'px'; tip.style.top = (e.clientY + 14) + 'px'; tip.style.opacity = 1;
+  });
+  svg.addEventListener('mouseleave', () => tip.style.opacity = 0);
+
+  // lessons, computed from the same data
+  const ho = groups.find(g => g.k === 'heldout').rows;
+  const by = o => ho.filter(f => { const c = catchers(f); return c.length && origin(c[0]) === o; }).length;
+  const hoCaught = ho.filter(f => catchers(f).length).length;
+  const single = all.filter(f => catchers(f).length === 1).length;
+  const deep = all.filter(f => catchers(f).length >= 3).length;
+  const miss = ho.filter(f => !catchers(f).length);
+  const loopHelp = ho.filter(f => catchers(f).some(l => origin(l) === 'loop')).length;
+  const loopRules = layers.filter(l => origin(l) === 'loop');
+  const narrow = loopRules.filter(l => total[l] <= 1).length;
+  $('#lessons').innerHTML = `
+    <div class="card lesson"><span class="eyebrow">Generalisation</span><span class="big">${hoCaught}/${ho.length}</span>
+      <p>held-out faults caught by rules that never saw them. First caught by: seed rules ${by('seed')}, generator ${by('gen')}, loop ${by('loop')}, manuals ${by('manual')}. Loop rules back up ${loopHelp} of them.</p></div>
+    <div class="card lesson" style="border-color:var(--warn)"><span class="eyebrow" style="color:var(--warn)">Single points of failure</span><span class="big">${single}</span>
+      <p>faults caught by exactly one layer. Delete that rule and they slip through. ${deep} ${deep === 1 ? 'fault is' : 'faults are'} caught by three or more layers. Most of the checker is one rule deep.</p></div>
+    <div class="card lesson" style="border-color:var(--loop)"><span class="eyebrow" style="color:var(--loop)">Loop rules stay narrow</span><span class="big">${narrow}/${loopRules.length}</span>
+      <p>loop-written rules catch only the one fault they were written for. Together they stop ${loopHelp} held-out ${loopHelp === 1 ? 'fault' : 'faults'}. The gate checks “caught the target, broke nothing” but not “caught anything else”, so it accepts rules that are correct but specific. Next step: make the gate reward rules that also catch unseen faults.</p></div>
+    <div class="card lesson" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Blind spots</span><span class="big">${miss.length}</span>
+      <p>held-out faults nothing catches yet:</p><ul>${miss.map(f => `<li>${f.title.replace(/</g, '&lt;')}</li>`).join('')}</ul></div>
+    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">Lesson about the tests</span><span class="big">h19</span>
+      <p>When the Minifix depth was corrected to 14.0 mm, one held-out fault quietly stopped doing anything – it edited a file layer named after the old 13.5 mm depth. The score dropped for the wrong reason. The harness now refuses any fault that changes nothing.</p></div>`;
 })();
 
 // --- region comparison
