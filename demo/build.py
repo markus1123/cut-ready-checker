@@ -37,7 +37,11 @@ for h in hist:
     h['label'] = short(h['note'] or '')
 opt_hist = jl('optimize_history.jsonl')
 opt = json.load(open(os.path.join(HERE, 'optimize_result.json'))) if os.path.exists(os.path.join(HERE, 'optimize_result.json')) else None
-data = dict(hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
+p_us = os.path.join(HERE, 'optimize_result_bay_area.json')
+opt_us = json.load(open(p_us)) if os.path.exists(p_us) else None
+if opt_us:
+    opt_us['nok_per_usd'] = json.load(open(os.path.join(HERE, 'regions', 'bay_area.json')))['nok_per_usd']
+data = dict(opt_us=opt_us, hist=hist, loop=loop, rules=rules, mined=mined, opt_hist=[{k: e[k] for k in ('n', 'strict', 'cost', 'ok', 'best')} for e in opt_hist], opt=opt)
 tpl = open(os.path.join(HERE, 'demo', 'template.html')).read()
 open(os.path.join(HERE, 'demo', 'index.html'), 'w').write(tpl.replace('/*DATA*/null', json.dumps(data)))
 print('wrote demo/index.html', len(hist), 'scores', len(loop), 'loop steps', len(rules), 'rules')

@@ -1,0 +1,245 @@
+{
+ "_les": "Bay Area sheet goods in USD, shelf price before sales tax (tax is added in optimize.py). 4x8 = 2438x1219 mm, which fits the same 2440x1220 ShopBot bed. Most prices are ESTIMATES (pris=null, pris_anslag set); checked ones cite a URL. Same fixed look as Norway: oak-look laminate outside, white inside.",
+ "currency": "USD",
+ "sales_tax": 0.0925,
+ "machine_per_h": 45.0,
+ "_machine": "ESTIMATE. No Bay Area ShopBot hourly rate found online; other US spaces charge $10-75/h. Fellesverkstedet 568 kr/h is about $53.",
+ "hw_per_drawer": 32.0,
+ "_hw": "ESTIMATE. 22in full-extension ball-bearing slide pair (KV 8400 / Accuride class) ~$22 + handle ~$8 + screws ~$2. Same 12.7 mm (1/2in) side clearance as the Hettich KA 4532.",
+ "hw_per_wall": 12.0,
+ "nok_per_usd": 10.8,
+ "_fx": "ASSUMPTION for the side-by-side comparison only. Check the rate on the day.",
+ "start": {
+  "front": "us-egger-oak-tfl-19",
+  "ytre": "us-egger-oak-tfl-19",
+  "korpus": "us-hd-white-melamine-19",
+  "skuff": "us-hd-white-melamine-19",
+  "skuffebunn": "us-hardboard-6",
+  "bakplate": "us-hardboard-3"
+ },
+ "materialer": [
+  {
+   "id": "us-hd-white-melamine-19",
+   "navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)",
+   "leverandor": "Home Depot",
+   "url": "https://www.homedepot.com/p/100070209",
+   "tykkelse": 19,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 46,
+   "pris_kilde": "Category filter shows $40-50; supply-ontime lists $43.98. Actual 49x97in, trim to 48x96.",
+   "roller": [
+    "ytre",
+    "korpus",
+    "skuff",
+    "front"
+   ],
+   "retning": false,
+   "dekor": {
+    "c": "#f1f0ec",
+    "r": 0.5
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-plycore-white-melamine-18",
+   "navn": "White melamine on hardwood ply core 18mm 4x8",
+   "leverandor": "Woodworkers Source (AZ; Bay Area equivalent at MacBeath/Higgins)",
+   "url": "https://www.woodworkerssource.com/melamine/single-34-premium-poplar-hardwood-ply-core-white-melamine.html",
+   "tykkelse": 18,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 109,
+   "pris_kilde": "$109 at Woodworkers Source (AZ). Bay Area likely similar or higher.",
+   "roller": [
+    "ytre",
+    "korpus",
+    "skuff",
+    "front"
+   ],
+   "retning": false,
+   "dekor": {
+    "c": "#f1f0ec",
+    "r": 0.5
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-egger-oak-tfl-19",
+   "navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)",
+   "leverandor": "Horizon Forest / distributor",
+   "url": "https://www.horizonforest.com/product/egger-melamine-sheet-vincenza-oak-h3157/",
+   "tykkelse": 19,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 125,
+   "pris_kilde": "ESTIMATE. Distributor price is 'contact branch'.",
+   "roller": [
+    "ytre",
+    "korpus",
+    "front"
+   ],
+   "retning": true,
+   "dekor": {
+    "wood": [
+     "#d8bf9c",
+     "#94754f"
+    ],
+    "r": 0.7
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-oak-ply-19",
+   "navn": "Red oak plywood 3/4in 4x8 (PureBond) – finish yourself",
+   "leverandor": "Home Depot / Lowe's",
+   "url": "https://www.homedepot.com/p/100046409",
+   "tykkelse": 19,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 95,
+   "pris_kilde": "ESTIMATE. Plus finish.",
+   "roller": [
+    "ytre",
+    "korpus",
+    "front"
+   ],
+   "retning": true,
+   "dekor": {
+    "wood": [
+     "#c99f73",
+     "#8a5f3c"
+    ],
+    "r": 0.6
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-baltic-birch-18",
+   "navn": "Baltic birch 18mm 5x5 (1525x1525)",
+   "leverandor": "MacBeath Hardwood / Southern Lumber",
+   "url": "",
+   "tykkelse": 18,
+   "tykkelse_malt": null,
+   "format": [
+    1525,
+    1525
+   ],
+   "pris": null,
+   "pris_anslag": 110,
+   "pris_kilde": "ESTIMATE. 5x5 is wider than the bed; dealer rips it.",
+   "roller": [
+    "ytre",
+    "korpus",
+    "skuff"
+   ],
+   "retning": true,
+   "dekor": {
+    "wood": [
+     "#e6d3b0",
+     "#b89d74"
+    ],
+    "r": 0.6
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-hardboard-6",
+   "navn": "Tempered hardboard 1/4in 4x8",
+   "leverandor": "Home Depot / True Value",
+   "url": "https://www.truevalue.com/product/8Y32E4/1-4-in-x-4-ft-x-8-ft-tempered-hardboard-panel-8y32e4/",
+   "tykkelse": 6,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 26,
+   "pris_kilde": "ESTIMATE.",
+   "roller": [
+    "skuffebunn",
+    "bakplate"
+   ],
+   "retning": false,
+   "dekor": {
+    "c": "#8a6a4a",
+    "r": 0.9
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-white-mdf-6",
+   "navn": "White melamine on MDF 1/4in 4x8 (Thermofuse)",
+   "leverandor": "Woodworkers Source",
+   "url": "https://www.woodworkerssource.com/melamine-white-14-g1s-thermofuse.html",
+   "tykkelse": 6,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 45,
+   "pris_kilde": "ESTIMATE.",
+   "roller": [
+    "skuffebunn",
+    "bakplate"
+   ],
+   "retning": false,
+   "dekor": {
+    "c": "#f3f2ee",
+    "r": 0.6
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  },
+  {
+   "id": "us-hardboard-3",
+   "navn": "Tempered hardboard 1/8in 4x8",
+   "leverandor": "Home Depot (832777)",
+   "url": "https://www.homedepot.com/p/202189720",
+   "tykkelse": 3,
+   "tykkelse_malt": null,
+   "format": [
+    2438,
+    1219
+   ],
+   "pris": null,
+   "pris_anslag": 18,
+   "pris_kilde": "ESTIMATE. 2x4 version is $14.57.",
+   "roller": [
+    "bakplate"
+   ],
+   "retning": false,
+   "dekor": {
+    "c": "#8a6a4a",
+    "r": 0.9
+   },
+   "artnr": "",
+   "pris_dato": "2026-11-22"
+  }
+ ]
+}

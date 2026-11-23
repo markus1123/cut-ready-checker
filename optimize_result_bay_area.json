@@ -1,0 +1,192 @@
+{
+ "today": {
+  "x": {
+   "korpus": "us-hd-white-melamine-19",
+   "skuff": "us-hd-white-melamine-19",
+   "skuffebunn": "us-hardboard-6",
+   "bakplate": "us-hardboard-3",
+   "kolonner": 2
+  },
+  "ok": true,
+  "cost": 827,
+  "why": [],
+  "sheets": 422,
+  "cnc_min": 150,
+  "cnc_kr": 112,
+  "hardware": 293,
+  "drawers": 8,
+  "box_width": 747,
+  "estimate": false,
+  "materials": [
+   {
+    "navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)",
+    "ark": 2,
+    "kr": 273,
+    "used": 39,
+    "roles": [
+     "front",
+     "ytre"
+    ]
+   },
+   {
+    "navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)",
+    "ark": 2,
+    "kr": 101,
+    "used": 55,
+    "roles": [
+     "korpus",
+     "skuff"
+    ]
+   },
+   {
+    "navn": "Tempered hardboard 1/4in 4x8",
+    "ark": 1,
+    "kr": 28,
+    "used": 73,
+    "roles": [
+     "skuffebunn"
+    ]
+   },
+   {
+    "navn": "Tempered hardboard 1/8in 4x8",
+    "ark": 1,
+    "kr": 20,
+    "used": 35,
+    "roles": [
+     "bakplate"
+    ]
+   }
+  ]
+ },
+ "t": "2026-11-22T17:07:09",
+ "free_look": false,
+ "region": "bay_area",
+ "currency": "USD",
+ "sales_tax": 0.0925,
+ "machine_per_h": 45.0,
+ "hw_per_drawer": 32.0,
+ "loose": {
+  "best": {
+   "x": {
+    "korpus": "us-egger-oak-tfl-19",
+    "skuff": "us-hd-white-melamine-19",
+    "skuffebunn": "us-hardboard-6",
+    "bakplate": "us-hardboard-3",
+    "kolonner": 2
+   },
+   "ok": true,
+   "cost": 777,
+   "why": [],
+   "sheets": 371,
+   "cnc_min": 150,
+   "cnc_kr": 112,
+   "hardware": 293,
+   "drawers": 8,
+   "box_width": 747,
+   "estimate": false,
+   "materials": [
+    {
+     "navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)",
+     "ark": 2,
+     "kr": 273,
+     "used": 58,
+     "roles": [
+      "front",
+      "ytre",
+      "korpus"
+     ]
+    },
+    {
+     "navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)",
+     "ark": 1,
+     "kr": 50,
+     "used": 72,
+     "roles": [
+      "skuff"
+     ]
+    },
+    {
+     "navn": "Tempered hardboard 1/4in 4x8",
+     "ark": 1,
+     "kr": 28,
+     "used": 73,
+     "roles": [
+      "skuffebunn"
+     ]
+    },
+    {
+     "navn": "Tempered hardboard 1/8in 4x8",
+     "ark": 1,
+     "kr": 20,
+     "used": 35,
+     "roles": [
+      "bakplate"
+     ]
+    }
+   ]
+  },
+  "evaluations": 91
+ },
+ "strict": {
+  "best": {
+   "x": {
+    "korpus": "us-hd-white-melamine-19",
+    "skuff": "us-hd-white-melamine-19",
+    "skuffebunn": "us-hardboard-6",
+    "bakplate": "us-hardboard-3",
+    "kolonner": 3
+   },
+   "ok": true,
+   "cost": 1005,
+   "why": [],
+   "sheets": 422,
+   "cnc_min": 183,
+   "cnc_kr": 137,
+   "hardware": 446,
+   "drawers": 12,
+   "box_width": 483,
+   "estimate": false,
+   "materials": [
+    {
+     "navn": "EGGER oak-look TFL melamine 3/4in 49x97 (e.g. H1331 Santa Fe oak)",
+     "ark": 2,
+     "kr": 273,
+     "used": 39,
+     "roles": [
+      "front",
+      "ytre"
+     ]
+    },
+    {
+     "navn": "White melamine particleboard 3/4in 4x8 (Home Depot, Veranda 461877)",
+     "ark": 2,
+     "kr": 101,
+     "used": 65,
+     "roles": [
+      "korpus",
+      "skuff"
+     ]
+    },
+    {
+     "navn": "Tempered hardboard 1/4in 4x8",
+     "ark": 1,
+     "kr": 28,
+     "used": 70,
+     "roles": [
+      "skuffebunn"
+     ]
+    },
+    {
+     "navn": "Tempered hardboard 1/8in 4x8",
+     "ark": 1,
+     "kr": 20,
+     "used": 35,
+     "roles": [
+      "bakplate"
+     ]
+    }
+   ]
+  },
+  "evaluations": 77
+ }
+}

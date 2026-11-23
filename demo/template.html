@@ -157,6 +157,11 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
       </div>
     </div>
     <div class="cmp" id="cmp"></div>
+    <div id="regionwrap" hidden>
+      <h3 style="margin:28px 0 6px">Same optimizer, Bay Area materials</h3>
+      <p class="mute" id="regionnote"></p>
+      <div class="card tbl"><table id="region"><thead><tr><th>Option</th><th>Oslo</th><th>Oslo in USD</th><th>Bay Area</th><th>Where the money goes (Oslo &rarr; Bay Area, USD)</th></tr></thead><tbody></tbody></table></div>
+    </div>
   </section>
 
   <section>
@@ -285,6 +290,19 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   $('#cmp').innerHTML = card(t, 'Today', '', 'Two columns. Drawers exceed Hettich’s 550 mm.')
     + card(a, 'Cheapest, any width', '', 'Same layout, cheaper white board that still fits one sheet.')
     + card(b, 'Cheapest within Hettich', 'best', 'Three columns. The carcass moves onto the oak sheet, which was only 40% used.');
+})();
+
+// --- region comparison
+(function () {
+  const U = D.opt_us; if (!O || !U) return;
+  const fx = U.nok_per_usd, usd = v => '$' + Math.round(v).toLocaleString('en-US');
+  const rows = [['Today’s design', O.today, U.today], ['Cheapest, any width', O.loose && O.loose.best, U.loose && U.loose.best],
+                ['Cheapest within Hettich', O.strict && O.strict.best, U.strict && U.strict.best]];
+  const part = (a, b, k, n) => `${n} ${usd(a[k] / fx)} → ${usd(b[k])}`;
+  $('#region tbody').innerHTML = rows.filter(r => r[1] && r[2]).map(([n, a, b]) => `<tr><td>${n}</td><td class="id">${kr(a.cost)}</td><td class="id">${usd(a.cost / fx)}</td><td class="id"><b>${usd(b.cost)}</b></td>
+    <td style="font-size:13px">${part(a, b, 'sheets', 'sheets')} · ${part(a, b, 'cnc_kr', 'machine')} · ${part(a, b, 'hardware', 'hardware')}<br><span class="mute">${b.materials.map(m => m.ark + '× ' + m.navn.replace(/\s*\(.*\)$/, '').replace(/ 3\/4in.*| 1\/[48]in.*| 4x8.*/, '')).join(', ')}</span></td></tr>`).join('');
+  $('#regionnote').textContent = `Same machine (ShopBot, 2440×1220 bed), same rules, same oak-outside / white-inside look. US 4×8 sheets (2438×1219) have half the area of the 2800×2070 Norwegian sheets, so the oak needs two. Prices include ${(U.sales_tax * 100).toFixed(2)}% sales tax; machine $${U.machine_per_h}/h; hardware $${U.hw_per_drawer} per drawer. Most US prices are estimates. NOK→USD at ${fx} (assumed).`;
+  $('#regionwrap').hidden = false;
 })();
 
 // --- loop log

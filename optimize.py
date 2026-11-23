@@ -4,6 +4,7 @@ nesting effort. Every candidate must pass the full checker (generator check + al
 
     python3 optimize.py                 # keep the look (front/ytre) fixed
     python3 optimize.py --free-look     # also let fronts/top/sides change
+    python3 optimize.py --region bay_area   # swap in regions/bay_area.json (USD, sales tax, local rates)
 Writes optimize_history.jsonl (one line per evaluation) and optimize_result.json.
 Cost = whole sheets x price + spindle time x 568 kr/h x 1.5 (real time vs formula) + hardware per drawer.
 Prices marked ~ in materialer.json are ESTIMATES.
@@ -46,10 +47,21 @@ def pack(items, sizes, rot, margin, gap):
     return best
 
 
-def load_raw():
+TAX = 0.0                   # Norwegian prices already include mva
+CURRENCY = 'NOK'
+
+
+def load_raw(region=None):
+    global KR_PER_H, HW_PER_DRAWER, HW_PER_WALL, TAX, CURRENCY
     P = json.load(open(os.path.join(design.GEN, 'params.json'), encoding='utf-8'))
     C = json.load(open(os.path.join(design.GEN, 'materialer.json'), encoding='utf-8'))
     S = json.load(open(os.path.join(design.GEN, P['skinne']), encoding='utf-8'))
+    if region:
+        R = json.load(open(os.path.join(HERE, 'regions', region + '.json'), encoding='utf-8'))
+        C = dict(C, materialer=R['materialer'])
+        P['materialvalg'].update(R['start'])
+        KR_PER_H, HW_PER_DRAWER, HW_PER_WALL = R['machine_per_h'], R['hw_per_drawer'], R['hw_per_wall']
+        TAX, CURRENCY = R['sales_tax'], R['currency']
     return P, C, S
 
 
@@ -90,15 +102,15 @@ def evaluate(x, P0, C0, S0, strict_width):
         warns = [f.msg for f in run_rules(d) if f.severity == 'warn' and f.rule == 'R18']
         if strict_width and warns:
             caught, msgs = True, msgs + warns
-        sheets = sum(c['sum'] for c in d.summary['materialkost'])
+        sheets = sum(c['sum'] for c in d.summary['materialkost']) * (1 + TAX)
         mins = sum(s['min'] for s in d.summary['plater']) * TIME_FACTOR
         drawers = P['rader'] * P['kolonner']
-        hw = drawers * HW_PER_DRAWER + (P['kolonner'] - 1) * HW_PER_WALL
+        hw = (drawers * HW_PER_DRAWER + (P['kolonner'] - 1) * HW_PER_WALL) * (1 + TAX)
         cost = sheets + mins / 60 * KR_PER_H + hw
         res.update(ok=not caught, why=msgs[:3], cost=round(cost), sheets=round(sheets), cnc_min=round(mins),
                    cnc_kr=round(mins / 60 * KR_PER_H), hardware=round(hw), drawers=drawers,
                    box_width=round(d.info['bw']), estimate=any(c['anslag'] for c in d.summary['materialkost']),
-                   materials=[dict(navn=c['navn'], ark=c['ark'], kr=c['sum'], used=c['utnyttelse'], roles=c['roller'])
+                   materials=[dict(navn=c['navn'], ark=c['ark'], kr=round(c['sum'] * (1 + TAX)), used=c['utnyttelse'], roles=c['roller'])
                               for c in d.summary['materialkost']])
     finally:
         design.cleanup(d)
@@ -133,7 +145,7 @@ def climb(P0, C0, S0, space, start, strict_width, log, restarts=3, seed=7):
                 r = ev(y)
                 if r['ok'] and (not cur['ok'] or r['cost'] < cur['cost']):
                     x, cur, improved = y, r, True
-                    print('  [%s] %5d kr  %s=%s' % ('strict' if strict_width else 'loose', r['cost'], k, v))
+                    print('  [%s] %5d '+CURRENCY+'  %s=%s' % ('strict' if strict_width else 'loose', r['cost'], k, v))
                     break
     return best_overall, n
 
@@ -141,8 +153,10 @@ def climb(P0, C0, S0, space, start, strict_width, log, restarts=3, seed=7):
 def main():
     a = sys.argv[1:]
     free = '--free-look' in a
+    region = a[a.index('--region') + 1] if '--region' in a else None
+    suf = '_' + region if region else ''
     nestlib.pack = pack
-    P0, C0, S0 = load_raw()
+    P0, C0, S0 = load_raw(region)
     space = candidate_space(C0, free)
     start = {r: P0['materialvalg'][r] for r in space if r != 'kolonner'}
     start['kolonner'] = P0['kolonner']
@@ -150,14 +164,15 @@ def main():
     nestlib.pack = _orig_pack
     base_greedy = evaluate(dict(start), P0, C0, S0, None)   # today's generator nesting, for reference
     nestlib.pack = pack
-    print('today: %s kr (greedy nesting %s kr), ok=%s' % (base['cost'], base_greedy['cost'], base['ok']))
-    out = dict(today=base_greedy, t=time.strftime('%Y-%m-%dT%H:%M:%S'), free_look=free)
-    with open(os.path.join(HERE, 'optimize_history.jsonl'), 'w') as log:
+    print('today: %s (greedy nesting %s) '+CURRENCY+', ok=%s' % (base['cost'], base_greedy['cost'], base['ok']))
+    out = dict(today=base_greedy, t=time.strftime('%Y-%m-%dT%H:%M:%S'), free_look=free, region=region or 'oslo',
+               currency=CURRENCY, sales_tax=TAX, machine_per_h=KR_PER_H, hw_per_drawer=HW_PER_DRAWER)
+    with open(os.path.join(HERE, 'optimize_history%s.jsonl' % suf), 'w') as log:
         for strict in (False, True):
             best, n = climb(P0, C0, S0, space, start, strict, log)
             out['strict' if strict else 'loose'] = dict(best=best, evaluations=n)
             print('%s: best %s kr after %d evaluations' % ('within Hettich width' if strict else 'any width', best and best['cost'], n))
-    json.dump(out, open(os.path.join(HERE, 'optimize_result.json'), 'w'), indent=1, ensure_ascii=False)
+    json.dump(out, open(os.path.join(HERE, 'optimize_result%s.json' % suf), 'w'), indent=1, ensure_ascii=False)
 
 
 if __name__ == '__main__':
