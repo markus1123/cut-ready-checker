@@ -104,7 +104,7 @@ dialog .bar{display:flex;justify-content:space-between;align-items:center;paddin
   <div>
     <div class="tb"><b>FLT</b> Fault library</div>
     <h2>Planted faults</h2>
-    <p class="muted" style="font-size:13px">Broken variants the checker must reject. f11 slipped through the first version of R12 (straight-line cable length); the rule now uses routed length.</p>
+    <p class="muted" style="font-size:13px">Broken variants the checker must reject, injected at three layers: wrong input values, bugs in the generator's maths, and broken exported solids. <b>Train</b> faults are shown to the agents that write rules, <b>mined</b> faults come from datasheets and IP67 / drop-test practice, and <b>held-out</b> faults were written blind by a separate agent and never shown to the rule writers, so they measure whether the rules generalise. Rules A01–A06 were written by that loop.</p>
     <div class="scroll"><table id="faults"><thead><tr><th>Fault</th><th>Rule</th><th>Result</th></tr></thead><tbody></tbody></table></div>
   </div>
 </section>
@@ -116,18 +116,15 @@ dialog .bar{display:flex;justify-content:space-between;align-items:center;paddin
 </section>
 
 <section>
-  <div class="tb"><b>FILES</b> On your Mac</div>
-  <h2>Where the files are</h2>
-<div class="files">~/Downloads/field-radio-foundry/rn1/out/
-  step/       RN1-00_assembly.step + one STEP per part    → CAD, CNC, injection-mould quotes
-  stl/        base, lid, gasket, button cap, ring          → 3D printing (SLA / SLS / FDM / TPU)
-  drawings/   PDF + SVG + DXF per part (A3, dimensioned)   → workshop, quotes, review
-  pcb/        RN1-06 .kicad_pcb (outline, holes, keep-outs) + outline DXF
-  BOM.csv     report.txt     checks.json
+  <div class="tb"><b>OUT</b> Generator output</div>
+  <h2>What one build produces</h2>
+<div class="files">step/       assembly + one STEP per part               → CAD, CNC, injection-mould quotes
+stl/        base, lid, gasket, button cap, ring          → 3D printing (SLA / SLS / FDM / TPU)
+drawings/   PDF + SVG + DXF per part (A3, dimensioned)   → workshop, quotes, review
+pcb/        carrier board outline, holes, keep-outs (KiCad + DXF)
+BOM, build report, rule results
 
-Edit rn1/params.json, then:
-  .venv/bin/python -m rn1.build     # rebuild solids, drawings, BOM, run 19 rules
-  .venv/bin/python -m rn1.score     # catch rate: train / mined / held-out / known-good</div>
+All of it comes from one parameter file. Change a number, rebuild, and every rule runs again.</div>
 </section>
 </div>
 
@@ -152,9 +149,9 @@ $('#dlgX').onclick=()=>dlg.close();dlg.addEventListener('click',e=>{if(e.target=
 fetch('data.json').then(r=>r.json()).then(D=>{
   const res=D.checks.results,fail=res.filter(r=>r.status==='FAIL').length,pass=res.filter(r=>r.status==='PASS').length;
   const caught=D.faults.filter(f=>f.caught).length;
-  $('#pills').innerHTML=`<span class="pill ${fail?'bad':'ok'}">${fail?'NOT READY':'READY FOR PROTOTYPE'}</span><span class="pill ok">${pass}/${pass+fail} rules pass</span><span class="pill ${caught===D.faults.length?'ok':'bad'}">${caught}/${D.faults.length} faults caught</span>`;
+  $('#pills').innerHTML=`<span class="pill ${fail?'bad':'ok'}">${fail?'NOT READY':'READY FOR PROTOTYPE'}</span><span class="pill ok">${pass}/${pass+fail} rules pass</span>`+['train','mined','heldout'].map(k=>{const r=D.faults.filter(f=>f.set===k),c=r.filter(f=>f.caught).length;return `<span class="pill ${c===r.length?'ok':'muted'}">${k==='heldout'?'held-out':k} ${c}/${r.length} caught</span>`}).join('');
   $('#checks tbody').innerHTML=res.map(r=>`<tr><td class="m">${r.id}</td><td>${r.title}<br><span class="muted" style="font-size:12px">${r.detail}</span></td><td><span class="st ${r.status==='PASS'?'ok':r.status==='FAIL'?'bad':'muted'}">${r.status}</span></td></tr>`).join('');
-  $('#faults tbody').innerHTML=D.faults.map(f=>`<tr><td><span class="m">${f.id}</span> ${f.desc}<br><span class="muted" style="font-size:12px">${f.detail}</span></td><td class="m">${f.rule}</td><td><span class="st ${f.caught?'ok':'bad'}">${f.caught?'CAUGHT':'MISSED'}</span></td></tr>`).join('');
+  $('#faults tbody').innerHTML=D.faults.map(f=>`<tr><td><span class="m">${f.id}</span> <span class="muted" style="font-size:11px;text-transform:uppercase">${f.set==='heldout'?'held-out':f.set}</span> ${f.desc}<br><span class="muted" style="font-size:12px">${f.detail}</span></td><td class="m">${f.rule}</td><td><span class="st ${f.caught?'ok':'bad'}">${f.caught?'CAUGHT':'MISSED'}</span></td></tr>`).join('');
   $('#bom tbody').innerHTML=D.bom.map(b=>b.id?`<tr><td class="m">${b.id}</td><td class="m">${b.qty}</td><td>${b.item}</td><td class="muted">${b.spec}</td><td>${b.make_buy}</td><td class="m">${(+b.est_line_usd).toFixed(2)}</td></tr>`:`<tr><td></td><td></td><td colspan="3"><b>${b.item}</b></td><td class="m"><b>$${b.est_line_usd}</b></td></tr>`).join('');
 }).catch(()=>{$('#pills').innerHTML='<span class="pill bad">check data failed to load</span>';});
 
