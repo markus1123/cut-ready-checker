@@ -24,6 +24,8 @@ def read(fn):
             continue
         if code == '8' and not cur.get('_v'):
             cur['layer'] = val
+        elif code == '70' and cur['type'] == 'POLYLINE' and not cur.get('_v'):
+            cur['flags'] = int(val)
         elif cur['type'] == 'POLYLINE' and cur.get('_v') and code in ('10', '20'):
             cur['pts'][-1][0 if code == '10' else 1] = float(val)
         elif cur['type'] in ('CIRCLE', 'TEXT') and code in ('10', '20', '40'):

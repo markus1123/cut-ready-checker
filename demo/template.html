@@ -171,6 +171,7 @@ td.id { font: 500 13px var(--mono); white-space: nowrap; }
       <svg id="score" role="img" aria-label="Catch rate per checker version"></svg>
       <div class="legend">
         <span><i class="sw" style="border-color:var(--accent)"></i>Unseen test faults – the honest score</span>
+        <span><i class="dot" style="border:2px solid var(--accent);background:var(--panel)"></i>Same test after we studied its misses (not blind)</span>
         <span><i class="sw" style="border-color:var(--train)"></i>Practice faults – the rule writers could read these</span>
         <span><i class="sw dash" style="border-color:var(--base)"></i>Baseline – generator's built-in checks only, on the practice faults</span>
       </div>
@@ -314,9 +315,10 @@ const NS = 'http://www.w3.org/2000/svg';
 const H = D.hist, last = H[H.length - 1], first = H[0];
 const train = h => ({ c: (h.train_caught || 0) + (h.mined_caught || 0) + (h.retired_caught || 0), n: (h.train_n || 0) + (h.mined_n || 0) + (h.retired_n || 0) });
 const O = D.opt;
+const blind = [...H].reverse().find(h => h.heldout_n && !h.heldout_studied) || last;
 
 $('#stats').innerHTML = [
-  ['hero', pct(last.heldout_caught, last.heldout_n) + '%', 'held-out faults caught', 'generator alone: ' + pct(last.heldout_gen, last.heldout_n) + '%'],
+  ['hero', pct(blind.heldout_caught, blind.heldout_n) + '%', 'unseen test faults stopped', 'latest blind test · generator alone: ' + pct(blind.heldout_gen, blind.heldout_n) + '%'],
   ['', pct(train(last).c, train(last).n) + '%', 'training faults caught', 'generator alone: ' + pct(first.train_gen, first.train_n) + '%'],
   ['', String(last.false_pos), 'false alarms', 'on ' + last.good_n + ' known-good designs'],
   ['', String(last.rules), 'rules', D.rules.filter(r => r.auto).length + ' written by the loop']
@@ -347,16 +349,19 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
     { col: 'var(--base)', w: 2, dash: '6 5', v: H.map(h => pct(h.train_gen, h.train_n)) },
     { col: 'var(--train)', w: 2.5, v: H.map(h => pct(train(h).c, train(h).n)) },
     ...[...new Set(H.filter(h => h.heldout_n).map(h => h.heldout_v || 1))].map((ver, i, all) => ({
-      col: 'var(--accent)', w: 3.5, dash: i < all.length - 1 ? '2 4' : null, keepDots: true,
+      col: 'var(--accent)', w: 3.5, dash: i < all.length - 1 ? '2 4' : null, keepDots: true, studiedDash: true,
       v: H.map(h => h.heldout_n && (h.heldout_v || 1) === ver ? pct(h.heldout_caught, h.heldout_n) : null) })),
   ];
   for (const se of series) {
     const pts = se.v.map((v, i) => v == null ? null : [x(i), y(v), v, i]).filter(Boolean);
     if (!pts.length) continue;
     s += `<polyline fill="none" stroke="${se.col}" stroke-width="${se.w}" ${se.dash ? `stroke-dasharray="${se.dash}"` : ''} stroke-linejoin="round" stroke-linecap="round" points="${pts.map(p => p[0] + ',' + p[1]).join(' ')}"/>`;
-    for (const p of pts) s += `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash && !se.keepDots ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
+    if (se.studiedDash) pts.forEach((p, k) => { if (k && H[p[3]].heldout_studied) s += `<line x1="${pts[k - 1][0]}" y1="${pts[k - 1][1]}" x2="${p[0]}" y2="${p[1]}" stroke="var(--panel)" stroke-width="2.2" stroke-dasharray="3 4"/>`; });
+    for (const p of pts) s += H[p[3]].heldout_studied && se.studiedDash
+      ? `<circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="var(--panel)" stroke="${se.col}" stroke-width="2"><title>${H[p[3]].label}: ${p[2]}% – scored after its misses were studied, so not a blind score</title></circle>`
+      : `<circle cx="${p[0]}" cy="${p[1]}" r="${se.dash && !se.keepDots ? 0 : 3.5}" fill="${se.col}"><title>${H[p[3]].label}: ${p[2]}%</title></circle>`;
     const lp = pts[pts.length - 1];
-    s += `<text x="${lp[0] + 8}" y="${lp[1] + (se.col.includes('train') ? -8 : 16)}" font-size="13" font-weight="500" fill="${se.col}">${lp[2]}%</text>`;
+    s += `<text x="${lp[0] + 8}" y="${lp[1] + (se.col.includes('train') ? -8 : 16)}" font-size="13" font-weight="500" fill="${se.col}">${lp[2]}%${se.studiedDash && H[lp[3]].heldout_studied ? ' (seen)' : ''}</text>`;
   }
   // annotate the start of the held-out line
   const hi = H.findIndex(h => h.heldout_n);
@@ -533,7 +538,17 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
   const loopHelp = ho.filter(f => catchers(f).some(l => origin(l) === 'loop')).length;
   const loopRules = layers.filter(l => origin(l) === 'loop');
   const narrow = loopRules.filter(l => total[l] <= 1).length;
+  const vers = [...new Set(H.filter(h => h.heldout_n).map(h => h.heldout_v || 1))];
+  const rounds = vers.map(v => {
+    const b = [...H].reverse().find(h => (h.heldout_v || 1) === v && h.heldout_n && !h.heldout_studied);
+    const st = [...H].reverse().find(h => (h.heldout_v || 1) === v && h.heldout_studied);
+    const nxt = H.find(h => (h.heldout_v || 1) > v);
+    const after = st ? [st.heldout_caught, st.heldout_n] : (v === 1 && nxt && nxt.retired_n ? [nxt.retired_caught, nxt.retired_n] : null);
+    return `<li><b>Test ${v}:</b> ${b ? b.heldout_caught + '/' + b.heldout_n + ' blind' : '–'}${after ? ' → ' + after[0] + '/' + after[1] + ' after studying its misses' : ' (current)'}</li>`;
+  }).join('');
   $('#lessons').innerHTML = `
+    <div class="card lesson" style="border-color:var(--accent)"><span class="eyebrow">Rounds</span><span class="big">${vers.length}</span>
+      <p>unseen tests so far. Each is scored blind once, then studied, fixed with general rules and retired; a fresh agent writes the next one.</p><ul>${rounds}</ul></div>
     <div class="card lesson"><span class="eyebrow">Generalisation</span><span class="big">${hoCaught}/${ho.length}</span>
       <p>unseen test faults stopped by rules that never saw them. First caught by: seed rules ${by('seed')}, generator ${by('gen')}, loop ${by('loop')}, manuals ${by('manual')}, general rules ${by('general')}. Loop rules back up ${loopHelp} of them.</p></div>
     <div class="card lesson" style="border-color:var(--warn)"><span class="eyebrow" style="color:var(--warn)">Single points of failure</span><span class="big">${single}</span>
@@ -542,8 +557,8 @@ function axes(W, Hh, m, yTicks, yFmt, y, yTitle, xTitle) {
       <p>loop-written rules catch only the one fault they were written for. Together they stop ${loopHelp} held-out ${loopHelp === 1 ? 'fault' : 'faults'}. The gate checks “caught the target, broke nothing” but not “caught anything else”, so it accepts rules that are correct but specific. Next step: make the gate reward rules that also catch unseen faults.</p></div>
     <div class="card lesson" style="border-color:var(--bad)"><span class="eyebrow" style="color:var(--bad)">Blind spots</span><span class="big">${miss.length}</span>
       <p>unseen test faults nothing stops yet:</p><ul>${miss.map(f => `<li>${f.title.replace(/</g, '&lt;')}</li>`).join('')}</ul></div>
-    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">A test gets used up</span><span class="big">25/25 → ${hoCaught}/${ho.length}</span>
-      <p>We studied the first unseen test's 7 misses and wrote 5 general rules (R27–R31: colliding holes, overlapping parts, level slides, missing parts, groove walls). They catch all 7 – but a test you have studied no longer measures anything, so it was retired into practice. A fresh agent then wrote a new test aimed at mistakes nobody had listed: ${hoCaught}/${ho.length}. Most of its misses are in the exported cutting files themselves – the next family of rules to write. (Earlier lesson: one fault silently stopped working after a fix; the harness now refuses faults that change nothing.)</p></div>`;
+    <div class="card lesson" style="border-color:var(--manual)"><span class="eyebrow" style="color:var(--manual)">A test gets used up</span><span class="big">${vers.length} tests</span>
+      <p>Once we study a test's misses and write rules for them, that test no longer measures anything, so it is retired into practice and a fresh agent – one that has never seen a rule – writes the next one. Only the first, blind score of each test counts (see Rounds). The loop now runs this cycle by itself, and it only accepts a rule that also catches faults it was not written for. (Earlier lesson: one fault silently stopped working after a fix; the harness now refuses faults that change nothing.)</p></div>`;
 })();
 
 // --- region comparison

@@ -33,12 +33,17 @@ def seg(h):
 
 @rule('R27', 'Drilled features of different hardware never meet: >= 4 mm of board between them in one part, no intersection across parts')
 def bores(d):
-    H = [(f, h) for f in frames(d) for h in holes(f)]
+    H = [(f, h, seg(h)) for f in frames(d) for h in holes(f)]
+    # bounding box per bore (+ radius + web) so far-apart pairs are skipped cheaply
+    bb = [tuple(min(p[k], q[k]) - h['d'] / 2 - MIN_WEB for k in range(3)) + tuple(max(p[k], q[k]) + h['d'] / 2 + MIN_WEB for k in range(3))
+          for f, h, (p, q) in H]
     out, seen = [], set()
-    for i, (f, h) in enumerate(H):
+    for i, (f, h, (p1, q1)) in enumerate(H):
         a = fam(h['op']['note'])
-        p1, q1 = seg(h)
-        for f2, h2 in H[i + 1:]:
+        for j in range(i + 1, len(H)):
+            f2, h2, _ = H[j]
+            if any(bb[i][k] > bb[j][k + 3] or bb[j][k] > bb[i][k + 3] for k in range(3)):
+                continue
             if f is f2 and h['op'] is h2['op']:
                 continue
             b = fam(h2['op']['note'])
