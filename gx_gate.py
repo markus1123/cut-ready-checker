@@ -7,6 +7,9 @@ where the agent itself writes rules instead of spawning `claude -p`). The agent 
                                               # gate a new rule: accept -> git commit, reject -> .rejected + reasons
     python3 gx_gate.py mined                  # after adding fault types to faults/gx_mined.py: validate + commit
 
+A check scores everything once (~5-15 min with all cores; GX_JOBS=N to limit). Run it detached so a tool time limit
+cannot kill it between accepting and committing:  nohup python3 gx_gate.py check ... > gate.out 2>&1 &
+
 State (the last accepted score) is kept in .gxwork/state.json; logs go to gx_loop_log.jsonl.
 """
 import json, os, shutil, subprocess, sys, time
@@ -46,7 +49,8 @@ def main():
             L.log(dict(step='write', where='session', target=tid, rule=name, accepted=False, why=why))
             print('REJECTED:', '; '.join(why)); sys.exit(1)
         json.dump(after, open(STATE, 'w'))
-        subprocess.run([sys.executable, '-m', 'fc.gx.score', '--log', 'session: %s for %s' % (name, tid)], cwd=HERE, capture_output=True)
+        from fc.gx.score import history
+        history(after, 'session: %s for %s' % (name, tid))
         L.log(dict(step='write', where='session', target=tid, rule=name, accepted=True, train=after['train']['macro'],
                    transfer=after['transfer']['macro']))
         L.commit('loop: accept %s (%s %d->%d)' % (name, tid, before['train']['types'].get(tid, {}).get('caught', 0),
