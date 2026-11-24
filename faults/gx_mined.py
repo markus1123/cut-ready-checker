@@ -466,3 +466,109 @@ FAULTS += [
                'bores); Opendesk making guide (check the file against the assembly drawing - every hole must be '
                'present); CNC forum stories of holes missing after DXF export from hidden or frozen layers'),
 ]
+
+
+# ---- shard a, round 2 ----------------------------------------------------------------------------------------------
+
+def _opening_doubled(g, rng):
+    """A slot / cut-out drawn twice, the copy shifted 1.2 mm sideways (duplicate geometry left after an edit)."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [(p, i, w, ang) for p in g.parts for i, w, ang in _slots(p, g.thickness)]
+    rng.shuffle(cand)
+    for p, i, w, ang in cand:
+        a = math.radians(ang + 90.0)                          # across the slot
+        s = rng.choice((1.2, -1.2))
+        m = affinity.translate(i, s * math.cos(a), s * math.sin(a))
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 2.0: continue
+        if any(m.intersects(o) for o in p.inner if o is not i): continue
+        p.inner.append(m)
+        return g
+    return None
+
+
+def _outline_lost(g, rng):
+    """One part's outline lost on export (hidden / frozen layer): only its openings are left in the file, as loose loops."""
+    from fc.gx.model import Part
+    g = clone(g)
+    cand = [p for p in g.parts if len([i for i in p.inner if i.area > 100]) >= 2 and p.outer.area > 20000]
+    rng.shuffle(cand)
+    for p in cand:
+        g.parts.remove(p)
+        for i in p.inner:
+            if i.area > 100:
+                g.parts.append(Part(outer=Polygon(i.exterior.coords), layer=p.layer, depth=p.depth))
+        return g
+    return None
+
+
+def _edge_slots(p, th):
+    """Open slots in the outline (cross-halving / slot-together notches) ~ sheet thickness wide: (notch polygon, w, L, ang)."""
+    o = Polygon(p.outer.exterior.coords)
+    if not o.is_valid: return []
+    hull = o.buffer(30, join_style=2).buffer(-30, join_style=2)
+    d = hull.difference(o)
+    out = []
+    for x in getattr(d, 'geoms', [d]):
+        if x.is_empty or x.geom_type != 'Polygon' or x.area < 50: continue
+        r, w, L, ang = _rect_axes(x)
+        if 0.95 * th <= w <= 1.3 * th and L >= 2 * w and x.area > 0.8 * r.area:
+            out.append((x, w, L, ang))
+    return out
+
+
+def _notch_shallow(g, rng):
+    """One slot-together edge notch cut only 60 % as deep as drawn (half-lap notch shortened)."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [(p, n, w, L, ang) for p in g.parts for n, w, L, ang in _edge_slots(p, g.thickness)]
+    rng.shuffle(cand)
+    for p, n, w, L, ang in cand:
+        cut = L * 0.4                                         # material put back at the bottom of the notch
+        o = Polygon(p.outer.exterior.coords)
+        mouth = n.exterior.intersection(o.exterior.buffer(0.05))
+        if mouth.is_empty: continue
+        mc = mouth.centroid
+        a = math.radians(ang)
+        ux, uy = math.cos(a), math.sin(a)
+        c = n.centroid
+        if (c.x - mc.x) * ux + (c.y - mc.y) * uy < 0: ux, uy = -ux, -uy      # unit vector mouth -> bottom
+        far = max(((x - mc.x) * ux + (y - mc.y) * uy) for x, y in n.exterior.coords)
+        bx, by = mc.x + ux * (far - cut), mc.y + uy * (far - cut)
+        nx, ny = -uy, ux
+        big = 4 * w
+        fill = Polygon([(bx + nx * big, by + ny * big), (bx - nx * big, by - ny * big),
+                        (bx - nx * big + ux * L, by - ny * big + uy * L), (bx + nx * big + ux * L, by + ny * big + uy * L)])
+        add = n.intersection(fill)
+        if add.is_empty or add.area < 0.2 * n.area: continue
+        new = o.union(add.buffer(0.01, join_style=2))
+        if new.geom_type != 'Polygon' or len(new.interiors): continue
+        p.outer = Polygon(new.exterior.coords)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm13', 'A slot drawn twice, the copy 1.2 mm to one side (duplicate geometry after an edit)',
+        'CAM cuts both loops: the slot comes out 1.2 mm wider than drawn, so the press-fit joint is loose and racks, '
+        'and the toolpath runs twice along the same edge leaving a sliver that burns or breaks off',
+        _opening_doubled,
+        source='Vectric VCarve/Aspire "Delete duplicate vectors" / "Join open vectors" file-clean-up step before '
+               'toolpathing; SendCutSend and Ponoko file guides (no duplicate or overlapping lines); ShopBot forum '
+               'threads on double cuts from duplicated DXF entities'),
+    Mut('gm14', 'A part\'s outline missing from the file (only its openings are left, as loose loops)',
+        'The outline was on a hidden / frozen / non-cut layer at export: the router cuts the slots and holes as '
+        'loose slugs and never cuts the part out, so one part of the kit is missing and the slugs are thrown',
+        _outline_lost,
+        source='Vectric / Fusion 360 DXF export notes (only visible layers and selected geometry are exported); '
+               'Opendesk making guide (check the cut file against the parts list before cutting); CNC forum stories '
+               'of parts missing from a DXF because their layer was frozen or off'),
+    Mut('gm15', 'Slot-together edge notch cut only 60 % as deep as drawn for the joint',
+        'A cross-halving / slot-together joint needs the two notches to add up to the full part width: a notch '
+        'shortened by 40 % stops the parts before they are flush, so the top edges do not line up, the joint '
+        'is not seated and the furniture rocks',
+        _notch_shallow,
+        source='Opendesk / AtFAB slot-together joint libraries (Digital Wood Joints: cross-lap notch depth = half the '
+               'mating part height); WikiHouse design guide (joints must seat fully); Fab Academy press-fit '
+               'assignments (notch depth errors leave parts proud)'),
+]
