@@ -19,3 +19,4 @@
 {"step": "write", "where": "session", "target": "gt05", "rule": "ga01_auto_gt05", "accepted": false, "why": ["target not caught more often"], "t": "2026-11-24T16:34:30"}
 {"step": "mine", "where": "session", "ok": true, "types": 21, "t": "2026-11-24T16:54:27"}
 {"step": "write", "where": "session", "target": "gt05", "rule": "ga01_auto_gt05", "accepted": true, "train": 0.623, "transfer": 0.596, "t": "2026-11-24T17:29:08"}
+{"step": "write", "where": "session", "target": "gm09", "rule": "ga02_auto_gm09", "accepted": true, "train": 0.639, "transfer": 0.624, "t": "2026-11-24T18:02:27"}
