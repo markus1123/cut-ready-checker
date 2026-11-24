@@ -4,11 +4,35 @@
   good_heldout  same kind, different designs (split by design id hash) - never shown to agents, scored only
   noise         anonymous / unknown-build designs - only a robustness + flag-rate report, never a gate
 """
-import json, os, hashlib
+import json, os, hashlib, re
 from . import model
 
+TH_NAME = re.compile(r'(?i)(?<![\d.])(\d{1,2}(?:[.,]\d)?)\s?mm(?![\w-]*diam)')   # '15 mm', '12mm material', '18.5mm'
+TH_OK = (3.0, 40.0)
+
+
+def thickness_from_name(path):
+    """Sheet thickness stated in the file or folder name (Fellesverkstedet 'HOK systems Worktop CNC-file 15 mm')."""
+    for part in reversed(path.split('/')[-3:]):
+        m = TH_NAME.findall(part)
+        vals = [float(v.replace(',', '.')) for v in m if TH_OK[0] <= float(v.replace(',', '.')) <= TH_OK[1]]
+        if vals: return vals[-1]
+    return None
+
+
+def _web_thickness():
+    out = {}
+    p = os.path.join(C, 'web_manifest.jsonl')
+    if os.path.exists(p):
+        for l in open(p):
+            w = json.loads(l)
+            if w.get('material_thickness_mm'):
+                out[os.path.relpath(w['local_dir'], os.path.join(C, 'raw'))] = float(w['material_thickness_mm'])
+    return out
+
 HERE = model.HERE
-C = os.path.join(HERE, 'corpus')
+C = os.environ.get('FC_CORPUS') or os.path.join(HERE, 'corpus')   # private corpus checkout in the cloud
+X_FILE = os.path.join(HERE, 'corpus', 'good_exclusions.json')
 
 
 def _usable():
@@ -22,12 +46,11 @@ def _usable():
 
 def exclusions():
     """Human-reviewed: built-set files that turned out to be genuinely faulty (path -> reason)."""
-    p = os.path.join(C, 'good_exclusions.json')
-    return json.load(open(p)) if os.path.exists(p) else {}
+    return json.load(open(X_FILE)) if os.path.exists(X_FILE) else {}
 
 
 def files(split):
-    U = _usable(); out = []; X = exclusions()
+    U = _usable(); out = []; X = exclusions(); WT = _web_thickness()
     for l in open(os.path.join(C, 'designs.jsonl')):
         d = json.loads(l)
         if d['category'] != 'furniture' or d['duplicate_of'] or d['all_files_duplicated']:
@@ -40,6 +63,10 @@ def files(split):
             if f['dup_of'] or f['path'] not in U or (s != 'noise' and f['path'] in X): continue
             meta = dict(design=d['id'], name=d['name'], tier=d.get('source_tier'), built=d['built_by_others'],
                         type=d['furniture_type'], licence=d['licence'])
+            wt = next((v for k, v in WT.items() if d['dir'] == k or d['dir'].startswith(k + '/')), None)
+            nt = thickness_from_name(f['path'])
+            if wt: meta.update(thickness_mm=wt, thickness_source='manifest')
+            elif nt: meta.update(thickness_mm=nt, thickness_source='filename')
             out.append((os.path.join(C, 'raw', f['path']), d['units'], meta, f['path']))
     return sorted(out, key=lambda t: t[3])
 

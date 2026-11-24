@@ -118,7 +118,7 @@ def mine(n=3):
     log(dict(step='mine', ok=ok, agent=out[-300:]))
 
 
-OWN = ['fc/gx', 'faults/gx_train.py', 'faults/gx_mined.py', 'loop_gx.py', 'gx_score_history.jsonl', 'gx_loop_log.jsonl',
+OWN = ['fc/gx', 'gx_gate.py', 'faults/gx_train.py', 'faults/gx_mined.py', 'loop_gx.py', 'gx_score_history.jsonl', 'gx_loop_log.jsonl',
        'corpus/README.md', 'corpus/good_exclusions.json']
 
 

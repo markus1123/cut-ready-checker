@@ -3,7 +3,8 @@
 A GDesign is what geometry-only rules (fc/gx/rules) look at:
   parts       list of Part: outer outline + inner through-cuts + drilled holes + pockets, in mm
   open_chains cut-layer geometry that does not close into a loop (the machine can't cut a part from it)
-  thickness   sheet thickness in mm if known (manifest, or the deepest through-cut on an Opendesk-style layer)
+  thickness   sheet thickness in mm if STATED (manifest, file/folder name, or the deepest through-cut on an
+              Opendesk-style layer); thickness_est = that or a guess from the most common slot width
 Layer names are parsed for operation + depth (Opendesk: TOP-CUT-OUTSIDE_18.000MM, TOP-POCKET-INSIDE_9.000MM,
 TOP-HOLE-6.000MM-DIAM_14.000MM). Unknown layers are treated as through-cuts.
 """
@@ -17,8 +18,8 @@ from shapely.strtree import STRtree
 from shapely.validation import make_valid
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-CACHE = os.path.join(HERE, 'corpus', 'cache')
-VERSION = 5   # bump to invalidate the cache when parsing changes
+CACHE = os.environ.get('FC_CACHE') or os.path.join(HERE, 'corpus', 'cache')
+VERSION = 7   # bump to invalidate the cache when parsing changes
 
 SKIP = re.compile(r'(?i)noprint|note|text|dim|board|border|defpoints|tolerance|title|frame|label|annot|hatch|center')
 SCALE = {'mm': 1.0, 'mm?': 1.0, 'in': 25.4, 'in?': 25.4, 'cm?': 10.0, 'm': 1000.0}
@@ -78,6 +79,9 @@ class GDesign:
     open_chains: List[Tuple[LineString, str]]
     thickness: Optional[float]
     sheet: Optional[Polygon] = None
+    thickness_source: Optional[str] = None   # where `thickness` comes from: 'manifest' | 'filename' | 'layer' | None
+    thickness_est: Optional[float] = None    # GUESS from the most common slot width (files with 2 sheet thicknesses
+                                             # fool it): fine for warnings / choosing what to look at, not for errors
     notes: List[str] = field(default_factory=list)
 
 
@@ -146,10 +150,11 @@ def parse(fn, units='mm', meta=None, did=None):
     polys = sorted(uniq, key=lambda t: -t[0].area)[:6000]
     notes = []
     meta = meta or {}
-    th = meta.get('thickness_mm')
+    th = meta.get('thickness_mm'); th_src = meta.get('thickness_source') if th else None
     if not th:
         ds = [layer_op(l)[1] for _, l in polys if layer_op(l)[0] in ('cut', 'cut_outside', 'cut_inside') and (layer_op(l)[1] or 0) >= 3]
         th = max(ds) if ds else None
+        th_src = 'layer' if th else None
     def op_of(layer):
         op, dep, dia = layer_op(layer)
         if op.startswith('cut') and th and dep and dep < 0.9 * th:
@@ -241,8 +246,36 @@ def parse(fn, units='mm', meta=None, did=None):
             part.inner.append(c); part.features.append(Feature('hole', c, None, layer, r))
     opens_mm = [(LineString([(x * s, y * s) for x, y in pts]), layer) for pts, layer in opens
                 if layer_op(layer)[0] in ('cut', 'cut_outside', 'cut_inside')]
-    return GDesign(id=did or os.path.basename(fn), path=fn, units=units, meta=meta, parts=parts,
-                   open_chains=opens_mm, thickness=th, sheet=sheet, notes=notes)
+    g = GDesign(id=did or os.path.basename(fn), path=fn, units=units, meta=meta, parts=parts,
+                open_chains=opens_mm, thickness=th, sheet=sheet, notes=notes, thickness_source=th_src)
+    g.thickness_est = g.thickness or slot_thickness(g)
+    return g
+
+
+def slot_widths(g):
+    """Widths of straight rectangular openings / edge notches 3-40 mm wide and >= 1.8x as long (candidate slots)."""
+    out = []
+    for p in g.parts:
+        for i in p.inner:
+            r = i.minimum_rotated_rectangle
+            if r.geom_type != 'Polygon': continue
+            c = list(r.exterior.coords)
+            a = math.dist(c[0], c[1]); b = math.dist(c[1], c[2]); w, L = min(a, b), max(a, b)
+            if 3 <= w <= 40 and L >= 1.8 * w and i.area >= 0.8 * r.area:
+                out.append(round(w, 1))
+    return out
+
+
+def slot_thickness(g, min_count=4):
+    """Sheet thickness estimate: the most common slot width, if at least `min_count` slots agree within 0.3 mm
+    and it is a plausible furniture sheet (6-30 mm). Press-fit slots are drawn at t + 0-0.5 mm, so this
+    over-estimates t by up to ~0.5 mm. None when the file has no clear slot family."""
+    ws = sorted(w for w in slot_widths(g) if 6 <= w <= 30)
+    best = None
+    for w in ws:
+        n = sum(1 for x in ws if abs(x - w) <= 0.3)
+        if n >= min_count and (best is None or n > best[1]): best = (w, n)
+    return best[0] if best else None
 
 
 def _plausible(g):
