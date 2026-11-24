@@ -19,6 +19,27 @@ from . import corpus, core
 
 HERE = corpus.HERE
 K = int(os.environ.get('GX_K', 12))   # mutants per fault type
+JOBS = int(os.environ.get('GX_JOBS', 0)) or (os.cpu_count() or 1)   # worker processes; GX_JOBS=1 = serial
+
+_TASK = {}
+
+
+def _call(i):
+    return _TASK['fn'](i)
+
+
+def pmap(fn, n):
+    """[fn(0), ..., fn(n-1)] in order, spread over JOBS forked workers (they inherit the parsed designs, so only
+    indices go in and small results come back). Same results as the serial loop, just faster."""
+    if JOBS <= 1 or n < 2 * JOBS:
+        return [fn(i) for i in range(n)]
+    import multiprocessing as mp
+    _TASK['fn'] = fn
+    try:
+        with mp.get_context('fork').Pool(JOBS) as pool:
+            return pool.map(_call, range(n), chunksize=max(1, n // (JOBS * 8)))
+    finally:
+        _TASK.clear()
 
 
 def fault_types(name):
@@ -31,11 +52,10 @@ def fault_types(name):
 
 
 def _base(designs):
-    out = []
-    for g in designs:
-        f, cr = core.run(g)
-        out.append((g, core.error_keys(f), f, cr))
-    return out
+    designs = list(designs)
+    core.load_rules()
+    res = pmap(lambda i: core.run(designs[i]), len(designs))
+    return [(g, core.error_keys(f), f, cr) for g, (f, cr) in zip(designs, res)]
 
 
 def mutants(muts, bases, k=K):
@@ -58,8 +78,10 @@ def mutants(muts, bases, k=K):
 def catch(muts, bases, detail=False):
     per = {}
     rows = []
-    for m, g, keys, mg in mutants(muts, bases):
-        f, cr = core.run(mg)
+    core.load_rules()
+    ms = list(mutants(muts, bases))
+    res = pmap(lambda i: core.run(ms[i][3]), len(ms))
+    for (m, g, keys, mg), (f, cr) in zip(ms, res):
         new = core.error_keys(f) - keys
         c = per.setdefault(m.id, dict(title=m.title, n=0, caught=0))
         c['n'] += 1; c['caught'] += bool(new)
@@ -89,6 +111,14 @@ def evaluate(show=None):
     return res, rows, gtr + gho
 
 
+def history(res, note):
+    """Append one line to gx_score_history.jsonl from an evaluate() result (no re-scoring)."""
+    e = dict(t=time.strftime('%Y-%m-%dT%H:%M:%S'), note=note, rules=len(res['rules']),
+             train=res['train']['macro'], transfer=res['transfer']['macro'], heldout=res['heldout']['macro'],
+             fp=res['fp']['n'], noise_flag=res['noise']['flag_rate'])
+    open(os.path.join(HERE, 'gx_score_history.jsonl'), 'a').write(json.dumps(e) + '\n')
+
+
 def main():
     a = sys.argv[1:]
     show = a[a.index('--show') + 1] if '--show' in a else None
@@ -116,10 +146,7 @@ def main():
     print('\nfalse alarms on built designs: %d (train %d, heldout %d)' % (res['fp']['n'], res['fp']['train'], res['fp']['heldout']))
     print('noise flag rate %.0f%%, rule crashes %s' % (100 * res['noise']['flag_rate'], {k: v for k, v in res['noise']['crashes'].items() if v}))
     if '--log' in a:
-        e = dict(t=time.strftime('%Y-%m-%dT%H:%M:%S'), note=a[a.index('--log') + 1], rules=len(res['rules']),
-                 train=res['train']['macro'], transfer=res['transfer']['macro'], heldout=res['heldout']['macro'],
-                 fp=res['fp']['n'], noise_flag=res['noise']['flag_rate'])
-        open(os.path.join(HERE, 'gx_score_history.jsonl'), 'a').write(json.dumps(e) + '\n')
+        history(res, a[a.index('--log') + 1])
 
 
 if __name__ == '__main__':

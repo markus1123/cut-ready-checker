@@ -181,7 +181,8 @@ def main():
             shutil.move(path, path + '.rejected'); reasons.setdefault(tid, []).append(' & '.join(why))
             log(dict(step='write', target=tid, rule=fname, accepted=False, why=why, secs=round(time.time() - t0)))
         else:
-            subprocess.run([sys.executable, '-m', 'fc.gx.score', '--log', 'loop: %s for %s' % (fname, tid)], cwd=HERE, capture_output=True)
+            from fc.gx.score import history
+            history(new, 'loop: %s for %s' % (fname, tid))
             commit('loop: accept %s (%s %d->%d)' % (fname, tid, cur['train']['types'][tid]['caught'], new['train']['types'][tid]['caught']))
             log(dict(step='write', target=tid, rule=fname, accepted=True, train=new['train']['macro'], transfer=new['transfer']['macro'],
                      heldout=new['heldout']['macro'], fp_heldout=new['fp']['heldout'], secs=round(time.time() - t0)))
