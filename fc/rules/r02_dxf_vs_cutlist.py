@@ -28,7 +28,7 @@ def check(d):
     count = {}
     for sh in d.sheets:
         texts = [e for e in sh['ents'] if e['type'] == 'TEXT']
-        circles = [e for e in sh['ents'] if e['type'] == 'CIRCLE']
+        circles = [e for e in sh['ents'] if e['type'] == 'CIRCLE' and 'HOLDDOWN' not in e.get('layer', '').upper()]   # screw marks sit outside parts on purpose
         grooves = [e for e in sh['ents'] if e['type'] == 'POLYLINE' and e.get('layer', '').startswith('04_NOT')]
         used = set()
         for c in [e for e in sh['ents'] if e['type'] == 'POLYLINE' and e.get('layer', '').startswith('10_KONTUR')]:

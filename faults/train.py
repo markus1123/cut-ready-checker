@@ -34,6 +34,23 @@ def _dxf_all(old, new):
     return f
 
 
+def _no_holddown(files):
+    """Exporter / CAM user dropped the hold-down layer (only CIRCLE entities on 05_HOLDDOWN)."""
+    import re
+    for k in files:
+        files[k] = re.sub(r'0\nCIRCLE\n8\n05_HOLDDOWN[^\n]*\n(?:(?!0\n)[^\n]*\n[^\n]*\n)*', '', files[k])
+
+
+def _holddown_into_part(files):
+    """First hold-down circle on the first sheet moved 20 mm up/right, into the part it sits beside."""
+    import re
+    k = sorted(files)[0]
+    m = re.search(r'0\nCIRCLE\n8\n05_HOLDDOWN[^\n]*\n10\n([-\d.]+)\n20\n([-\d.]+)\n', files[k])
+    a, b = m.span(1); c, e = m.span(2)
+    t = files[k]
+    files[k] = t[:a] + '%.3f' % (float(m.group(1)) + 20) + t[b:c] + '%.3f' % (float(m.group(2)) + 20) + t[e:]
+
+
 FAULTS = [
     Fault('t01', 'Slide clearance entered as 12.7 - 0.3 (box 0.6 mm too wide)',
           'Ball-bearing slides need >= 12.7 mm per side; 12.4 mm binds or will not engage.',
@@ -131,4 +148,16 @@ FAULTS = [
     Fault('t43', 'Slide screws Ø4x10',
           'Only 8.8 mm in chipboard; runner pulls out under load.',
           params=_slide('skrue_lengde', 10), source='Hettich MS 10547 p1'),
+    Fault('t44', 'Toolpaths planned for imperial 1/4" and 1/8" bits; the workshop has 6 mm and 3 mm',
+          'Tool compensation is computed for 6.35 mm; cut with the 6 mm bit every outline is 0.18 mm too big and every slot '
+          '0.35 mm too narrow, so the drawer bottom no longer slides into its groove.',
+          params=lambda P, S: P['verksted'].update(fres_stor_d=6.35, fres_liten_d=3.175),
+          source='Fellesverkstedet VCarve tool database (201027) + FAQ "parts don\'t fit together"'),
+    Fault('t45', 'Hold-down circles missing from the sheet files',
+          'The sheet is screwed to the spoilboard; without marked screw positions the operator screws by eye and the '
+          'bit runs into a screw (broken bit, scrap part).',
+          dxf=_no_holddown, source='Fellesverkstedet wiki, Preparing 2D files: hold down circles; FAQ "milled a screw"'),
+    Fault('t46', 'A hold-down circle drawn 20 mm into a part',
+          'The screw goes where the circle is; the contour toolpath then cuts through the screw head.',
+          dxf=_holddown_into_part, source='Fellesverkstedet wiki, Preparing 2D files: hold down circles'),
 ]

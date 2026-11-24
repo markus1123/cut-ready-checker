@@ -1,6 +1,7 @@
 """Hold-down must be known before cutting. Source: ShopBot 'Holding Down Material for Cutting' p7-8
 (docs/rules-from-manuals.md §5): onion skin 0.25-0.76 mm; vacuum alone does not hold small parts."""
 from fc.core import rule, Finding
+from fc import machine
 
 KINDS = ('skruer', 'vakuum', 'onion', 'tabs')
 SMALL_VAC = 50000.0   # mm^2: below this, vacuum alone is not trusted
@@ -9,7 +10,7 @@ SMALL_VAC = 50000.0   # mm^2: below this, vacuum alone is not trusted
 @rule('R24', 'Hold-down method stated; onion skin 0.25-0.76 mm; small parts not on vacuum alone')
 def check(d):
     V = d.P['verksted']
-    h = V.get('holdning')
+    h = V.get('holdning') or machine.HOLD.get('method')   # the workshop's own method if the design is silent
     if h is None:
         return [Finding('R24', 'warn', 'Hold-down method unknown (verksted.holdning: %s). Ask the workshop.' % '/'.join(KINDS))]
     if h not in KINDS:

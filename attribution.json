@@ -44,7 +44,8 @@
   "R42",
   "R43",
   "R44",
-  "R45"
+  "R45",
+  "R46"
  ],
  "rows": [
   {
@@ -133,7 +134,8 @@
    "rules": [
     "R01",
     "R02",
-    "R33"
+    "R33",
+    "R46"
    ]
   },
   {
@@ -146,7 +148,8 @@
    "rules": [
     "R01",
     "R02",
-    "R33"
+    "R33",
+    "R46"
    ]
   },
   {
@@ -742,7 +745,8 @@
    "gen": false,
    "rules": [
     "R01",
-    "R42"
+    "R42",
+    "R46"
    ]
   },
   {
@@ -765,7 +769,8 @@
    "gen": false,
    "rules": [
     "R02",
-    "R34"
+    "R34",
+    "R46"
    ]
   },
   {
@@ -1026,7 +1031,8 @@
    "gen": false,
    "rules": [
     "R02",
-    "R42"
+    "R42",
+    "R46"
    ]
   },
   {
@@ -1061,7 +1067,8 @@
    "rules": [
     "R32",
     "R33",
-    "R44"
+    "R44",
+    "R46"
    ]
   },
   {
@@ -1158,7 +1165,9 @@
    "why": "Ø15 cam housings and bolt holes break out of the front edge of the sides/middle wall, the edge bores split the chipboard and the joints have no strength.",
    "source": "Joinery: edge distance from a 16 mm system drawing misread",
    "gen": true,
-   "rules": []
+   "rules": [
+    "R46"
+   ]
   },
   {
    "id": "y09",
@@ -1346,7 +1355,8 @@
     "R02",
     "R14",
     "R33",
-    "R42"
+    "R42",
+    "R46"
    ]
   },
   {
@@ -1403,7 +1413,8 @@
    "gen": true,
    "rules": [
     "R02",
-    "R10"
+    "R10",
+    "R46"
    ]
   },
   {
@@ -1600,7 +1611,8 @@
    "source": "CAM/export/transfer error on the sheet DXF; double cutter compensation (CAM + exporter)",
    "gen": false,
    "rules": [
-    "R02"
+    "R02",
+    "R46"
    ]
   },
   {
@@ -1854,7 +1866,9 @@
    "why": "Group 42 bulge set on every vertex of one sheet: the CAM cuts each edge as an arc - parts bow in/out by several mm over their length and nothing fits.",
    "source": "Polyline bulge left over from a fillet/offset operation",
    "gen": false,
-   "rules": []
+   "rules": [
+    "R46"
+   ]
   },
   {
    "id": "h5_21",
@@ -1867,7 +1881,8 @@
     "R01",
     "R02",
     "R32",
-    "R44"
+    "R44",
+    "R46"
    ]
   },
   {
