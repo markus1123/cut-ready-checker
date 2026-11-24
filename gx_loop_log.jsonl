@@ -17,3 +17,4 @@
 {"step": "end", "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp": 2, "t": "2026-11-23T17:29:17"}
 {"step": "write", "where": "session", "target": "gt07", "rule": "gb01_auto_gt07", "accepted": true, "train": 0.745, "transfer": 0.724, "t": "2026-11-24T16:42:00"}
 {"step": "write", "where": "session", "target": "gm07", "rule": "gb02_auto_gm07", "accepted": true, "train": 0.75, "transfer": 0.724, "t": "2026-11-24T17:16:42"}
+{"step": "mine", "where": "session", "ok": true, "types": 21, "t": "2026-11-24T17:33:53"}
