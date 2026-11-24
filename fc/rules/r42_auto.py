@@ -21,8 +21,9 @@ Z:  no layer may ask for a depth greater than the board on that sheet + 1.0 mm. 
 """
 from fc.core import rule, Finding
 from fc.dxfread import layer_num
+from fc import machine
 
-BED = (2440.0, 1220.0)    # ShopBot PRSalpha 96x48 clampable bed (4x8 ft sheet)
+BED = machine.BED         # the workshop's router bed (fc/machines/), ShopBot PRSalpha 96x48 = 2440x1220
 TOL = 0.5                 # mm, DXF coordinate rounding
 SPOIL = 1.0               # mm, max cut-through into the spoilboard
 
@@ -82,7 +83,10 @@ def envelope(d):
             z = layer_num(L, 'Z')
             if z is None:
                 continue
-            if t and z > t + SPOIL + 1e-6:
+            if z > machine.Z_MAX + 1e-6:
+                out.append(Finding('R42', 'error', '%s: layer %s cuts %g mm deep; the machine mills at most %g mm.'
+                                   % (f, L, z, machine.Z_MAX)))
+            elif t and z > t + SPOIL + 1e-6:
                 out.append(Finding('R42', 'error', '%s: layer %s cuts %g mm deep in a %.2f mm board, %.1f mm into the '
                                    'spoilboard/table (max %g mm).' % (f, L, z, t, z - t, SPOIL)))
             elif flute and z > flute + 1e-6:

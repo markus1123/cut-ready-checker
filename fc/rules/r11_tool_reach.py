@@ -1,6 +1,7 @@
 """A router bit can only cut as deep as its flute. Small holes through a 19 mm board need a long 1/8\" bit."""
 from fc.core import rule, Finding
 import nestlib
+from fc import machine
 
 
 @rule('R11', 'Every CNC hole/pocket/groove depth fits the flute length of the bit that must cut it')
@@ -8,6 +9,9 @@ def check(d):
     V = d.P['verksted']
     small, big = V['fres_liten_d'], V['fres_stor_d']
     fl_s, fl_b = V.get('fres_liten_skjaerlengde'), V.get('fres_stor_skjaerlengde')
+    # a flute length the workshop has on record beats the design's own estimate
+    fl_s = machine.flute(small)[0] or fl_s
+    fl_b = machine.flute(big)[0] or fl_b
     if fl_s is None or fl_b is None:
         return [Finding('R11', 'error', 'Flute (cutting) length of the bits is unknown - ask the workshop (verksted.fres_*_skjaerlengde).')]
     out, seen = [], set()

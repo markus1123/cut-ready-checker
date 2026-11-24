@@ -3,6 +3,7 @@ Source: Amana 'Solid Carbide Compression Spirals' v12, 2-flute, MDF/laminate at 
 deeper passes: 2xD -25 %, 3xD -50 % (docs/rules-from-manuals.md §5)."""
 from fc.core import rule, Finding
 import nestlib
+from fc import machine
 
 AMANA = {3.175: 2030.0, 6.35: 5590.0}   # mm/min at 1 x D
 
@@ -30,6 +31,15 @@ def check(d):
     if M['mating_kontur'] > lim:
         out.append(Finding('R21', 'error', 'Contour feed %g mm/min at %.1f mm per pass with the Ø%g bit; Amana allows %.0f.'
                            % (M['mating_kontur'], doc, big, lim)))
+    shop = machine.bit(big)
+    if shop:
+        if doc > shop['stepdown'] + 0.01:
+            out.append(Finding('R21', 'error', 'Contour at %.1f mm per pass with the Ø%g bit; the workshop runs it at most %g mm per pass.'
+                               % (doc, big, shop['stepdown'])))
+        if M['mating_kontur'] > shop['feed_mm_min'] * 1.05:
+            out.append(Finding('R21', 'warn', 'Contour feed %g mm/min is faster than the workshop\'s setting for the Ø%g bit (%g); '
+                               'machine time is underestimated by about %.0f %%.'
+                               % (M['mating_kontur'], big, shop['feed_mm_min'], 100 * (M['mating_kontur'] / shop['feed_mm_min'] - 1))))
     widths = set()
     for p in d.parts:
         for o in nestlib.classify(p, []):

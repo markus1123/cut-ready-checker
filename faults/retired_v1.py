@@ -240,7 +240,10 @@ def h24(files):
 
 
 def h25(files):
-    k = _sheet(files, 'plate4_')
+    # the sheet that holds both an E1 and an E2 (which sheet depends on the nesting)
+    def has(k, code):
+        return any(b[1] == 'TEXT' and b[_text_idx(b)].startswith(code + ' ') for b in _split(files[k])[1])
+    k = next(k for k in sorted(files) if k.endswith('.dxf') and has(k, 'E1') and has(k, 'E2'))
     h, bl, t = _split(files[k])
     tx = [b for b in bl if b[1] == 'TEXT']
     a = [b for b in tx if b[_text_idx(b)].startswith('E1 ')][0]
