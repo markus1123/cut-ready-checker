@@ -259,3 +259,84 @@ FAULTS += [
           'CAM reads 45 mm holes where the 4.5 mm plinth-strip screw holes go in the carcass bottom: large craters are machined into the bottom panel, the screws have nothing to bite against and the panel is scrap.',
           dxf=_v_v_y23_3_3, source='variant of v_y23_3: decimal lost in a smaller diameter field, different part'),
 ]
+
+
+# ------------------------------------------------------------------ variants of h4_01 (dealer saw kerf entered wrong)
+def _v_h4_01_1(P, S):
+    P['plater']['sagsnitt'] = 0.4                  # decimal slip: 4 mm typed as 0.4
+
+
+def _v_h4_01_2(P, S):
+    P['plater']['sagsnitt'] = 2                    # half-kerf (per-side offset) entered instead of the full ~4 mm kerf
+
+
+def _v_h4_01_3(P, S):
+    P['plater']['sagsnitt'] = 1                    # thin track-saw blade figure instead of the panel saw's ~4 mm
+
+
+# ------------------------------------------------------------------ variants of h4_06 (dimension typed with wrong magnitude)
+def _v_h4_06_1(P, S):
+    P['ytre']['topp_overheng_front'] = 121         # extra digit: 21 -> 121
+
+
+def _v_h4_06_2(P, S):
+    P['ytre']['topp_overheng_front'] = P['ytre']['topp_overheng_front'] * 100   # two decimals lost: 21 -> 2100
+
+
+def _v_h4_06_3(P, S):
+    P['ytre']['dybde_korpus'] = P['ytre']['dybde_korpus'] * 10                  # carcass depth 430 -> 4300
+
+
+# ------------------------------------------------------------------ variants of h4_17 (groove depth does not match the bottom size)
+def _v_h4_17_1(parts, asm, info):
+    for p in parts:
+        if p['code'] in ('S', 'SH'):
+            for o in p['ops']:
+                if o['kind'] == 'groove':
+                    o['z'] = round(o['z'] / 2, 2)
+
+
+def _v_h4_17_2(parts, asm, info):
+    for p in parts:
+        if p['code'] == 'E2':
+            for o in p['ops']:
+                if o['kind'] == 'groove':
+                    o['z'] = round(o['z'] * 0.75, 2)
+
+
+def _v_h4_17_3(parts, asm, info):
+    for p in parts:
+        if p['code'] == 'SB':
+            p['L'] = round(p['L'] + 2 * info['nd'], 2)
+            p['B'] = round(p['B'] + 2 * info['nd'], 2)
+
+
+FAULTS += [
+    Fault('v_h4_01_1', 'Dealer saw kerf entered as 0.4 mm instead of 4 mm (plater.sagsnitt)',
+          'The offcut pieces are nested 3.6 mm larger than the panel saw leaves them: parts placed along the far edge of the 356/846 mm offcuts run off the real board and are ruined.',
+          params=_v_h4_01_1, source='variant of h4_01: decimal slip instead of zero, smaller magnitude'),
+    Fault('v_h4_01_2', 'Dealer saw kerf entered as 2 mm (half the blade, a per-side offset) instead of ~4 mm',
+          'Each offcut piece is planned 2 mm larger than what the panel saw leaves: parts nested tight against the far edge of the 356/846 mm offcuts lose their edge or run off the board.',
+          params=_v_h4_01_2, source='variant of h4_01: half-kerf confusion, smallest magnitude'),
+    Fault('v_h4_01_3', 'Dealer saw kerf entered as 1 mm (thin track-saw figure, not the panel saw)',
+          'The panel saw removes ~4 mm: the offcuts are planned 3 mm too large and the contours at their far edge run off the real piece.',
+          params=_v_h4_01_3, source='variant of h4_01: plausible-looking but understated kerf'),
+    Fault('v_h4_06_1', 'Top front overhang typed 121 instead of 21 (extra digit)',
+          'The top sticks out 121 mm past the carcass, ~100 mm in front of the drawer fronts: unsupported lip that tips the chest forward when leaned on, and the big oak top is wrong.',
+          params=_v_h4_06_1, source='variant of h4_06: extra-digit typo, smaller magnitude'),
+    Fault('v_h4_06_2', 'Top front overhang typed 100x too large (2100 instead of 21)',
+          'The top becomes ~2.5 m deep - it cannot be cut on the machine, and any such top would tip the chest over immediately.',
+          params=_v_h4_06_2, source='variant of h4_06: two decimals lost'),
+    Fault('v_h4_06_3', 'Carcass depth typed 10x too large (4300 instead of 430)',
+          'Sides, top, bottom and middle wall become 4.3 m deep: they do not fit the router or the sheets, and the drawers/slides no longer match the carcass.',
+          params=_v_h4_06_3, source='variant of h4_06: same 10x slip in another overall dimension'),
+    Fault('v_h4_17_1', 'Generator bug: grooves in the drawer sides half as deep as the bottom is sized for',
+          'The bottom is sized for full-depth grooves in S/SH, but they are only half as deep: the bottom bottoms out in the side grooves and the ends cannot be pulled tight to the sides - box joints gape by several mm.',
+          parts=_v_h4_17_1, source='variant of h4_17: same mistake on the other drawer parts (sides)'),
+    Fault('v_h4_17_2', 'Generator bug: groove in the back drawer end only 3/4 as deep as the bottom is sized for',
+          'The bottom runs 2 mm too deep into the back end: the back end cannot seat against the sides, the box is out of square and confirmats pull the joint open.',
+          parts=_v_h4_17_2, source='variant of h4_17: smaller magnitude, back end only'),
+    Fault('v_h4_17_3', 'Generator bug: drawer bottom sized for grooves twice as deep as cut',
+          'The HDF bottom is cut 16 mm too long and too wide for the 8 mm grooves: it cannot be slid in and the drawer boxes cannot be closed - all bottoms recut.',
+          parts=_v_h4_17_3, source='variant of h4_17: mismatch from the bottom side instead of the groove side'),
+]
