@@ -16,3 +16,4 @@
 {"step": "write", "target": "gm08", "rule": "g14_auto_gm08", "accepted": true, "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp_heldout": 2, "secs": 1628, "t": "2026-11-23T17:29:17"}
 {"step": "end", "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp": 2, "t": "2026-11-23T17:29:17"}
 {"step": "write", "where": "session", "target": "gt09", "rule": "gc01_auto_gt09", "accepted": true, "train": 0.745, "transfer": 0.724, "t": "2026-11-24T15:31:51"}
+{"step": "write", "where": "session", "target": "gt01", "rule": "gc02_auto_gt01", "accepted": true, "train": 0.778, "transfer": 0.733, "t": "2026-11-24T15:58:26"}
