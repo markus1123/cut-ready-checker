@@ -340,3 +340,35 @@ FAULTS += [
           'The HDF bottom is cut 16 mm too long and too wide for the 8 mm grooves: it cannot be slid in and the drawer boxes cannot be closed - all bottoms recut.',
           parts=_v_h4_17_3, source='variant of h4_17: mismatch from the bottom side instead of the groove side'),
 ]
+
+
+# ------------------------------------------------------------------ variants of h4_14 (visible part on the wrong material role)
+def _v_h4_14_1(parts, asm, info):
+    for p in parts:
+        if p['code'] == 'A':
+            p['mat'] = 'korpus'
+
+
+def _v_h4_14_2(parts, asm, info):
+    for p in parts:
+        if p['code'] == 'CH':
+            p['mat'] = 'korpus'
+
+
+def _v_h4_14_3(parts, asm, info):
+    for p in parts:
+        if p['code'] == 'K':
+            p['mat'] = 'skuffebunn'
+
+
+FAULTS += [
+    Fault('v_h4_14_1', 'Generator bug: top panel assigned to the white carcass board instead of the oak outer board',
+          'The 1603 mm top is nested and cut from white melamine: the most visible surface of the chest is white against oak sides and fronts, a white sheet is wasted and the oak sheet is left with a gap.',
+          parts=_v_h4_14_1, source='variant of h4_14: same wrong material role, different part (top, ytre -> korpus)'),
+    Fault('v_h4_14_2', 'Generator bug: right side panel assigned to the white carcass board instead of the oak outer board',
+          'Only the right side (CH) is cut from white melamine: the chest has one oak and one white side, the mismatch is only discovered at assembly and the side must be recut in oak.',
+          parts=_v_h4_14_2, source='variant of h4_14: smaller magnitude - a single mirrored part, one side only'),
+    Fault('v_h4_14_3', 'Generator bug: drawer fronts assigned to the 6 mm HDF drawer-bottom board instead of the oak front board',
+          'All 8 fronts are nested on the 6 mm hardboard while the toolpaths are planned for 18.8 mm: wrong finish and thickness, the handle and fixing holes are cut in a flimsy board, fronts unusable and the oak sheet half empty.',
+          parts=_v_h4_14_3, source='variant of h4_14: same wrong role assignment, worse target role (thickness mismatch as well as finish)'),
+]
