@@ -21,3 +21,4 @@
 {"step": "write", "where": "session", "target": "gm30", "rule": "gc03_auto_gm30", "accepted": true, "train": 0.714, "transfer": 0.676, "t": "2026-11-24T16:39:09"}
 {"step": "write", "where": "session", "target": "gm31", "rule": "gc04_auto_gm31", "accepted": true, "train": 0.754, "transfer": 0.723, "t": "2026-11-24T17:06:19"}
 {"step": "write", "where": "session", "target": "gm32", "rule": "gc05_auto_gm32", "accepted": true, "train": 0.817, "transfer": 0.771, "t": "2026-11-24T17:34:02"}
+{"step": "mine", "where": "session", "ok": true, "types": 24, "t": "2026-11-24T17:48:14"}

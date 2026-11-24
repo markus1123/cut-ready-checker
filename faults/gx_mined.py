@@ -453,3 +453,102 @@ FAULTS += [
                '(operations are applied per layer); Häfele TCH dowel and screw pilot sizes (Ø8 dowel in Ø8, '
                'Ø5 screw pilot for Ø7 Confirmat)'),
 ]
+
+
+def _edge_slit(g, rng):
+    """A 2 mm wide, 30 mm deep slit drawn into a part edge (a saw-kerf relief / kerf-bend cut drawn for a blade)."""
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 20000]
+    rng.shuffle(cand)
+    for p in cand:
+        pts = list(p.outer.exterior.coords)
+        segs = [i for i in range(len(pts) - 1) if math.dist(pts[i], pts[i + 1]) > 80]
+        if not segs: continue
+        i = rng.choice(segs)
+        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+        L = math.dist(pts[i], pts[i + 1]); tx, ty = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = (-ty, tx) if p.outer.exterior.is_ccw else (ty, -tx)        # inward normal
+        mx, my = x0 + tx * L / 2, y0 + ty * L / 2
+        P = lambda a, b: (mx + tx * a + nx * b, my + ty * a + ny * b)
+        slit = Polygon([P(-1, -2), P(1, -2), P(1, 30), P(-1, 30)])
+        if not slit.intersects(p.outer) or slit.intersection(p.outer).area < 50: continue
+        if any(slit.buffer(3).intersects(o) for o in p.inner) or any(slit.buffer(3).intersects(f.geom) for f in p.features):
+            continue
+        new = p.outer.difference(slit)
+        if new.is_empty or new.geom_type != 'Polygon' or abs(new.area - (p.outer.area - 60)) > 15: continue
+        p.outer = Polygon(new.exterior.coords)
+        return g
+    return None
+
+
+def _no_sheet_margin(g, rng):
+    """A part nested 1 mm from the edge of the drawn stock sheet (no margin for the sheet's rough edge / clamps)."""
+    if g.sheet is None: return None
+    g = clone(g); sb = g.sheet.exterior
+    cand = [p for p in g.parts if p.outer.within(g.sheet) and p.outer.area > 2000 and sb.distance(p.outer) > 5]
+    rng.shuffle(cand)
+    for p in cand:
+        pa, pb = nearest_points(p.outer.exterior, sb)
+        d = pa.distance(pb)
+        k = (d - 1.0) / d
+        dx, dy = (pb.x - pa.x) * k, (pb.y - pa.y) * k
+        moved = affinity.translate(p.outer, dx, dy)
+        if not moved.within(g.sheet): continue
+        if any(moved.distance(o.outer) < 5 for o in g.parts if o is not p): continue
+        _translate_part(p, dx, dy)
+        return g
+    return None
+
+
+def _openings_thin_web(g, rng):
+    """One through opening moved toward its nearest neighbouring opening so only 1 mm of sheet is left between them."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        ii = [i for i in p.inner if i.area > 50]
+        if len(ii) < 2 or len(ii) > 200: continue
+        for i in ii:
+            others = [o for o in ii if o is not i]
+            j = min(others, key=lambda o: o.distance(i))
+            if i.distance(j) > 6: cand.append((p, i, j))
+    rng.shuffle(cand)
+    for p, i, j in cand:
+        a, b = nearest_points(i, j)
+        d = a.distance(b)
+        k = (d - 1.0) / d
+        m = affinity.translate(i, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 5: continue
+        if any(m.distance(o) < 0.9 for o in p.inner if o is not i): continue
+        if any(m.intersects(f.geom) for f in p.features if f.geom is not i): continue
+        _replace_inner(p, i, m)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm33', 'A 2 mm wide slit drawn into a part edge (saw-kerf relief / kerf-bend line drawn for a blade)',
+        'A router cannot cut an opening narrower than its bit: the smallest bit that cuts through furniture sheet is '
+        '1/8" (3.175 mm). CAM either skips the slit (the relief / bend cut is missing and the part will not flex or '
+        'fit) or plunges a bit too big for it, cutting it 1+ mm oversize, and thinner bits snap in sheet that deep',
+        _edge_slit,
+        source='Amana compression bit range (smallest through-cutting bit 1/8", 46180: 20.6 mm cut length); Vectric '
+               'VCarve profile/pocket toolpaths ("tool too large for the vector": no toolpath is generated); '
+               'Fab Academy computer-controlled machining week (design for the bit: no features under the tool '
+               'diameter); kerf-bending guides (slits drawn for laser / saw kerf, not router)'),
+    Mut('gm34', 'Part nested 1 mm from the edge of the drawn stock sheet (no edge margin)',
+        'Factory sheet edges are not square, are often dented or chipped, and are where the clamps / screws hold the '
+        'sheet: a part 1 mm from the border gets a damaged or short edge, or the cutter runs into the hold-down',
+        _no_sheet_margin,
+        source='ShopBot "Holding Down Material for Cutting" (screws / clamps along the sheet margin, keep toolpaths '
+               'clear); Vectric nesting "Border gap" (default margin to the material edge); Opendesk making guide '
+               '(keep a margin round the sheet for hold-down and edge damage)'),
+    Mut('gm35', 'Two through openings only 1 mm apart (sheet web between two slots / cut-outs)',
+        'The bridge of sheet between two neighbouring openings must survive both profile cuts and the load in use: '
+        '1 mm of ply or MDF is crushed by the cutter, breaks out when the second opening is cut, or snaps as soon as '
+        'the parts in the slots are loaded - the two slots become one and both joints go loose',
+        _openings_thin_web,
+        source='Opendesk design guidelines (minimum material between features / slots, about the sheet thickness); '
+               'WikiHouse design guide (minimum web between adjacent slots); Fab Academy CNC week press-fit notes '
+               '(thin bridges between slots break during cutting); ShopBot forum threads on webs snapping between '
+               'closely spaced slots'),
+]
