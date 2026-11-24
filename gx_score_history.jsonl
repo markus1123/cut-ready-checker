@@ -10,3 +10,4 @@
 {"t": "2026-11-23T13:57:22", "note": "loop: g12_auto_gm06 for gm06", "rules": 11, "train": 0.574, "transfer": 0.578, "heldout": 0.09, "fp": 2, "noise_flag": 0.204}
 {"t": "2026-11-23T17:02:09", "note": "loop: g13_auto_gm07 for gm07", "rules": 12, "train": 0.63, "transfer": 0.626, "heldout": 0.09, "fp": 2, "noise_flag": 0.206}
 {"t": "2026-11-23T17:29:17", "note": "loop: g14_auto_gm08 for gm08", "rules": 13, "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp": 2, "noise_flag": 0.209}
+{"t": "2026-11-24T16:42:00", "note": "session: gb01_auto_gt07 for gt07", "rules": 14, "train": 0.745, "transfer": 0.724, "heldout": null, "fp": 2, "noise_flag": 0.24}
