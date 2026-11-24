@@ -360,3 +360,96 @@ FAULTS = [
                'oriented on the cutting file); cabinet-software docs (Cabinet Vision / Mozaik "handed / mirrored '
                'parts", left vs right end panels); CNC forum stories of cutting two identical-hand sides'),
 ]
+
+
+def _double_contour(g, rng):
+    """A part outline exported twice: a second copy 0.5 mm inside the first (stroke-to-path / offset-path export)."""
+    from shapely.geometry import JOIN_STYLE
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:12] if p.outer.area > 5000]
+    rng.shuffle(cand)
+    for p in cand:
+        d = p.outer.buffer(-0.5, join_style=JOIN_STYLE.mitre)
+        if d.is_empty or d.geom_type != 'Polygon': continue
+        d = Polygon(d.exterior.coords)
+        if any(not i.within(d) for i in p.inner): continue      # keep the part's own openings inside the copy
+        p.inner.append(d)
+        return g
+    return None
+
+
+def _construction_line(g, rng):
+    """A construction / centre line left on the cut layer, running straight across a part from edge to edge."""
+    from shapely.geometry import LineString
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 10000]
+    rng.shuffle(cand)
+    for p in cand:
+        r = p.outer.minimum_rotated_rectangle
+        if r.geom_type != 'Polygon': continue
+        c = list(r.exterior.coords)
+        a, b = math.dist(c[0], c[1]), math.dist(c[1], c[2])
+        (x0, y0), (x1, y1) = (c[0], c[1]) if a < b else (c[1], c[2])    # short side: the line runs across the part
+        ux, uy = (x1 - x0) / min(a, b), (y1 - y0) / min(a, b)
+        m = p.outer.centroid
+        if not p.outer.contains(m): continue
+        h = min(a, b) / 2 + 20
+        line = LineString([(m.x - ux * h, m.y - uy * h), (m.x + ux * h, m.y + uy * h)])
+        if any(line.intersects(o.outer) for o in g.parts if o is not p): continue
+        g.open_chains.append((line, p.layer))
+        return g
+    return None
+
+
+def _hole_under_layer_tool(g, rng):
+    """Holes on a layer that names the drill size (Opendesk 'HOLE-6.000MM-DIAM') drawn 2 mm smaller than that size:
+    the circle was resized for a smaller fastener but left on the old tool's layer."""
+    from fc.gx.model import layer_op
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        for f in p.features:
+            if f.op == 'hole' and f.r and f.geom is not None:
+                dia = layer_op(f.layer)[2]
+                if dia and dia >= 5 and abs(2 * f.r - dia) < 0.1:
+                    cand.append((p, f, dia))
+    if not cand: return None
+    p0 = rng.choice(cand)[0]
+    n = 0
+    for p, f, dia in cand:
+        if p is not p0: continue
+        c = f.geom.centroid
+        nr = (dia - 2.0) / 2
+        m = Point(c.x, c.y).buffer(nr, 32)
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+        f.geom = m; f.r = nr; n += 1
+    return g if n else None
+
+
+FAULTS += [
+    Mut('gm30', 'Part outline exported twice: a second contour 0.5 mm inside the first (double line)',
+        'CAM sees two closed vectors and cuts both: the outer profile frees the part, the inner one (read as an '
+        'opening) cuts a 0.5 mm ring off it - the part comes out a cutter width undersize, the sliver is thrown, and '
+        'every joint on that part is loose; on a nested sheet the two toolpaths also double the cutting time',
+        _double_contour,
+        source='SendCutSend and Ponoko file-preparation guides (no double / duplicate or overlapping lines; outlined '
+               'strokes - "stroke to path" - export as two contours); Vectric VCarve "Find duplicate vectors" / '
+               '"Join vectors" tools; Inkscape and Illustrator DXF-for-CNC export notes (convert strokes to a single '
+               'path, not an outline of the stroke)'),
+    Mut('gm31', 'Construction / centre line left on the cut layer, running across a part from edge to edge',
+        'Everything on a through-cut layer is machined: a reference line drawn across a part is cut through the '
+        'full sheet thickness and splits the part in two (or leaves a deep kerf across it) - the part is scrap',
+        _construction_line,
+        source='SendCutSend file guidelines (remove construction lines, dimensions and anything that is not a cut '
+               'path); Opendesk design guidelines (only toolpath geometry on the CUT layers, everything else on '
+               'non-cutting layers); Vectric / ShopBot forum threads on parts cut in half by stray lines left in the DXF'),
+    Mut('gm32', 'Holes drawn 2 mm smaller than the drill size named on their layer (HOLE-xMM-DIAM)',
+        'Layer-driven CAM (Opendesk convention: TOP-HOLE-<tool>MM-DIAM_<depth>MM) picks the drill from the layer '
+        'name, not the circle: a hole resized for a smaller fastener but left on the old layer is drilled at the '
+        'layer size, 2 mm oversize - screws and dowels have nothing to bite and the joint falls apart',
+        _hole_under_layer_tool,
+        source='Opendesk "Making" / CAM layer conventions (tool and depth encoded in the layer name, e.g. '
+               'TOP-HOLE-6.000MM-DIAM_14.000MM); Vectric "toolpath templates" and Fusion 360 layer-based drilling '
+               '(operations are applied per layer); Häfele TCH dowel and screw pilot sizes (Ø8 dowel in Ø8, '
+               'Ø5 screw pilot for Ø7 Confirmat)'),
+]
