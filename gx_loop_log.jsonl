@@ -22,3 +22,8 @@
 {"step": "write", "where": "session", "target": "gm09", "rule": "ga02_auto_gm09", "accepted": true, "train": 0.639, "transfer": 0.624, "t": "2026-11-24T18:02:27"}
 {"step": "write", "where": "session", "target": "gm10", "rule": "ga03_auto_gm10", "accepted": true, "train": 0.671, "transfer": 0.652, "t": "2026-11-24T18:36:33"}
 {"step": "mine", "where": "session", "ok": true, "types": 24, "t": "2026-11-24T18:54:28"}
+{"step": "write", "where": "session", "target": "gt07", "rule": "gb01_auto_gt07", "accepted": true, "train": 0.745, "transfer": 0.724, "t": "2026-11-24T16:42:00"}
+{"step": "write", "where": "session", "target": "gm07", "rule": "gb02_auto_gm07", "accepted": true, "train": 0.75, "transfer": 0.724, "t": "2026-11-24T17:16:42"}
+{"step": "mine", "where": "session", "ok": true, "types": 21, "t": "2026-11-24T17:33:53"}
+{"step": "write", "where": "session", "target": "gm22", "rule": "gb03_auto_gm22", "accepted": true, "train": 0.69, "transfer": 0.668, "t": "2026-11-24T18:08:06"}
+{"step": "write", "where": "session", "target": "gm21", "rule": "gb04_auto_gm21", "accepted": true, "train": 0.726, "transfer": 0.7, "t": "2026-11-24T18:43:00"}

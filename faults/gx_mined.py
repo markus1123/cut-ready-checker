@@ -290,6 +290,93 @@ def _wrong_hand(g, rng):
     return None
 
 
+
+def _slot_too_wide(g, rng):
+    """Slots drawn 3 mm wider than the sheet (drawn for thicker stock, or clearance added twice)."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness; n = 0
+    for p in g.parts:
+        for i, w, ang in _slots(p, th):
+            c = i.centroid
+            m = affinity.rotate(i, -ang, origin=c)
+            m = affinity.scale(m, 1.0, (th + 3.0) / w, origin=c)
+            m = affinity.rotate(m, ang, origin=c)
+            if not m.is_valid or m.is_empty or not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+            if any(m.intersects(o) for o in p.inner if o is not i): continue
+            _replace_inner(p, i, m); n += 1
+    return g if n else None
+
+
+def _thin_neck(g, rng):
+    """A notch cut into the edge of a big part leaves only a 6 mm neck of material across the part."""
+    from shapely.geometry import LineString
+    g = clone(g); neck = 6.0
+    cand = [p for p in g.parts if p.outer.area > 20000 and p.outer.is_valid]
+    rng.shuffle(cand)
+    for p in cand[:8]:
+        ring = p.outer.exterior
+        pts = list(ring.coords)[:-1]
+        edges = [(k, math.dist(pts[k], pts[(k + 1) % len(pts)])) for k in range(len(pts))]
+        edges = [e for e in edges if e[1] > 80]
+        rng.shuffle(edges)
+        for k, L in edges[:6]:
+            (x0, y0), (x1, y1) = pts[k], pts[(k + 1) % len(pts)]
+            tx, ty = (x1 - x0) / L, (y1 - y0) / L
+            nx, ny = (-ty, tx) if ring.is_ccw else (ty, -tx)          # inward normal
+            mx, my = x0 + tx * L / 2, y0 + ty * L / 2
+            ray = LineString([(mx + nx * 0.01, my + ny * 0.01), (mx + nx * 2000, my + ny * 2000)])
+            hit = ray.intersection(p.poly.boundary)
+            if hit.is_empty: continue
+            pts_hit = [hit] if hit.geom_type == 'Point' else [q for q in getattr(hit, 'geoms', []) if q.geom_type == 'Point']
+            if not pts_hit: continue
+            W = min(Point(mx, my).distance(q) for q in pts_hit)
+            if not 40 <= W <= 400: continue
+            d = W - neck; hw = 10.0
+            P = lambda a, b: (mx + tx * a + nx * b, my + ty * a + ny * b)
+            notch = Polygon([P(-hw, -1), P(hw, -1), P(hw, d), P(-hw, d)])
+            if any(notch.intersects(o) for o in p.inner): continue
+            new = p.outer.difference(notch)
+            if new.geom_type != 'Polygon' or new.is_empty: continue
+            if new.area < p.outer.area - 2 * hw * d - 50: continue
+            p.outer = Polygon(new.exterior.coords)
+            return g
+    return None
+
+
+def _letter(x, y, ch, h=8.0, s=1.2):
+    """Single-stroke capital as a closed outline (stroke width s, height h) at (x, y) - what exploded text looks like."""
+    w = 0.6 * h
+    shapes = {
+        'I': [(0, 0), (s, 0), (s, h), (0, h)],
+        'L': [(0, 0), (w, 0), (w, s), (s, s), (s, h), (0, h)],
+        'T': [(w / 2 - s / 2, 0), (w / 2 + s / 2, 0), (w / 2 + s / 2, h - s), (w, h - s), (w, h), (0, h), (0, h - s),
+              (w / 2 - s / 2, h - s)],
+        'E': [(0, 0), (w, 0), (w, s), (s, s), (s, h / 2 - s / 2), (w * 0.8, h / 2 - s / 2), (w * 0.8, h / 2 + s / 2),
+              (s, h / 2 + s / 2), (s, h - s), (w, h - s), (w, h), (0, h)],
+        'F': [(0, 0), (s, 0), (s, h / 2 - s / 2), (w * 0.8, h / 2 - s / 2), (w * 0.8, h / 2 + s / 2), (s, h / 2 + s / 2),
+              (s, h - s), (w, h - s), (w, h), (0, h)],
+    }
+    return Polygon([(x + a, y + b) for a, b in shapes[ch]])
+
+
+def _text_on_cut(g, rng):
+    """A part label ('LEFT', 'FEET'...) exploded to outlines and left on the cut layer: the letters are cut through."""
+    g = clone(g)
+    cand = [p for p in g.parts if p.outer.area > 30000 and p.outer.is_valid]
+    rng.shuffle(cand)
+    word = rng.choice(['LEFT', 'FEET', 'TILE', 'LIFT'])
+    for p in cand:
+        c = p.outer.representative_point() if not p.outer.centroid.within(p.outer) else p.outer.centroid
+        for dx, dy in ((0, 0), (40, 0), (-40, 0), (0, 40), (0, -40)):
+            x0, y0 = c.x + dx - 14, c.y + dy - 4
+            letters = [_letter(x0 + 7.5 * k, y0, ch) for k, ch in enumerate(word)]
+            box = Polygon([(x0 - 6, y0 - 6), (x0 + 36, y0 - 6), (x0 + 36, y0 + 14), (x0 - 6, y0 + 14)])
+            if not box.within(p.outer) or p.outer.exterior.distance(box) < 5: continue
+            if any(box.intersects(o) for o in p.inner) or any(box.intersects(f.geom) for f in p.features): continue
+            p.inner.extend(letters)
+            return g
+    return None
+
 FAULTS = [
     Mut('gm01', 'Slots 2 mm narrower than the sheet (drawn for nominal-minus, or for thinner stock)',
         'Mating part cannot be pushed into its slot: sheet goods run at or above nominal thickness, slot joints need '
@@ -359,6 +446,29 @@ FAULTS = [
                'part, check part orientation before cutting); WikiHouse design guide (handed parts labelled and '
                'oriented on the cutting file); cabinet-software docs (Cabinet Vision / Mozaik "handed / mirrored '
                'parts", left vs right end panels); CNC forum stories of cutting two identical-hand sides'),
+    Mut('gm20', 'Slots 3 mm wider than the sheet (drawn for thicker stock, or fit clearance added twice)',
+        'A slot joint holds only by its fit: Opendesk/WikiHouse press-fit slots are sheet + 0.1-0.5 mm. With 3 mm of '
+        'play the joint rattles and racks, the frame is not square, and the parts fall apart under sideways load '
+        '(wedges or glue cannot fill a 3 mm gap)',
+        _slot_too_wide,
+        source='Opendesk design guidelines (slot = measured sheet thickness + small clearance; test the fit first); '
+               'WikiHouse design guide (tight friction joints are what make the frame rigid); ShopBot/Fab Academy '
+               'press-fit test-piece practice; CNC forum threads on wobbly slot furniture cut for 3/4" nominal from '
+               '18 mm (23/32") ply'),
+    Mut('gm21', 'Notch leaves a 6 mm neck across a part (part almost cut in two)',
+        'Plywood/MDF across a 6 mm neck has a fraction of the part\'s strength: it snaps while being cut (the part '
+        'is held only there and the cutter pushes it), or at the first load; in ply the neck can be pure short grain',
+        _thin_neck,
+        source='Opendesk design guidelines (minimum feature width roughly the sheet thickness / bit diameter; avoid '
+               'narrow necks and short grain); WikiHouse design guide (no thin necks in structural parts); ShopBot '
+               '"Holding Down Material for Cutting" (narrow features vibrate and break during cutting)'),
+    Mut('gm22', 'Part label left on the cut layer: exploded lettering is cut through the part',
+        'Labels must go on an engrave / mark layer. On a through-cut layer the CAM cuts every letter out (holes in a '
+        'visible face, letter strokes ~1 mm wide that no router bit fits, loose letter pieces thrown by the cutter)',
+        _text_on_cut,
+        source='Ponoko and SendCutSend file-preparation guides (text must be converted and placed on an engrave '
+               'layer/colour, never on the cut layer); Opendesk cutting-file layer conventions (labels on a '
+               'separate non-cut layer); Fab Academy CNC week notes on layer set-up in VCarve/Fusion'),
 ]
 
 
