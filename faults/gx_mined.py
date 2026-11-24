@@ -360,3 +360,109 @@ FAULTS = [
                'oriented on the cutting file); cabinet-software docs (Cabinet Vision / Mozaik "handed / mirrored '
                'parts", left vs right end panels); CNC forum stories of cutting two identical-hand sides'),
 ]
+
+
+# ---- shard a, round 1 ----------------------------------------------------------------------------------------------
+
+def _glyphs(x0, y0, h, s):
+    """Outlines of the letters 'L', 'T', 'I', 'E' (h mm tall, stroke s mm) as closed polygons starting at x0, y0."""
+    w = 0.6 * h
+    L = Polygon([(0, 0), (w, 0), (w, s), (s, s), (s, h), (0, h)])
+    T = Polygon([(0, h - s), (w, h - s), (w, h), (0, h)]).union(Polygon([(w / 2 - s / 2, 0), (w / 2 + s / 2, 0), (w / 2 + s / 2, h), (w / 2 - s / 2, h)]))
+    I = Polygon([(0, 0), (s, 0), (s, h), (0, h)])
+    E = Polygon([(0, 0), (w, 0), (w, s), (s, s), (s, h / 2 - s / 2), (0.8 * w, h / 2 - s / 2), (0.8 * w, h / 2 + s / 2),
+                 (s, h / 2 + s / 2), (s, h - s), (w, h - s), (w, h), (0, h)])
+    out, x = [], x0
+    for gl, gw in ((L, w), (T, w), (I, s), (E, w)):
+        out.append(affinity.translate(Polygon(gl.exterior.coords), x, y0)); x += gw + 0.5 * h
+    return out
+
+
+def _label_on_cut(g, rng):
+    """A part label ('LTIE', 12 mm letters, 1.5 mm strokes) drawn on the through-cut layer instead of an engrave layer."""
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:8] if p.outer.area > 20000]
+    rng.shuffle(cand)
+    h, s = 12.0, 1.5
+    for p in cand:
+        poly = p.poly
+        for _ in range(40):
+            minx, miny, maxx, maxy = p.outer.bounds
+            x0 = rng.uniform(minx, maxx - 4 * h); y0 = rng.uniform(miny, maxy - h)
+            gl = _glyphs(x0, y0, h, s)
+            box = Polygon([(x0 - 5, y0 - 5), (x0 + 3.6 * h + 5, y0 - 5), (x0 + 3.6 * h + 5, y0 + h + 5), (x0 - 5, y0 + h + 5)])
+            if not box.within(poly) or any(box.intersects(f.geom) for f in p.features):
+                continue
+            p.inner.extend(gl)
+            return g
+    return None
+
+
+def _slot_skewed(g, rng):
+    """One slot for a mating sheet drawn rotated 4 degrees off square (snap/rotate error in CAD)."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [(p, i) for p in g.parts for i, w, ang in _slots(p, g.thickness)]
+    rng.shuffle(cand)
+    for p, i in cand:
+        m = affinity.rotate(i, rng.choice((4.0, -4.0)), origin=i.centroid)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 1.0: continue
+        if any(m.intersects(o) for o in p.inner if o is not i): continue
+        _replace_inner(p, i, m)
+        return g
+    return None
+
+
+def _congruent(a, b):
+    if abs(a.outer.area - b.outer.area) > 0.005 * a.outer.area: return False
+    ca, cb = a.outer.centroid, b.outer.centroid
+    ob = affinity.translate(b.outer, ca.x - cb.x, ca.y - cb.y)
+    for ang in (0, 90, 180, 270):
+        if affinity.rotate(ob, ang, origin=ca).symmetric_difference(a.outer).area < 0.005 * a.outer.area:
+            return True
+    return False
+
+
+def _hole_dropped(g, rng):
+    """One drilled hole missing from one of two (or more) identical parts: its twin still has it (layer/block lost on export)."""
+    g = clone(g)
+    cand = []
+    big = [p for p in g.parts if p.outer.area > 5000 and holes(p)]
+    for a in big:
+        for b in big:
+            if a is not b and len(holes(a)) == len(holes(b)) and _congruent(a, b):
+                cand.append(a); break
+    rng.shuffle(cand)
+    for p in cand:
+        f = rng.choice(holes(p))
+        p.features.remove(f)
+        if f.geom in p.inner: p.inner.remove(f.geom)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm10', 'Part label / number drawn on the through-cut layer (letters cut out of the part)',
+        'Text meant to be engraved or marked is exported onto the profile-cut layer: the router cuts each letter '
+        'through the sheet, leaving holes in a visible face, loose letter slugs that the cutter throws, and 1.5 mm '
+        'letter strokes that no furniture bit can follow',
+        _label_on_cut,
+        source='SendCutSend and Ponoko file-preparation guides (text must be on an engrave/mark layer or converted '
+               'deliberately; text on the cut layer is cut out); Vectric VCarve/Aspire (labels go to an engraving or '
+               'V-carve toolpath, not a profile); Fab Academy CNC week reports of part numbers cut through by mistake'),
+    Mut('gm11', 'A sheet slot drawn 4 degrees off square (rotated by a snap / rotate error)',
+        'The mating sheet enters a skewed slot at an angle: 4 degrees over an 18 mm thick sheet is about 1.3 mm of '
+        'misalignment across the slot, so a press-fit joint binds or splits the ply, and the assembled part leans',
+        _slot_skewed,
+        source='Opendesk / WikiHouse slot-joint design guidance (slots square to the mating sheet, cut to sheet '
+               'thickness + clearance); Fab Academy press-fit assignments (joints bind when slots are not aligned); '
+               'CAD forum threads on rotation snap / "angle off by a degree" errors in DXF exports'),
+    Mut('gm12', 'One drilled hole missing on one of two identical parts (its twin still has it)',
+        'Identical parts are drilled for the same hardware; when a hole is lost on export (hidden/frozen layer, '
+        'exploded block) one copy is cut without it, so a screw, dowel, cam or shelf pin has nowhere to go and the '
+        'part has to be drilled by hand or recut',
+        _hole_dropped,
+        source='Hettich/Häfele mounting instructions (each panel of a pair carries the same System 32 / fitting '
+               'bores); Opendesk making guide (check the file against the assembly drawing - every hole must be '
+               'present); CNC forum stories of holes missing after DXF export from hidden or frozen layers'),
+]

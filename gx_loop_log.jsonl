@@ -15,3 +15,6 @@
 {"step": "write", "target": "gm07", "rule": "g13_auto_gm07", "accepted": true, "train": 0.63, "transfer": 0.626, "heldout": 0.09, "fp_heldout": 2, "secs": 11087, "t": "2026-11-23T17:02:09"}
 {"step": "write", "target": "gm08", "rule": "g14_auto_gm08", "accepted": true, "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp_heldout": 2, "secs": 1628, "t": "2026-11-23T17:29:17"}
 {"step": "end", "train": 0.685, "transfer": 0.682, "heldout": 0.09, "fp": 2, "t": "2026-11-23T17:29:17"}
+{"step": "write", "where": "session", "target": "gt05", "rule": "ga01_auto_gt05", "accepted": false, "why": ["noise flag rate 22% -> 25%"], "t": "2026-11-24T15:38:20"}
+{"step": "write", "where": "session", "target": "gt05", "rule": "ga01_auto_gt05", "accepted": false, "why": ["target not caught more often"], "t": "2026-11-24T16:34:30"}
+{"step": "mine", "where": "session", "ok": true, "types": 21, "t": "2026-11-24T16:54:27"}
