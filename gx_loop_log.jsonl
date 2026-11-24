@@ -12,3 +12,4 @@
 {"step": "write", "target": "gm05", "rule": "g11_auto_gm05", "accepted": true, "train": 0.622, "transfer": 0.627, "heldout": 0.09, "fp_heldout": 2, "secs": 1339, "t": "2026-11-23T13:21:28"}
 {"step": "mine", "ok": true, "agent": "ped gm09 from 36 designs to 30.\n\nOne risk with gm08: the mutated part's outline is left as an invalid shapely polygon on purpose, because that is the fault. Any rule that runs geometry operations on `p.outer` without checking validity first could crash on these designs.\n\nNothing has been committed.\n", "t": "2026-11-23T13:24:52"}
 {"step": "write", "target": "gm06", "rule": "g12_auto_gm06", "accepted": true, "train": 0.574, "transfer": 0.578, "heldout": 0.09, "fp_heldout": 2, "secs": 1623, "t": "2026-11-23T13:57:22"}
+{"step": "write", "target": "gm07", "rule": "g13_auto_gm07", "accepted": true, "train": 0.63, "transfer": 0.626, "heldout": 0.09, "fp_heldout": 2, "secs": 11087, "t": "2026-11-23T17:02:09"}
