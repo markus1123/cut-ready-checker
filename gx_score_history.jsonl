@@ -15,3 +15,4 @@
 {"t": "2026-11-24T16:39:09", "note": "session: gc03_auto_gm30 for gm30", "rules": 16, "train": 0.714, "transfer": 0.676, "heldout": null, "fp": 2, "noise_flag": 0.228}
 {"t": "2026-11-24T17:06:19", "note": "session: gc04_auto_gm31 for gm31", "rules": 17, "train": 0.754, "transfer": 0.723, "heldout": null, "fp": 3, "noise_flag": 0.232}
 {"t": "2026-11-24T17:34:02", "note": "session: gc05_auto_gm32 for gm32", "rules": 18, "train": 0.817, "transfer": 0.771, "heldout": null, "fp": 3, "noise_flag": 0.232}
+{"t": "2026-11-24T18:18:58", "note": "session: gc06_auto_gm33 for gm33", "rules": 19, "train": 0.757, "transfer": 0.73, "heldout": null, "fp": 3, "noise_flag": 0.232}
