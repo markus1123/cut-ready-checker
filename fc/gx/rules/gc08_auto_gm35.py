@@ -1,8 +1,9 @@
+from fc.gx import limits
 from fc.core import Finding
 from fc.gx.core import gx_rule
 from shapely.strtree import STRtree
 
-WEB = 1.6         # mm: 1/16" - less sheet than the finest end mill is wide; built designs keep >= 7.4 mm
+WEB = limits.FINEST         # mm: 1/16" - less sheet than the finest end mill is wide; built designs keep >= 7.4 mm
 TOUCH = 0.3       # mm: closer than this the two openings share a cut line (one opening drawn in two pieces)
 MIN_OPEN = 50.0   # mm2: smaller loops are marks / lettering
 LASER = 1.5       # mm: an opening that a 3 mm disc does not fit in = a laser / waterjet file, not a router file

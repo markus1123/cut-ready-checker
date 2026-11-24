@@ -19,9 +19,10 @@ from shapely.validation import make_valid
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE = os.environ.get('FC_CACHE') or os.path.join(HERE, 'corpus', 'cache')
-VERSION = 7   # bump to invalidate the cache when parsing changes
+VERSION = 8   # bump to invalidate the cache when parsing changes
 
 SKIP = re.compile(r'(?i)noprint|note|text|dim|board|border|defpoints|tolerance|title|frame|label|annot|hatch|center')
+STOCK = [(2440, 1220), (2500, 1250), (3050, 1525), (2800, 2070), (2400, 1200)]   # common sheet formats, mm
 SCALE = {'mm': 1.0, 'mm?': 1.0, 'in': 25.4, 'in?': 25.4, 'cm?': 10.0, 'm': 1000.0}
 
 
@@ -83,6 +84,7 @@ class GDesign:
     thickness_est: Optional[float] = None    # GUESS from the most common slot width (files with 2 sheet thicknesses
                                              # fool it): fine for warnings / choosing what to look at, not for errors
     notes: List[str] = field(default_factory=list)
+    units_declared: Optional[str] = None     # set when the header's units were overridden as implausible (see load)
 
 
 def _loops(fn, tol):
@@ -108,23 +110,35 @@ def _loops(fn, tol):
 
 
 def _chain(segs, eps):
+    """Join segments end to end into loops. Ends match when they are within eps (checked in the 3x3 grid cells
+    around a point: plain rounding split points 0.001 mm apart that straddle a cell edge, leaving 'open'
+    contours whose ends touch)."""
     key = lambda p: (round(p[0] / eps), round(p[1] / eps))
     ends = {}
     for i, (pts, _) in enumerate(segs):
         ends.setdefault(key(pts[0]), []).append((i, 0)); ends.setdefault(key(pts[-1]), []).append((i, 1))
+    def near(p):
+        kx, ky = key(p)
+        for dx in (0, -1, 1):
+            for dy in (0, -1, 1):
+                for j, s in ends.get((kx + dx, ky + dy), []):
+                    q = segs[j][0][0 if s == 0 else -1]
+                    if (q[0] - p[0]) ** 2 + (q[1] - p[1]) ** 2 <= (1.5 * eps) ** 2:
+                        yield j, s
+    close = lambda a, b: (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 <= (1.5 * eps) ** 2
     used, loops, opens = set(), [], []
     for i, (pts, layer) in enumerate(segs):
         if i in used: continue
         used.add(i)
-        if key(pts[0]) == key(pts[-1]) and len(pts) > 2:
+        if close(pts[0], pts[-1]) and len(pts) > 2:
             loops.append((pts, layer)); continue
-        line = list(pts); start, cur = key(pts[0]), key(pts[-1]); closed = False
+        line = list(pts); start = pts[0]; closed = False
         for _ in range(200000):
-            nxt = [(j, s) for j, s in ends.get(cur, []) if j not in used]
+            nxt = [(j, s) for j, s in near(line[-1]) if j not in used]
             if not nxt: break
             j, s = nxt[0]; used.add(j); q = segs[j][0] if s == 0 else segs[j][0][::-1]
-            line += q[1:]; cur = key(q[-1])
-            if cur == start: closed = True; break
+            line += q[1:]
+            if close(line[-1], start): closed = True; break
         (loops if closed and len(line) > 3 else opens).append((line, layer))
     return loops, opens
 
@@ -183,6 +197,14 @@ def parse(fn, units='mm', meta=None, did=None):
             sheet = p; notes.append('sheet border on layer %s' % layer)
             for k in kids.get(i, []): parent[k] = None
             parent[i] = -1
+    # an EMPTY (or lone) rectangle the size of a stock sheet is the sheet outline (e.g. 'REVERSE FACE'), not a part
+    for i, (p, layer) in enumerate(polys):
+        if parent[i] is not None: continue
+        minx, miny, maxx, maxy = p.bounds
+        w, h = max(maxx - minx, maxy - miny), min(maxx - minx, maxy - miny)
+        if p.area > 0.99 * w * h and any(abs(w - a) <= 0.02 * a and abs(h - b) <= 0.02 * b for a, b in STOCK) \
+                and not kids.get(i):
+            parent[i] = -1; notes.append('empty sheet outline on layer %s' % layer)
     depth = [0] * len(polys)
     for i in range(len(polys)):
         d, q = 0, parent[i]
@@ -278,6 +300,10 @@ def slot_thickness(g, min_count=4):
     return best[0] if best else None
 
 
+def _longest(g):
+    return max((max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts), default=0)
+
+
 def _plausible(g):
     if not g.parts: return True
     L = max(max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts)
@@ -285,16 +311,26 @@ def _plausible(g):
 
 
 def load(fn, units='mm', meta=None, did=None):
-    """parse() with an on-disk cache. Units ending in '?' were guessed (file has no $INSUNITS): if the guess gives
-    furniture-implausible sizes, try mm / inch / cm and keep the first plausible one (noted in g.notes).
-    Declared units are never overridden: a wrong header is a real fault in the file."""
+    """parse() with an on-disk cache. If the units (guessed when the file has no $INSUNITS, or declared in its
+    header) give furniture-implausible sizes - a 39 m chair, a 2.4 km sheet - try mm / inch / cm and keep the first
+    plausible one. A wrong DECLARED header is recorded in g.units_declared + g.notes: rule G15 reports it as a
+    warning (the operator picks units on import), instead of every size rule misfiring on 1000x parts."""
     g = _load(fn, units, meta, did)
-    if units.endswith('?') and not _plausible(g):
+    guessed = units.endswith('?')
+    # a declared header is only overridden when it makes the drawing absurdly LARGE (m or in on mm geometry):
+    # small declared sizes are real (joint test pieces are 50-100 mm)
+    if not _plausible(g) and (guessed or _longest(g) > 3200):
         for u in ('mm?', 'in?', 'cm?'):
-            if u == units: continue
+            if u.rstrip('?') == units.rstrip('?'): continue
+            if not guessed and SCALE[u] >= SCALE.get(units, 1.0): continue
             g2 = _load(fn, u, meta, did)
             if _plausible(g2):
-                g2.notes.append('unitless file read as %s (guess %s gave implausible sizes)' % (u, units)); return g2
+                if guessed:
+                    g2.notes.append('unitless file read as %s (guess %s gave implausible sizes)' % (u, units))
+                else:
+                    g2.units_declared = units
+                    g2.notes.append('header says %s but sizes only make sense in %s' % (units, u.rstrip('?')))
+                return g2
     return g
 
 

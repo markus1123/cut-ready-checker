@@ -1,8 +1,9 @@
+from fc.gx import limits
 import math
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT_MIN = 3.175           # 1/8": the smallest router bit that cuts through furniture sheet (Amana 46180)
+BIT_MIN = limits.BIT_MIN           # 1/8": the smallest router bit that cuts through furniture sheet (Amana 46180)
 D_MIN = BIT_MIN - 0.4     # 2.775 mm: what a 1/8" bit can still stand in for (same slack as G05's plunged holes)
 MIN_LEN = 8.0             # mm: a slit shorter than this is a sharp corner / drawing noise, not a drawn cut
 MAX_SLITS = 2             # a part with a whole row of slits is a kerf-bending / laser pattern made for another tool

@@ -1,9 +1,10 @@
+from fc.gx import limits
 import math
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
 THIN_STOCK = 0.7    # slots under 0.7 t take deliberately thinner stock: 6-12 mm backs / inlays in a 15-18 mm carcass
-BIT_MIN = 3.175     # 1/8": the smallest router bit that cuts through furniture sheet; a narrower through opening is
+BIT_MIN = limits.BIT_MIN     # 1/8": the smallest router bit that cuts through furniture sheet; a narrower through opening is
                     # a saw kerf / kerf-bending cut, not a router-cut slot for a sheet
 
 

@@ -1,8 +1,9 @@
+from fc.gx import limits
 import math
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT_MIN = 3.175     # mm, 1/8": smallest router bit that cuts through furniture sheet (docs/rules-from-manuals.md s5)
+BIT_MIN = limits.BIT_MIN     # mm, 1/8": smallest router bit that cuts through furniture sheet (docs/rules-from-manuals.md s5)
 MAX_GLYPH = 25.0    # mm: a glyph of a part label is at most this long (labels are 5-20 mm tall)
 LINK = 25.0         # mm: glyphs of one word / label sit closer than this to each other
 MIN_GLYPHS = 3      # a label has several glyphs; one or two narrow slivers are something else

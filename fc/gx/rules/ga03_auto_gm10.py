@@ -1,8 +1,9 @@
+from fc.gx import limits
 import math
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT_MIN = 3.175     # mm (1/8"): the smallest router bit that cuts through furniture sheet (Amana 46180)
+BIT_MIN = limits.BIT_MIN     # mm (1/8"): the smallest router bit that cuts through furniture sheet (Amana 46180)
 ROUTER_T = 9.0      # mm: sheet at least this thick is cut on a router, not a laser
 MIN_LEN = 3.0       # mm: loops smaller than this are centre marks / export dust, not cut features
 

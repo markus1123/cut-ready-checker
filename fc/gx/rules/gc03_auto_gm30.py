@@ -1,7 +1,8 @@
+from fc.gx import limits
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT = 3.175        # 1/8": the smallest router bit that cuts through furniture sheet
+BIT = limits.BIT_MIN        # 1/8": the smallest router bit that cuts through furniture sheet
 MIN_PART = 2500.0  # mm2: smaller loops are lettering / marks, not parts
 
 

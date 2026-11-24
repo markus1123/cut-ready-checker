@@ -1,8 +1,9 @@
+from fc.gx import limits
 from fc.core import Finding
 from fc.gx.core import gx_rule
 from shapely.strtree import STRtree
 
-MIN_GAP = 1.6       # mm: 1/16" - the finest end mill made for routing sheet at all; furniture uses 3.175-12 mm
+MIN_GAP = limits.FINEST       # mm: 1/16" - the finest end mill made for routing sheet at all; furniture uses 3.175-12 mm
 TOUCH = 0.3         # mm: closer than this the outlines share one cut line (common-line nesting, snap tolerance)
 MIN_PART = 2500.0   # mm2 (~50 x 50 mm): smaller loops are lettering / decoration / offcuts, not nested parts
 MIN_ROUTER_SLOT = 3.0   # mm: a through-opening narrower than this cannot be routed (1/8" bit) - a laser file

@@ -1,8 +1,9 @@
+from fc.gx import limits
 import math
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT_MIN = 3.175     # 1/8" - the smallest router bit that still cuts through furniture sheet (Amana 46180, 20.6 mm flute)
+BIT_MIN = limits.BIT_MIN     # 1/8" - the smallest router bit that still cuts through furniture sheet (Amana 46180, 20.6 mm flute)
 PLUNGE_SLACK = 0.4  # how much a plunged hole may come out oversize and still work as a screw pilot / locator
 D_MIN = BIT_MIN - PLUNGE_SLACK   # 2.775 mm
 

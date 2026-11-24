@@ -1,9 +1,10 @@
+from fc.gx import limits
 import math
 from shapely.geometry import Point, Polygon
 from fc.core import Finding
 from fc.gx.core import gx_rule
 
-BIT_R = 3.0         # 6 mm (1/4") end mill: the smallest bit that cuts 12-24 mm furniture sheet through in sane time.
+BIT_R = limits.CONTOUR_R         # 6 mm (1/4") end mill: the smallest bit that cuts 12-24 mm furniture sheet through in sane time.
                     # Any inside corner sharper than this radius is left with a fillet of material by the bit.
 FILLET = 0.5 * (1 - math.pi / 4) * BIT_R ** 2   # half the material a 3 mm-radius bit leaves in a 90-degree corner
 LOBE_MIN = 4.0      # mm^2 of drawn relief (dog-bone / T-bone lobes) beyond the core rectangle: below that it is noise
