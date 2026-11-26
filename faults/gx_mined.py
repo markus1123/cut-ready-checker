@@ -1175,3 +1175,32 @@ FAULTS += [
                'placed) reported in Fusion 360 and Vectric forum threads; Opendesk design guidelines (hardware holes '
                'fully within the part with a sheet thickness of material round them)'),
 ]
+
+
+def _h_row_hole_shallow(g, rng):
+    """One hole of a regular drilled row put on a drill layer with half the depth of its row-mates (wrong layer /
+    depth picked for that circle)."""
+    import re
+    g = clone(g)
+    cand = [(p, row) for p in g.parts for row in _h_rows(p) if all(f.depth for f in row)
+            and len({round(f.depth, 1) for f in row}) == 1]
+    if not cand: return None
+    p, row = rng.choice(cand)
+    f = row[rng.randrange(1, len(row) - 1)]
+    f.depth = round(f.depth / 2, 3)
+    if re.search(r'_\d+(?:\.\d+)?\s*MM\s*$', f.layer.upper()):
+        f.layer = re.sub(r'(?i)_\d+(?:\.\d+)?(\s*MM\s*)$', lambda m: '_%.3f%s' % (f.depth, m.group(1)), f.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm69', 'One hole of a regular drilled row on a drill layer half as deep as the rest of the row',
+        'Layer-driven CAM drills every circle to the depth its layer names: one hole of a bolt / dowel / shelf-pin '
+        'row put on a shallower layer stops half-way, so its bolt will not pass, its dowel stands proud and keeps '
+        'the joint open, or its shelf pin falls out - found only at assembly',
+        _h_row_hole_shallow,
+        source='Opendesk CAM layer conventions (drill depth in the layer name, e.g. TOP-HOLE-8.000MM-DIAM_12.000MM); '
+               'Vectric / Fusion 360 layer-based drilling (depth set per layer or per operation); Hettich System 32 '
+               '(all holes of a line drilled to one depth for the pins); forum threads on single holes left short '
+               'after a circle landed on the wrong layer'),
+]
