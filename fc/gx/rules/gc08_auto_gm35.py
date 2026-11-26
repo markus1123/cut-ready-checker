@@ -6,6 +6,7 @@ from shapely.strtree import STRtree
 WEB = limits.FINEST         # mm: 1/16" - less sheet than the finest end mill is wide; built designs keep >= 7.4 mm
 TOUCH = 0.3       # mm: closer than this the two openings share a cut line (one opening drawn in two pieces)
 MIN_OPEN = 50.0   # mm2: smaller loops are marks / lettering
+MIN_PART = 2500.0  # mm2 (~50 x 50 mm): smaller loops with openings are logos / lettering, not furniture parts
 LASER = 1.5       # mm: an opening that a 3 mm disc does not fit in = a laser / waterjet file, not a router file
 MAX_PAIRS = 2     # more tight pairs = a deliberate lattice / laser pattern
 SCALE_MODEL = 300.0   # mm: a unit-less furniture file whose BIGGEST part is shorter than this is a 1:10 / cm drawing
@@ -25,11 +26,15 @@ def check(g):
         as one big part whose 'openings' are the real parts, so the gap between two nested PARTS looks like a web
         between two openings; part spacing is G10's job.
       * scale drawings: no unit header and the biggest part under 300 mm - furniture drawn at 1:10 or in cm, so a
-        '1 mm' web is really 10 mm; an absolute mm limit does not apply at unknown scale."""
+        '1 mm' web is really 10 mm; an absolute mm limit does not apply at unknown scale.
+      * logos / licence marks: a part under ~50 x 50 mm (e.g. the 29 mm CC mark - a disc with two 'C' openings -
+        printed on Kadushin's sheets) is a label, not a furniture part; same size floor as GB01 / G10."""
     spans = [max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts]
     if str(g.units).endswith('?') and spans and max(spans) < SCALE_MODEL:
         return
     for p in g.parts:
+        if p.outer.area < MIN_PART:
+            continue
         ii = [i for i in p.inner if i.geom_type == 'Polygon' and i.is_valid and i.area > MIN_OPEN]
         if len(ii) < 2 or len(ii) > 400:
             continue
