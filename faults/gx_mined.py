@@ -874,3 +874,106 @@ FAULTS += [
                '(thin bridges between slots break during cutting); ShopBot forum threads on webs snapping between '
                'closely spaced slots'),
 ]
+
+
+# ---- shard g, round 2 ----------------------------------------------------------------------------------------------
+
+def _g_pocket_thin_floor(g, rng):
+    """One pocket / rebate deepened to leave only 1 mm of sheet under it (depth = sheet thickness - 1 mm)."""
+    if not g.thickness or g.thickness < 6: return None
+    g = clone(g)
+    cand = [f for p in g.parts for f in p.features if f.op == 'pocket' and f.depth and f.depth < g.thickness - 2.0
+            and f.geom is not None and f.geom.area > 100]
+    if not cand: return None
+    f = rng.choice(cand)
+    f.depth = round(g.thickness - 1.0, 3)
+    return g
+
+
+def _g_thin_finger(g, rng):
+    """A 4 mm wide, 40 mm long finger / tab sticking out of a part edge (a tab drawn far narrower than the sheet)."""
+    th = g.thickness or g.thickness_est
+    if not th or th < 9: return None
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 20000 and p.outer.is_valid]
+    rng.shuffle(cand)
+    w, L = 4.0, 40.0
+    for p in cand:
+        ext = p.outer.exterior
+        coords = list(ext.coords)
+        segs = [(coords[i], coords[i + 1]) for i in range(len(coords) - 1) if math.dist(coords[i], coords[i + 1]) > 60]
+        rng.shuffle(segs)
+        for (x0, y0), (x1, y1) in segs[:6]:
+            d = math.dist((x0, y0), (x1, y1)); ux, uy = (x1 - x0) / d, (y1 - y0) / d
+            mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+            for nx, ny in ((-uy, ux), (uy, -ux)):
+                if p.outer.contains(Point(mx + nx * 2, my + ny * 2)): continue     # (nx, ny) must point outward
+                fin = Polygon([(mx - ux * w / 2 - nx * 0.5, my - uy * w / 2 - ny * 0.5),
+                               (mx + ux * w / 2 - nx * 0.5, my + uy * w / 2 - ny * 0.5),
+                               (mx + ux * w / 2 + nx * L, my + uy * w / 2 + ny * L),
+                               (mx - ux * w / 2 + nx * L, my - uy * w / 2 + ny * L)])
+                if any(fin.buffer(5).intersects(o.outer) for o in g.parts if o is not p): continue
+                if g.sheet is not None and not fin.within(g.sheet): continue
+                new = p.outer.union(fin)
+                if new.geom_type != 'Polygon' or len(new.interiors): continue
+                p.outer = Polygon(new.exterior.coords)
+                return g
+    return None
+
+
+def _g_hole_into_opening(g, rng):
+    """A drilled hole moved so it breaks into the edge of a slot / cut-out of the same part (centre 1 mm inside it)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        ops = [i for i in p.inner if i.area > 200 and not any(f.geom is i for f in p.features)]
+        hs = [f for f in holes(p) if f.r >= 1.5]
+        if ops and hs: cand.append((p, ops, hs))
+    rng.shuffle(cand)
+    for p, ops, hs in cand:
+        f = rng.choice(hs)
+        c = f.geom.centroid
+        o = min(ops, key=lambda i: i.distance(c))
+        a, b = nearest_points(o.exterior, c)
+        d = a.distance(b)
+        if d < 1e-6 or d > 150: continue
+        k = (d + f.r - 1.0) / d                     # hole edge ends up r - 1 mm ... i.e. the bore overlaps the opening
+        dx, dy = (a.x - b.x) * k, (a.y - b.y) * k
+        m = affinity.translate(f.geom, dx, dy)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+        if any(m.intersects(h.geom) for h in p.features if h is not f and h.op == 'hole'): continue
+        if m.intersection(o).area < 1.0: continue
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+        f.geom = m
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm50', 'Pocket / rebate drawn 1 mm short of the sheet thickness (1 mm floor left)',
+        'Sheet goods are not as thick as their name: plywood is allowed several tenths of a mm either way and varies '
+        'across one sheet, and the spoilboard is never perfectly flat. A pocket that leaves 1 mm of floor either breaks '
+        'through where the sheet is thin (a hole in a visible face) or leaves a floor so weak it cracks as soon as a '
+        'fitting or shelf loads it',
+        _g_pocket_thin_floor,
+        source='EN 315 plywood dimensional tolerances (thickness tolerance grows with nominal thickness, about ±0.7 mm '
+               'for 18 mm); ShopBot "Holding Down Material for Cutting" (onion skin 0.25-0.76 mm is the deliberate '
+               'cut-through margin, so a 1 mm floor is within the machine\'s own Z error); Vectric / Fusion pocketing '
+               'guides (leave a minimum floor, zero Z to the spoilboard for through cuts)'),
+    Mut('gm51', 'A 4 mm wide finger / tab sticking 40 mm out of a part edge',
+        'A strip of ply or MDF much narrower than the sheet is thick has almost no cross-grain strength: it breaks '
+        'off while the part is cut (the cutter deflects it, the vacuum cannot hold it) or the first time the part is '
+        'handled or assembled, so the tab or locating finger it was meant to be is missing',
+        _g_thin_finger,
+        source='Opendesk design guidelines (minimum feature / tab width about the sheet thickness); Fab Academy CNC '
+               'week notes (thin features snap off during milling, keep features wider than the bit and the sheet); '
+               'ShopBot hold-down guide (small, narrow pieces are thrown or break when not held)'),
+    Mut('gm52', 'A drilled hole breaking into the edge of a slot / cut-out in the same part',
+        'A bore that overlaps an opening has no full wall: the drill wanders into the gap and tears out the slot edge, '
+        'and the screw, dowel or cam it was drilled for has nothing to grip on one side, so the fitting pulls out and '
+        'the slot loses its clean edge for the mating part',
+        _g_hole_into_opening,
+        source='Häfele / Hettich fitting instructions (bores in solid material, minimum distance to panel edges and '
+               'other machining); Opendesk making guide (check hole positions against slots and cut-outs); woodworking '
+               'forum reports of dowel / cam bores breaking into adjacent cut-outs'),
+]
