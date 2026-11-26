@@ -92,3 +92,4 @@
 {"step": "write", "where": "session", "target": "gm69", "rule": "gh10_auto_gm69", "accepted": true, "train": 0.816, "transfer": 0.804, "t": "2026-11-26T09:55:33"}
 {"step": "refine", "where": "session", "rule": "G02", "file": "fc/gx/rules/g02_overlap.py", "accepted": true, "noise_rule": [19, 13], "noise_flag": [0.198, 0.19], "t": "2026-11-26T22:07:06"}
 {"step": "refine", "where": "session", "rule": "GF10", "file": "fc/gx/rules/gf10_auto_gm48.py", "accepted": true, "noise_rule": [3, 0], "noise_flag": [0.19, 0.183], "t": "2026-11-26T22:37:03"}
+{"step": "refine", "where": "session", "rule": "G10", "file": "fc/gx/rules/g10_auto_gm04.py", "accepted": true, "noise_rule": [6, 3], "noise_flag": [0.183, 0.178], "t": "2026-11-26T22:55:01"}

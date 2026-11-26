@@ -5,6 +5,8 @@ from shapely.strtree import STRtree
 
 MIN_GAP = limits.FINEST       # mm: 1/16" - the finest end mill made for routing sheet at all; furniture uses 3.175-12 mm
 TOUCH = 0.3         # mm: closer than this the outlines share one cut line (common-line nesting, snap tolerance)
+SNAP = 0.5          # mm: ... and up to this on furniture-sized drawings (largest part >= 300 mm), as in G02
+SNAP_L = 300.0      # mm
 MIN_PART = 2500.0   # mm2 (~50 x 50 mm): smaller loops are lettering / decoration / offcuts, not nested parts
 MIN_ROUTER_SLOT = 3.0   # mm: a through-opening narrower than this cannot be routed (1/8" bit) - a laser file
 MAX_TIGHT_PAIRS = 2     # more sub-cutter pairs than this = the whole layout is deliberately tight (laser nest)
@@ -37,12 +39,21 @@ def check(g):
       * drawings made for a kerf-thin process: if through-openings narrower than a 1/8" bit exist, the file is a
         laser/waterjet file (no router could cut those either), and if many part pairs sit at the same sub-cutter
         spacing the layout is a deliberate laser nest / unnested parts sheet that router CAM re-nests anyway.
-        The router fault is one part dragged too close in an otherwise properly spaced nest."""
+        The router fault is one part dragged too close in an otherwise properly spaced nest.
+    Narrowed after reading real files from other designers:
+      * on furniture-sized drawings (largest part >= 300 mm) outlines up to 0.5 mm apart were drawn touching
+        (common-line nesting) with snap imprecision - the same tolerance G02 gives overlaps; one cut separates them;
+      * unitless drawings whose biggest part is under 300 mm (g.scale_uncertain: a 1:10 or cm drawing, or a model)
+        give no reliable mm gap: a "1.4 mm" gap may be 14 mm on the real sheet."""
+    if g.scale_uncertain:
+        return
     parts = [p for p in g.parts if p.outer is not None and not p.outer.is_empty and p.outer.is_valid
              and p.outer.area >= MIN_PART]
     if len(parts) < 2:
         return
     outs = [p.outer for p in parts]
+    L = max(max(o.bounds[2] - o.bounds[0], o.bounds[3] - o.bounds[1]) for o in outs)
+    touch = SNAP if L >= SNAP_L else TOUCH
     tree = STRtree(outs)
     tight = []
     for i, a in enumerate(outs):
@@ -54,7 +65,7 @@ def check(g):
             if a.intersects(b):
                 continue
             d = a.distance(b)
-            if d == d and TOUCH < d < MIN_GAP:
+            if d == d and touch < d < MIN_GAP:
                 tight.append((d, i, j))
     if not tight or len(tight) > MAX_TIGHT_PAIRS:
         return
