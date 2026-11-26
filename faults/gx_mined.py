@@ -1049,6 +1049,113 @@ def _g_hole_into_opening(g, rng):
         if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
         if any(m.intersects(h.geom) for h in p.features if h is not f and h.op == 'hole'): continue
         if m.intersection(o).area < 1.0: continue
+def _h_notch_no_dogbones(g, rng):
+    """Every dog-boned slot-together edge notch of one part exported with sharp 90-degree inner corners."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [p for p in g.parts if any(_core_rect(n) is not None for n, w, L, ang in _edge_slots(p, g.thickness))]
+    rng.shuffle(cand)
+    for p in cand:
+        o = Polygon(p.outer.exterior.coords); n_done = 0
+        for n, w, L, ang in _edge_slots(p, g.thickness):
+            core = _core_rect(n)
+            if core is None: continue
+            lobes = n.difference(core.buffer(0.01, join_style=2))
+            if lobes.is_empty: continue
+            new = o.union(lobes.buffer(0.01, join_style=2))
+            if new.geom_type != 'Polygon' or len(new.interiors): continue
+            o = Polygon(new.exterior.coords); n_done += 1
+        if not n_done: continue
+        p.outer = o
+        return g
+    return None
+
+
+def _h_outline_inside_layer(g, rng):
+    """One big part's outline put on the cut-INSIDE layer (tool offset to the inside of the line) in a file that
+    uses the Opendesk-style INSIDE / OUTSIDE layer convention."""
+    outs = [p for p in g.parts if 'OUTSIDE' in p.layer.upper()]
+    if len(outs) < 2: return None
+    g = clone(g)
+    cand = [p for p in g.parts if 'OUTSIDE' in p.layer.upper() and p.outer.area > 20000
+            and not any(q is not p and p.outer.within(q.outer) for q in g.parts)]
+    if not cand: return None
+    p = rng.choice(cand)
+    import re
+    p.layer = re.sub('(?i)OUTSIDE', lambda m: 'INSIDE' if m.group(0).isupper() else 'inside', p.layer)
+    return g
+
+
+def _h_pocket_thin_floor(g, rng):
+    """One blind pocket / bore drawn so deep that only 0.5 mm of sheet is left under it."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [f for p in g.parts for f in p.features
+            if f.op in ('pocket', 'hole') and f.depth and 1.5 <= g.thickness - f.depth and f.geom.within(p.outer)]
+    if not cand: return None
+    f = rng.choice(cand)
+    f.depth = round(g.thickness - 0.5, 3)
+    import re
+    if re.search(r'_\d+(?:\.\d+)?\s*MM\s*$', f.layer.upper()):
+        f.layer = re.sub(r'(?i)_\d+(?:\.\d+)?(\s*MM\s*)$', lambda m: '_%.3f%s' % (f.depth, m.group(1)), f.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm60', 'Slot-together edge notches exported with sharp inner corners (dog-bones / T-bones missing)',
+        'A router bit cannot cut a sharp inside corner: it leaves a radius of half the bit (3 mm for a 6 mm bit) in '
+        'both bottom corners of the notch. The mating part, which has square corners, sits on those radii and stops '
+        '3+ mm short, so the slot-together joint never seats and the furniture racks; filing out every corner by hand '
+        'is the usual fix',
+        _h_notch_no_dogbones,
+        source='Opendesk design guidelines (dog-bone or T-bone every internal corner of a joint); Fab Academy '
+               'computer-controlled machining week (press-fit joints need dog-bone fillets); Fusion 360 "Dogbone" '
+               'add-in documentation; ShopBot / Vectric forum threads on slot joints that will not close because of '
+               'corner radii left by the bit'),
+    Mut('gm61', 'Part outline drawn on the cut-INSIDE layer (tool offset to the wrong side of the line)',
+        'Layer-driven CAM (Opendesk convention: CUT-OUTSIDE for part outlines, CUT-INSIDE for openings) offsets the '
+        'tool by its radius to the named side: an outline on the INSIDE layer is cut with the bit inside the line, so '
+        'the part comes out one bit diameter (6-9 mm) too small in each direction - every tab is too short and every '
+        'slot-together edge misses its mate',
+        _h_outline_inside_layer,
+        source='Opendesk CAM layer conventions (TOP-CUT-OUTSIDE / TOP-CUT-INSIDE with depth suffix); Vectric VCarve '
+               'profile toolpath "Machine vectors: Outside / Inside / On"; ShopBot and Fusion 360 forum threads on parts '
+               'cut undersize by the bit diameter because the wrong offset side was chosen'),
+    Mut('gm62', 'Blind pocket / bore drawn so deep that only 0.5 mm of sheet is left under it',
+        'Plywood and MDF sheets vary by +/- 0.5-0.8 mm in thickness and the spoilboard is never perfectly flat: a '
+        'pocket leaving 0.5 mm breaks through on part of the sheet, and the paper-thin floor tears out under a hinge '
+        'cup or Minifix housing - the fitting has nothing to hold on and the show face is holed',
+        _h_pocket_thin_floor,
+        source='APA / EN 315 plywood thickness tolerances (+/-0.5 mm and more on 18 mm); Blum and Hettich hinge-cup '
+               'drilling depths (13 mm in 16-19 mm boards, never through-thin); Häfele Minifix housing depth per board '
+               'thickness (14.0 in 19 mm, 13.5 in 18 mm); ShopBot / Vectric forum threads on pockets breaking through '
+               'because of sheet thickness variation'),
+]
+
+
+def _h_bore_into_opening(g, rng):
+    """One drilled hole moved so it breaks 1 mm into the wall of a neighbouring through opening (slot / cut-out)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        ops = [i for i in p.inner if i.area > 100]
+        if not ops: continue
+        for f in holes(p):
+            others = [i for i in ops if i is not f.geom]
+            if not others: continue
+            j = min(others, key=lambda i: i.distance(f.geom))
+            if f.geom.distance(j) > 3: cand.append((p, f, j))
+    rng.shuffle(cand)
+    for p, f, j in cand:
+        a, b = nearest_points(f.geom, j)
+        d = a.distance(b)
+        if d < 1e-6: continue
+        k = (d + 1.0) / d                                      # past the wall by 1 mm: the bore cuts into the opening
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+        if m.within(j) or m.intersection(j).area < 1: continue
+        if any(m.intersects(o) for o in p.inner if o is not f.geom and o is not j): continue
+        if any(m.intersects(o.geom) for o in p.features if o is not f and o.geom is not j and o.geom is not f.geom): continue
         if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
         f.geom = m
         return g
@@ -1222,6 +1329,66 @@ def _g_mortise_short(g, rng):
         m = affinity.rotate(m, ang, origin=c)
         if m.is_empty or not m.is_valid or m.area < 30: continue
         _replace_inner(p, i, m)
+def _h_rows(p, rmax=12.0):
+    """Regular rows in p: lists of >= 4 same-size drilled holes on one line at one pitch (sorted along the line)."""
+    hs = [f for f in p.features if f.op == 'hole' and f.r and f.r <= rmax and f.geom is not None]
+    byr = {}
+    for f in hs: byr.setdefault(round(f.r, 1), []).append(f)
+    rows = []
+    for r, fs in byr.items():
+        if len(fs) < 4 or len(fs) > 200: continue
+        cs = [(f, f.geom.centroid) for f in fs]
+        for f0, c0 in cs:
+            for f1, c1 in cs:
+                if f1 is f0: continue
+                d = c0.distance(c1)
+                if d < 8: continue
+                ux, uy = (c1.x - c0.x) / d, (c1.y - c0.y) / d
+                on = [(((c.x - c0.x) * ux + (c.y - c0.y) * uy), f) for f, c in cs
+                      if abs((c.x - c0.x) * -uy + (c.y - c0.y) * ux) < 0.3]
+                on.sort(key=lambda t: t[0])
+                ts = [t for t, _ in on]
+                if len(on) >= 4 and all(abs((ts[i + 1] - ts[i]) - d) < 0.5 for i in range(len(ts) - 1)) and ts[0] == 0:
+                    rows.append([f for _, f in on])
+    return rows
+
+
+def _h_row_wrong_size(g, rng):
+    """One hole of a regular drilled row (shelf pins / System 32 / fitting screws) drawn 3 mm larger in diameter."""
+    g = clone(g)
+    cand = [(p, row) for p in g.parts for row in _h_rows(p)]
+    if not cand: return None
+    p, row = rng.choice(cand)
+    f = row[rng.randrange(1, len(row) - 1)]
+    c = f.geom.centroid; nr = f.r + 1.5
+    m = Point(c.x, c.y).buffer(nr, 32)
+    if not m.within(p.outer) or p.outer.exterior.distance(m) < 1: return None
+    if any(m.intersects(o) for o in p.inner if o is not f.geom): return None
+    if any(m.intersects(o.geom) for o in p.features if o is not f and o.geom is not f.geom): return None
+    if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+    f.geom = m; f.r = nr
+    return g
+
+
+def _h_counterbore_offset(g, rng):
+    """A counterbore (larger concentric bore / pocket round a through hole) drawn 2 mm off its hole's centre."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        cs = [f for f in p.features if f.r and f.op in ('hole', 'pocket') and f.geom is not None]
+        for a in cs:
+            for b in cs:
+                if b is a or b.r < a.r + 2.5: continue
+                if a.geom.centroid.distance(b.geom.centroid) < 0.2 and b.geom not in p.inner:
+                    cand.append((p, a, b))
+    rng.shuffle(cand)
+    for p, a, b in cand:
+        ang = rng.uniform(0, 2 * math.pi)
+        dx, dy = 2.0 * math.cos(ang), 2.0 * math.sin(ang)
+        m = affinity.translate(b.geom, dx, dy)
+        if not m.within(p.outer): continue
+        if any(m.intersects(o.geom) for o in p.features if o is not a and o is not b and o.geom is not a.geom): continue
+        b.geom = m
         return g
     return None
 
@@ -1325,6 +1492,96 @@ def _g_pocket_into_opening(g, rng):
         if not m.within(p.outer) or p.outer.exterior.distance(m) < 2: continue
         ov = m.intersection(o).area
         if ov < 0.15 * m.area or ov > 0.85 * m.area or o.within(m): continue
+    Mut('gm63', 'Drilled hole breaks 1 mm into the wall of a neighbouring slot / cut-out',
+        'A bore that cuts into an opening\'s wall leaves a half-moon bite in the slot: the screw or dowel has no '
+        'wall to bite on that side, the drill wanders into the void and tears the edge, and the mating sheet in the '
+        'slot now has a gap at that point - the fixing pulls out and the joint goes loose',
+        _h_bore_into_opening,
+        source='Häfele / Hettich drilling guides (screw and dowel bores need full material round them; '
+               'Minifix bolt hole fully in solid board); Opendesk design guidelines (keep fixings clear of slots by '
+               'at least the sheet thickness); woodworking forum threads on pilot holes breaking into mortises'),
+    Mut('gm64', 'One hole of a regular drilled row drawn 3 mm larger in diameter than the others',
+        'The holes of a shelf-pin / System 32 / fitting row take identical pins or screws: one hole 3 mm oversize '
+        '(a block swapped or a circle resized by mistake) leaves its pin or screw loose, so that shelf rocks or that '
+        'hinge / runner screw spins out',
+        _h_row_wrong_size,
+        source='Hettich "Ratgeber Möbeltechnik" (System 32: Ø5 holes at 32 mm pitch, one drill for the whole row); '
+               'Häfele shelf support catalogue (Ø5 pins in Ø5 holes); CNC forum threads on one wrong hole in a row '
+               'after a block was replaced'),
+    Mut('gm65', 'Counterbore drawn 2 mm off the centre of its through hole',
+        'A counterbore must be concentric with its bolt hole: offset by 2 mm, the bolt or barrel-nut head no longer '
+        'sits flat in it - it is pushed to one side, binds on the wall and stands proud, and the through hole is '
+        'half blocked so the bolt will not line up with its nut',
+        _h_counterbore_offset,
+        source='Opendesk / AtFAB bolt counterbore details (counterbore and clearance hole on one centre); '
+               'Häfele connector fittings (head bore concentric with the shank bore); machinists\' drawing standards '
+               '(counterbore called out on the hole axis)'),
+]
+
+
+def _h_housings(p, th):
+    """Blind housing pockets (dados / trenches a mating sheet sits in): rectangle-like, ~ sheet thickness wide,
+    >= 2x as long, inside the part."""
+    out = []
+    for f in p.features:
+        if f.op != 'pocket' or f.r or f.geom is None or f.geom.geom_type != 'Polygon': continue
+        r, w, L, ang = _rect_axes(f.geom)
+        if 0.95 * th <= w <= 1.3 * th and L >= 2 * w and f.geom.area > 0.8 * r.area:
+            out.append((f, w, ang))
+    return out
+
+
+def _h_housing_no_dogbones(g, rng):
+    """The dog-boned housing pockets of one part exported with sharp 90-degree corners."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [p for p in g.parts if any(_core_rect(f.geom) is not None for f, w, ang in _h_housings(p, g.thickness))]
+    if not cand: return None
+    p = rng.choice(cand); n = 0
+    for f, w, ang in _h_housings(p, g.thickness):
+        core = _core_rect(f.geom)
+        if core is None: continue
+        f.geom = Polygon(core.exterior.coords); n += 1
+    return g if n else None
+
+
+def _h_housing_narrow(g, rng):
+    """The housing pockets of one part drawn 1.5 mm narrower than the sheet that has to sit in them."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    cand = [p for p in g.parts if _h_housings(p, th)]
+    if not cand: return None
+    p = rng.choice(cand); n = 0
+    for f, w, ang in _h_housings(p, th):
+        c = f.geom.centroid
+        k = (th - 1.5) / w
+        m = affinity.rotate(f.geom, -ang, origin=c)
+        m = affinity.scale(m, 1.0, k, origin=c)
+        m = affinity.rotate(m, ang, origin=c)
+        if not m.is_valid or m.is_empty: continue
+        f.geom = m; n += 1
+    return g if n else None
+
+
+def _h_hole_on_edge(g, rng):
+    """One drilled hole moved so its centre sits 40 % of its radius inside the part outline: the bore straddles the
+    edge (hole snapped to the edge line, or the outline trimmed after the holes were placed)."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in holes(p) if f.geom is not None and p.outer.exterior.distance(f.geom) > 2]
+    rng.shuffle(cand)
+    for p, f in cand:
+        c = f.geom.centroid
+        q = p.outer.exterior.interpolate(p.outer.exterior.project(c))          # nearest point on the outline
+        d = c.distance(q)
+        if d < 1e-6: continue
+        k = (d - 0.4 * f.r) / d
+        m = affinity.translate(f.geom, (q.x - c.x) * k, (q.y - c.y) * k)
+        mc = m.centroid
+        if not p.outer.contains(mc) or not m.intersects(p.outer.exterior): continue
+        if any(m.intersects(o) for o in p.inner if o is not f.geom): continue
+        if any(m.intersects(o.geom) for o in p.features if o is not f and o.geom is not f.geom): continue
+        if any(m.intersects(o.outer) for o in g.parts if o is not p): continue
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
         f.geom = m
         return g
     return None
@@ -1380,4 +1637,58 @@ FAULTS += [
         _g_slot_dropped,
         source='Opendesk / AtFAB slot-together assembly guides (each slot takes a named part); WikiHouse design guide; '
                'CNC forum stories of geometry lost on export (frozen layers, deleted duplicates)'),
+FAULTS += [
+    Mut('gm66', 'Housing (dado) pockets exported with sharp corners where the file dog-bones its other housings',
+        'A pocketing bit leaves its radius in every corner of a housing: the square end and edges of the shelf or '
+        'divider that sits in it bottom on those fillets, so the part stands proud of the housing by up to the bit '
+        'radius, the joint does not close and the glue line starves',
+        _h_housing_no_dogbones,
+        source='Opendesk design guidelines (dog-bone every internal corner a part sits in, pockets included); Fusion 360 '
+               'Dogbone add-in (applies to pockets and slots); ShopBot / Vectric forum threads on dados that shelves '
+               'will not drop into because of corner radii'),
+    Mut('gm67', 'Housing (dado) pockets drawn 1.5 mm narrower than the sheet that sits in them',
+        'A shelf or divider sheet does not go into a housing narrower than itself: 1.5 mm too tight cannot be forced '
+        'or sanded in on site, so every housing on that part has to be re-cut or chiselled out',
+        _h_housing_narrow,
+        source='Opendesk / WikiHouse making notes (housings drawn at measured sheet thickness + clearance); '
+               'plywood thickness tolerance (EN 315: sheets vary by about +/-0.5 mm, metric "18 mm" ply often measures 17.2-17.5 mm); '
+               'woodworking guides on dado width vs undersized plywood'),
+    Mut('gm68', 'Drilled hole straddles the part edge (centre just inside the outline, bore breaks out of the edge)',
+        'A bore that crosses the outline is cut open along the edge: the screw or dowel has an open groove instead of '
+        'a hole and nothing to grip, the drill catches the edge and splinters the face veneer, and the part edge gets '
+        'a bite where the mating part should sit flush',
+        _h_hole_on_edge,
+        source='Häfele / Hettich drilling guides (minimum edge distance for every bore; System 32 line 37 mm from the '
+               'edge); CAD snap errors (circle centre snapped to the edge line / outline offset after the holes were '
+               'placed) reported in Fusion 360 and Vectric forum threads; Opendesk design guidelines (hardware holes '
+               'fully within the part with a sheet thickness of material round them)'),
+]
+
+
+def _h_row_hole_shallow(g, rng):
+    """One hole of a regular drilled row put on a drill layer with half the depth of its row-mates (wrong layer /
+    depth picked for that circle)."""
+    import re
+    g = clone(g)
+    cand = [(p, row) for p in g.parts for row in _h_rows(p) if all(f.depth for f in row)
+            and len({round(f.depth, 1) for f in row}) == 1]
+    if not cand: return None
+    p, row = rng.choice(cand)
+    f = row[rng.randrange(1, len(row) - 1)]
+    f.depth = round(f.depth / 2, 3)
+    if re.search(r'_\d+(?:\.\d+)?\s*MM\s*$', f.layer.upper()):
+        f.layer = re.sub(r'(?i)_\d+(?:\.\d+)?(\s*MM\s*)$', lambda m: '_%.3f%s' % (f.depth, m.group(1)), f.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm69', 'One hole of a regular drilled row on a drill layer half as deep as the rest of the row',
+        'Layer-driven CAM drills every circle to the depth its layer names: one hole of a bolt / dowel / shelf-pin '
+        'row put on a shallower layer stops half-way, so its bolt will not pass, its dowel stands proud and keeps '
+        'the joint open, or its shelf pin falls out - found only at assembly',
+        _h_row_hole_shallow,
+        source='Opendesk CAM layer conventions (drill depth in the layer name, e.g. TOP-HOLE-8.000MM-DIAM_12.000MM); '
+               'Vectric / Fusion 360 layer-based drilling (depth set per layer or per operation); Hettich System 32 '
+               '(all holes of a line drilled to one depth for the pins); forum threads on single holes left short '
+               'after a circle landed on the wrong layer'),
 ]

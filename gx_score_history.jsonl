@@ -58,3 +58,13 @@
 {"t": "2026-11-26T09:10:55", "note": "session: gg08_auto_gm54 for gm54", "rules": 37, "train": 0.831, "transfer": 0.789, "heldout": null, "fp": 4, "noise_flag": 0.289}
 {"t": "2026-11-26T09:39:02", "note": "session: gg09_auto_gm57 for gm57", "rules": 38, "train": 0.776, "transfer": 0.741, "heldout": null, "fp": 4, "noise_flag": 0.289}
 {"t": "2026-11-26T09:58:47", "note": "session: gg10_auto_gm56 for gm56", "rules": 39, "train": 0.792, "transfer": 0.759, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T06:47:06", "note": "session: gh01_auto_gm60 for gm60", "rules": 30, "train": 0.74, "transfer": 0.727, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T07:00:52", "note": "session: gh02_auto_gm61 for gm61", "rules": 31, "train": 0.768, "transfer": 0.756, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T07:14:50", "note": "session: gh03_auto_gm62 for gm62", "rules": 32, "train": 0.78, "transfer": 0.766, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T07:46:33", "note": "session: gh04_auto_gm63 for gm63", "rules": 33, "train": 0.745, "transfer": 0.729, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:02:12", "note": "session: gh05_auto_gm64 for gm64", "rules": 34, "train": 0.771, "transfer": 0.756, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:18:10", "note": "session: gh06_auto_gm65 for gm65", "rules": 35, "train": 0.797, "transfer": 0.783, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:49:56", "note": "session: gh07_auto_gm66 for gm66", "rules": 36, "train": 0.766, "transfer": 0.751, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T09:06:05", "note": "session: gh08_auto_gm67 for gm67", "rules": 37, "train": 0.789, "transfer": 0.776, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T09:22:17", "note": "session: gh09_auto_gm68 for gm68", "rules": 38, "train": 0.811, "transfer": 0.799, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T09:55:33", "note": "session: gh10_auto_gm69 for gm69", "rules": 39, "train": 0.816, "transfer": 0.804, "heldout": null, "fp": 4, "noise_flag": 0.292}
