@@ -978,3 +978,90 @@ FAULTS += [
                'other machining); Opendesk making guide (check hole positions against slots and cut-outs); woodworking '
                'forum reports of dowel / cam bores breaking into adjacent cut-outs'),
 ]
+
+
+def _g_pocket_too_narrow(g, rng):
+    """A pocket / groove redrawn 2 mm wide (narrower than any bit that cuts furniture sheet), same length and place."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)]
+    rng.shuffle(cand)
+    for p, f in cand:
+        r, w, L, ang = _rect_axes(f.geom)
+        if L < 20 or w < 6: continue
+        c = f.geom.centroid
+        a = math.radians(ang); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux
+        hw, hl = 1.0, L / 2
+        m = Polygon([(c.x - ux * hl - nx * hw, c.y - uy * hl - ny * hw), (c.x + ux * hl - nx * hw, c.y + uy * hl - ny * hw),
+                     (c.x + ux * hl + nx * hw, c.y + uy * hl + ny * hw), (c.x - ux * hl + nx * hw, c.y - uy * hl + ny * hw)])
+        if not m.within(p.outer): continue
+        f.geom = m
+        return g
+    return None
+
+
+def _g_mortise_short(g, rng):
+    """One through slot (mortise for a mating sheet's tab) drawn 30 % shorter along its length."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [(p, i, ang) for p in g.parts for i, w, ang in _slots(p, g.thickness)]
+    rng.shuffle(cand)
+    for p, i, ang in cand:
+        c = i.centroid
+        m = affinity.rotate(i, -ang, origin=c)
+        m = affinity.scale(m, 0.7, 1.0, origin=c)
+        m = affinity.rotate(m, ang, origin=c)
+        if m.is_empty or not m.is_valid or m.area < 30: continue
+        _replace_inner(p, i, m)
+        return g
+    return None
+
+
+def _g_pocket_thin_wall(g, rng):
+    """A pocket / housing moved toward the nearest part edge so only a 1 mm wall of sheet is left beside it."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)
+            and p.outer.exterior.distance(f.geom) > 6]
+    rng.shuffle(cand)
+    for p, f in cand:
+        a, b = nearest_points(f.geom.boundary, p.outer.exterior)
+        d = a.distance(b)
+        if d < 1e-6: continue
+        k = (d - 1.0) / d
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 0.8: continue
+        if any(m.intersects(i) for i in p.inner): continue
+        if any(m.intersects(h.geom) for h in p.features if h is not f and h.op == 'pocket'): continue
+        f.geom = m
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm53', 'A pocket / groove drawn 2 mm wide (narrower than any bit that cuts furniture sheet)',
+        'A pocket is cleared with a round bit, so it can be no narrower than the bit: 2 mm is under the 1/8" '
+        '(3.175 mm) bit that is the smallest used on furniture sheet, and far under the 6 mm bits pockets are '
+        'normally cleared with. CAM leaves the groove out (VCarve: tool too large for the vector) or cuts it with a '
+        'bigger bit, so the panel, back or hardware that should sit in it does not fit',
+        _g_pocket_too_narrow,
+        source='Vectric VCarve/Aspire pocket toolpath ("tool too large": no toolpath for vectors narrower than the '
+               'tool); Amana compression bit range (smallest through-cutting bit 1/8"); Opendesk design guidelines '
+               '(design every feature for the 6 mm tool); Fab Academy CNC week (no feature narrower than the bit)'),
+    Mut('gm54', 'A mortise (through slot for a tab) drawn 30 % shorter than the tab it takes',
+        'Slot-and-tab furniture locates parts by tabs that pass through matching mortises: a mortise drawn short '
+        '(an edit applied to one copy, or scaled with the part) stops the tab, the parts cannot be assembled without '
+        'recutting or chiselling, and forcing it splits the ply',
+        _g_mortise_short,
+        source='Opendesk / AtFAB slot-and-tab joint libraries (mortise length = tab width + clearance); Digital Wood '
+               'Joints library (tab and slot drawn as a pair); Fab Academy press-fit assignments (mismatched tab and '
+               'slot sizes keep kits from assembling); CNC forum reports of a single slot left at an old size'),
+    Mut('gm55', 'A pocket / housing placed 1 mm from the part edge (1 mm wall of sheet left beside it)',
+        'The wall between a housing and the panel edge carries the shelf / back / hardware in the pocket: 1 mm of ply '
+        'or MDF beside a pocket is torn off by the cutter or splits as soon as the part in the housing is loaded, '
+        'leaving the housing open on the edge and the joint loose',
+        _g_pocket_thin_wall,
+        source='Opendesk design guidelines (minimum material around pockets and housings); Hettich / Häfele fitting '
+               'instructions (minimum edge distance for housings and bores in panel material); ShopBot / Vectric '
+               'forum reports of thin pocket walls breaking out during cutting'),
+]
