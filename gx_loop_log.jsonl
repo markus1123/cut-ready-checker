@@ -37,3 +37,4 @@
 {"step": "write", "where": "session", "target": "gm33", "rule": "gc06_auto_gm33", "accepted": true, "train": 0.757, "transfer": 0.73, "t": "2026-11-24T18:18:59"}
 {"step": "write", "where": "session", "target": "gm34", "rule": "gc07_auto_gm34", "accepted": true, "train": 0.799, "transfer": 0.751, "t": "2026-11-24T18:49:46"}
 {"step": "write", "where": "session", "target": "gm35", "rule": "gc08_auto_gm35", "accepted": true, "train": 0.837, "transfer": 0.793, "t": "2026-11-24T19:20:59"}
+{"step": "refine", "where": "session", "rule": "G02", "file": "fc/gx/rules/g02_overlap.py", "accepted": true, "noise_rule": [26, 22], "noise_flag": [0.287, 0.28], "t": "2026-11-26T07:27:58"}

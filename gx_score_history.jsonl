@@ -27,3 +27,4 @@
 {"t": "2026-11-24T19:20:59", "note": "session: gc08_auto_gm35 for gm35", "rules": 21, "train": 0.837, "transfer": 0.793, "heldout": null, "fp": 4, "noise_flag": 0.245}
 {"t": "2026-11-24T11:32:18", "note": "merge shards a+b+c (cloud 2026-11-24) + parallel scoring; noise 21->31%, held-out FP 2->4: next round", "rules": 28, "train": 0.747, "transfer": 0.743, "heldout": 0.41, "fp": 4, "noise_flag": 0.313}
 {"t": "2026-11-24T11:59:32", "note": "reader fixes (grid-edge chaining, absurd declared units -> G15 warn, empty sheet outlines) + G02 overlap depth + gx/limits.py (FC_SHOP workshop mode)", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": 0.41, "fp": 4, "noise_flag": 0.285}
+{"t": "2026-11-26T07:27:58", "note": "session: refine G02", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 3, "noise_flag": 0.28}
