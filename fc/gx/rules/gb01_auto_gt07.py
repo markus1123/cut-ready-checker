@@ -6,6 +6,8 @@ BREAKOUT = 1.0     # mm: a strip this thin is a single face veneer: it tears off
                    # so the opening becomes an edge notch - some designers draw notches that way on purpose
 MIN_OPEN = 200.0   # mm2: smaller openings are drilled holes (G04 judges those)
 MIN_PART = 2500.0  # mm2 (~50 x 50 mm): smaller loops are lettering / decoration, not furniture parts
+LASER = 1.5        # mm: an opening a 3 mm disc does not fit in = a laser / kerf-thin file, not a router file
+SCALE_MODEL = 300.0  # mm: a unit-less furniture file whose BIGGEST part is shorter than this is a 1:10 / cm drawing
 
 
 @gx_rule('GB01', 'Opening leaves a web under 2 mm to the part edge')
@@ -17,7 +19,19 @@ def check(g):
     joint is loaded. Workshop and CNC design guides put the minimum web at about the bit diameter / sheet
     thickness; 2 mm is far below that. Strips of 1 mm and less are not webs: a single veneer ply tears off as the
     cut passes and the opening simply becomes an edge notch, which is how some designers draw notches (built
-    files have openings 0-0.2 mm from the edge)."""
+    files have openings 0-0.2 mm from the edge).
+    Narrowed (misreadings on real files):
+      * laser files - some opening is narrower than a 1/8" bit (a 3 mm disc does not fit): drawn for a kerf-thin
+        laser / waterjet process where 1-2 mm bridges in thin sheet are normal; no router cuts that file anyway
+        (same convention as G10 / GC08).
+      * scale drawings - no unit header and the biggest part is under 300 mm: a whole piece of furniture (desk,
+        rocking chair, table) drawn at 1:10 or in cm (its '250 x 125' sheet is a 2500 x 1250 sheet), so a '1.5 mm'
+        web is really 15 mm. The absolute mm limit does not apply to a drawing at unknown scale."""
+    if any(i.is_valid and i.area > 1 and i.buffer(-LASER).is_empty for p in g.parts for i in p.inner):
+        return
+    spans = [max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts]
+    if str(g.units).endswith('?') and spans and max(spans) < SCALE_MODEL:
+        return
     for p in g.parts:
         if p.outer.area < MIN_PART or not p.outer.is_valid:
             continue
