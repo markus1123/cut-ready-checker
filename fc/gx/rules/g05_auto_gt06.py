@@ -6,6 +6,8 @@ from fc.gx.core import gx_rule
 BIT_MIN = limits.BIT_MIN     # 1/8" - the smallest router bit that still cuts through furniture sheet (Amana 46180, 20.6 mm flute)
 PLUNGE_SLACK = 0.4  # how much a plunged hole may come out oversize and still work as a screw pilot / locator
 D_MIN = BIT_MIN - PLUNGE_SLACK   # 2.775 mm
+MODEL_L = 250.0     # mm: a drawing whose largest part is shorter than this is a scale model / tabletop craft piece
+ROUTER_T = 9.0      # mm: sheet at least this thick is router sheet whatever the drawing's size
 
 
 @gx_rule('G05', 'Round through-cut hole smaller than the smallest router bit')
@@ -18,7 +20,18 @@ def check(g):
     3.175 - 0.4 = 2.775 mm the drawn size is a drill-only size: the router can't make it, the plunged hole
     is >15% too big for what it was drawn for, and with a thinner bit the bit breaks.
     Only true circles are judged (area >= 90% of the circle on the bounding box): small non-round loops are
-    lettering or marks, cut part-way with a V-bit. Holes on drill layers are left to a drilling unit."""
+    lettering or marks, cut part-way with a V-bit. Holes on drill layers are left to a drilling unit.
+    Narrowed after reading real files from other designers:
+      * drawings whose largest part is under 250 mm (and no stated / slot-derived sheet of 9 mm or more) are scale
+        models, doll's-house furniture and cake toppers from laser-file sites, cut in thin sheet on a laser that
+        makes a 1-2 mm hole fine - full-size furniture always has a part (seat, leg, side) longer than that. (If such a file is really cm or inch, the hole
+        is 10-25x bigger and fine as well.)"""
+    if not g.parts:
+        return
+    L = max(max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts)
+    t = g.thickness or g.thickness_est
+    if L < MODEL_L and not (t and t >= ROUTER_T):
+        return
     for p in g.parts:
         for i in p.inner:
             if i.is_empty or i.geom_type != 'Polygon' or not i.within(p.outer.buffer(0.01)):
