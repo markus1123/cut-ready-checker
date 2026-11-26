@@ -874,3 +874,87 @@ FAULTS += [
                '(thin bridges between slots break during cutting); ShopBot forum threads on webs snapping between '
                'closely spaced slots'),
 ]
+
+
+def _h_notch_no_dogbones(g, rng):
+    """Every dog-boned slot-together edge notch of one part exported with sharp 90-degree inner corners."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [p for p in g.parts if any(_core_rect(n) is not None for n, w, L, ang in _edge_slots(p, g.thickness))]
+    rng.shuffle(cand)
+    for p in cand:
+        o = Polygon(p.outer.exterior.coords); n_done = 0
+        for n, w, L, ang in _edge_slots(p, g.thickness):
+            core = _core_rect(n)
+            if core is None: continue
+            lobes = n.difference(core.buffer(0.01, join_style=2))
+            if lobes.is_empty: continue
+            new = o.union(lobes.buffer(0.01, join_style=2))
+            if new.geom_type != 'Polygon' or len(new.interiors): continue
+            o = Polygon(new.exterior.coords); n_done += 1
+        if not n_done: continue
+        p.outer = o
+        return g
+    return None
+
+
+def _h_outline_inside_layer(g, rng):
+    """One big part's outline put on the cut-INSIDE layer (tool offset to the inside of the line) in a file that
+    uses the Opendesk-style INSIDE / OUTSIDE layer convention."""
+    outs = [p for p in g.parts if 'OUTSIDE' in p.layer.upper()]
+    if len(outs) < 2: return None
+    g = clone(g)
+    cand = [p for p in g.parts if 'OUTSIDE' in p.layer.upper() and p.outer.area > 20000
+            and not any(q is not p and p.outer.within(q.outer) for q in g.parts)]
+    if not cand: return None
+    p = rng.choice(cand)
+    import re
+    p.layer = re.sub('(?i)OUTSIDE', lambda m: 'INSIDE' if m.group(0).isupper() else 'inside', p.layer)
+    return g
+
+
+def _h_pocket_thin_floor(g, rng):
+    """One blind pocket / bore drawn so deep that only 0.5 mm of sheet is left under it."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [f for p in g.parts for f in p.features
+            if f.op in ('pocket', 'hole') and f.depth and 1.5 <= g.thickness - f.depth and f.geom.within(p.outer)]
+    if not cand: return None
+    f = rng.choice(cand)
+    f.depth = round(g.thickness - 0.5, 3)
+    import re
+    if re.search(r'_\d+(?:\.\d+)?\s*MM\s*$', f.layer.upper()):
+        f.layer = re.sub(r'(?i)_\d+(?:\.\d+)?(\s*MM\s*)$', lambda m: '_%.3f%s' % (f.depth, m.group(1)), f.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm60', 'Slot-together edge notches exported with sharp inner corners (dog-bones / T-bones missing)',
+        'A router bit cannot cut a sharp inside corner: it leaves a radius of half the bit (3 mm for a 6 mm bit) in '
+        'both bottom corners of the notch. The mating part, which has square corners, sits on those radii and stops '
+        '3+ mm short, so the slot-together joint never seats and the furniture racks; filing out every corner by hand '
+        'is the usual fix',
+        _h_notch_no_dogbones,
+        source='Opendesk design guidelines (dog-bone or T-bone every internal corner of a joint); Fab Academy '
+               'computer-controlled machining week (press-fit joints need dog-bone fillets); Fusion 360 "Dogbone" '
+               'add-in documentation; ShopBot / Vectric forum threads on slot joints that will not close because of '
+               'corner radii left by the bit'),
+    Mut('gm61', 'Part outline drawn on the cut-INSIDE layer (tool offset to the wrong side of the line)',
+        'Layer-driven CAM (Opendesk convention: CUT-OUTSIDE for part outlines, CUT-INSIDE for openings) offsets the '
+        'tool by its radius to the named side: an outline on the INSIDE layer is cut with the bit inside the line, so '
+        'the part comes out one bit diameter (6-9 mm) too small in each direction - every tab is too short and every '
+        'slot-together edge misses its mate',
+        _h_outline_inside_layer,
+        source='Opendesk CAM layer conventions (TOP-CUT-OUTSIDE / TOP-CUT-INSIDE with depth suffix); Vectric VCarve '
+               'profile toolpath "Machine vectors: Outside / Inside / On"; ShopBot and Fusion 360 forum threads on parts '
+               'cut undersize by the bit diameter because the wrong offset side was chosen'),
+    Mut('gm62', 'Blind pocket / bore drawn so deep that only 0.5 mm of sheet is left under it',
+        'Plywood and MDF sheets vary by +/- 0.5-0.8 mm in thickness and the spoilboard is never perfectly flat: a '
+        'pocket leaving 0.5 mm breaks through on part of the sheet, and the paper-thin floor tears out under a hinge '
+        'cup or Minifix housing - the fitting has nothing to hold on and the show face is holed',
+        _h_pocket_thin_floor,
+        source='APA / EN 315 plywood thickness tolerances (+/-0.5 mm and more on 18 mm); Blum and Hettich hinge-cup '
+               'drilling depths (13 mm in 16-19 mm boards, never through-thin); Häfele Minifix housing depth per board '
+               'thickness (14.0 in 19 mm, 13.5 in 18 mm); ShopBot / Vectric forum threads on pockets breaking through '
+               'because of sheet thickness variation'),
+]
