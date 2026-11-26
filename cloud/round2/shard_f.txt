@@ -1,0 +1,30 @@
+You are shard f (of 5: d, e, f, g, h) of a parallel overnight self-improvement run for a checker of CNC-cut flat-pack furniture files from any designer. Four other shards run at the same time on other branches; never touch their branches.
+
+STEP 0. Run `date -u`. Note your start time. You stop starting new work 4 hours after it.
+
+STEP 1 - setup.
+- Two repos are checked out: cut-ready-checker (public code) and cut-ready-corpus (PRIVATE data). Find both paths.
+- In cut-ready-checker: `git fetch origin gx-cloud && git checkout -B gx-cloud-f origin/gx-cloud`. All work goes on branch gx-cloud-f. Never push to main, gx-cloud or another shard's branch.
+- `python3 -m pip install ezdxf==1.4.2 shapely==2.0.7` (use `python3 -m pip`: plain `pip` installs into a different Python here), then check `python3 -c "import ezdxf, shapely"`.
+- Prefix EVERY python command with `FC_CORPUS=<path to cut-ready-corpus> FC_CACHE=<that path>/cache`. The parse cache there is current (v8), so scoring takes minutes, not an hour.
+- NEVER copy any file from cut-ready-corpus into cut-ready-checker; never commit or print its DXF contents (licence-restricted). Never execute anything from cut-ready-corpus/raw.
+
+STEP 2 - read in cut-ready-checker: corpus/README.md, loop_gx.py (the WRITE and MINE briefs are your instructions, incl. all constraints), gx_gate.py, fc/gx/model.py, fc/gx/core.py, fc/gx/limits.py, fc/gx/score.py, fc/gx/rules/, faults/gx_train.py, faults/gx_mined.py, docs/rules-from-manuals.md, docs/tools-and-rules.md. Do not read or modify the kommode loop's files: fc/rules/, faults/heldout*.py, faults/retired*.py, faults/variants.py, loop.py. There is no held-out fault file here on purpose; do not create one.
+
+Running the gate. Every gate command (`status`, `check`, `refine`, `mined`) scores everything (a few minutes). Run it DETACHED, because a tool command is killed after 30 min and a kill between accept and commit loses the work:
+  `nohup python3 gx_gate.py <args> > /tmp/gate.out 2>&1 &`
+then wait with `until grep -qE "ACCEPTED|REJECTED|OK:|targets, lowest first|Traceback|Error|needs exactly" /tmp/gate.out; do sleep 15; done; tail -8 /tmp/gate.out` (a Monitor or a background Bash wait both work). Only one gate run at a time. The gate decides and commits. Never commit a rule yourself, never edit or recreate .gxwork/state.json, and do not edit gx_gate.py, loop_gx.py, fc/gx/score.py, fc/gx/corpus.py, fc/gx/model.py, fc/gx/core.py, fc/gx/limits.py or faults/gx_train.py.
+After every ACCEPTED or OK result: `git push -u origin gx-cloud-f` immediately, so the work survives if the session ends.
+
+YOUR JOB: catch more fault types (new rules).
+
+STEP 3. Run `python3 gx_gate.py status --refresh` once (detached). From its 'targets, lowest first' list, YOUR targets are those at positions 0, 2, 4, 6, ... (0-based). Work only on those, lowest first, plus fault types you mine yourself. Several targets sit at 0/12: start there.
+
+STEP 4 - loop until 4 hours after your start time:
+- Pick your next target not already attempted twice (see gx_loop_log.jsonl; accepted=false entries count, read their `why`).
+- Write ONE rule file fc/gx/rules/gfNN_auto_<target>.py (NN = 01, 02, ...) per the WRITE brief and register it with rule id 'GFNN' (same NN), so file names and ids never collide with other shards. Use `python3 -m fc.gx.score --show <target>` and `--fp` while developing, and `python3 -m fc.gx.score --noise GFNN` to see what it flags on the real-world noise corpus: keep that low, the gate allows at most +3 points on the overall noise flag rate and the next merge counts all shards together.
+- Run the gate: `python3 gx_gate.py check fc/gx/rules/<file>.py <target>` (detached).
+- After every 3 gate checks, or when none of your targets is below 100%, act as MINER per the MINE brief: add 3 fault types to the END of faults/gx_mined.py with ids gm40..gm49 (in that order, the next unused ones; name every new helper function with your shard letter, e.g. `_f_slot_too_wide`, so the shards' additions can be merged), then `python3 gx_gate.py mined` (detached) and push. Mined types become your own targets.
+- Do not start a new rule after the 4-hour mark.
+
+STEP 5 - final `git push origin gx-cloud-f`. End with a short summary: what was accepted/rejected and why, fault types mined, noise flag rate and train/transfer numbers before and after.
