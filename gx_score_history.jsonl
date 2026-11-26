@@ -29,3 +29,4 @@
 {"t": "2026-11-24T11:59:32", "note": "reader fixes (grid-edge chaining, absurd declared units -> G15 warn, empty sheet outlines) + G02 overlap depth + gx/limits.py (FC_SHOP workshop mode)", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": 0.41, "fp": 4, "noise_flag": 0.285}
 {"t": "2026-11-26T06:59:43", "note": "session: gf01_auto_gm11 for gm11", "rules": 30, "train": 0.801, "transfer": 0.776, "heldout": null, "fp": 4, "noise_flag": 0.287}
 {"t": "2026-11-26T07:13:48", "note": "session: gf02_auto_gm13 for gm13", "rules": 31, "train": 0.808, "transfer": 0.807, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:28:25", "note": "session: gf03_auto_gm20 for gm20", "rules": 32, "train": 0.816, "transfer": 0.82, "heldout": null, "fp": 4, "noise_flag": 0.287}

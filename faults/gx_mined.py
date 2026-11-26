@@ -874,3 +874,86 @@ FAULTS += [
                '(thin bridges between slots break during cutting); ShopBot forum threads on webs snapping between '
                'closely spaced slots'),
 ]
+
+
+# ---- shard f, round 2 ----------------------------------------------------------------------------------------------
+
+def _f_outline_inside(g, rng):
+    """A part's outline put on the INSIDE-cut layer (Opendesk TOP-CUT-OUTSIDE -> TOP-CUT-INSIDE): the profile side is
+    swapped, so CAM offsets the cutter into the part instead of away from it."""
+    import re
+    g = clone(g)
+    cand = [p for p in g.parts if re.search(r'(?i)OUTSIDE', p.layer or '') and p.outer.area > 5000]
+    if not cand: return None
+    p = rng.choice(cand)
+    p.layer = re.sub(r'(?i)OUTSIDE', 'INSIDE', p.layer)
+    return g
+
+
+def _f_thin_floor(g, rng):
+    """All pockets of one part cut to sheet thickness minus 1 mm (depth taken from the wrong, thinner, stock or
+    from a through-cut template): a 1 mm floor of face veneer is left under each pocket."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    cand = [p for p in g.parts if any(f.op == 'pocket' and f.depth and f.depth < th - 2.0 for f in p.features)]
+    if not cand: return None
+    p = rng.choice(cand)
+    for f in p.features:
+        if f.op == 'pocket' and f.depth and f.depth < th - 2.0:
+            f.depth = th - 1.0
+    return g
+
+
+def _f_openings_left_behind(g, rng):
+    """One of two identical parts moved without its openings (holes / slots on a locked or hidden layer stay put):
+    all its openings and holes end up 8 mm off, relative to its outline, while the twin part is right."""
+    g = clone(g)
+    big = [p for p in g.parts if p.outer.area > 10000 and len([i for i in p.inner if i.area > 20]) >= 2]
+    pairs = [a for a in big for b in big if a is not b and _congruent(a, b)]
+    rng.shuffle(pairs)
+    for p in pairs:
+        for dx, dy in rng.sample([(8, 0), (-8, 0), (0, 8), (0, -8)], 4):
+            moved = [affinity.translate(i, dx, dy) for i in p.inner]
+            if not all(m.within(p.outer) and p.outer.exterior.distance(m) >= 2.0 for m in moved): continue
+            ok = True
+            for f in p.features:
+                if f.op != 'hole' and not any(f.geom is i for i in p.inner):
+                    if not affinity.translate(f.geom, dx, dy).within(p.outer): ok = False
+            if not ok: continue
+            old = list(p.inner)
+            p.inner = moved
+            for f in p.features:
+                k = [j for j, i in enumerate(old) if f.geom is i]
+                f.geom = moved[k[0]] if k else affinity.translate(f.geom, dx, dy)
+            return g
+    return None
+
+
+FAULTS += [
+    Mut('gm40', 'A part outline on the INSIDE-cut layer (profile side swapped: CUT-OUTSIDE -> CUT-INSIDE)',
+        'Layer-driven CAM offsets the cutter by the layer: an outline on the inside-profile layer is cut with the '
+        'tool inside the line, so the part comes out one bit diameter (6-12 mm) undersize all round - every tab, '
+        'slot position and edge distance on it is wrong and it does not fit its neighbours',
+        _f_outline_inside,
+        source='Opendesk CAM layer convention (TOP-CUT-OUTSIDE for part profiles, TOP-CUT-INSIDE for openings; tool '
+               'side taken from the layer); Vectric VCarve/Aspire profile toolpath "Machine Vectors: Outside / Inside" '
+               'and toolpath templates per layer; ShopBot / Vectric forum threads on parts cut a bit-width undersize '
+               'because the profile was set to inside'),
+    Mut('gm41', 'Pockets of one part cut to sheet thickness minus 1 mm (a 1 mm floor left under each pocket)',
+        'A 1 mm floor is only the face veneer: it tears out or breaks through under the cutter, the part loses '
+        'vacuum hold as the floor flexes, and in use the hardware / mating part pushes straight through it',
+        _f_thin_floor,
+        source='Vectric / ShopBot pocketing guidance (leave enough floor; thin floors flex and break through, '
+               'especially on vacuum tables); Häfele Minifix housing depths (13.5-14.5 mm in 18-19 mm board, leaving '
+               '4.5-5 mm); Opendesk pocket depths (9 mm in 18 mm, half the sheet); EN 315 ply thickness tolerance '
+               '(+/-0.74 mm at 18 mm, so a 1 mm planned floor can be 0.3 mm or a hole)'),
+    Mut('gm42', 'One of two identical parts moved without its openings: all its holes and slots 8 mm off',
+        'Holes and slots on a locked / hidden / separate layer do not move when the outline is nested or moved: '
+        'the part is cut with every opening 8 mm out of place, so screws, dowels and the mating parts in its slots '
+        'do not line up with the other parts (its twin is right, so the assembly will not go together)',
+        _f_openings_left_behind,
+        source='Vectric VCarve / Aspire nesting and layer locking (locked or hidden layers are not moved with the '
+               'selection); SketchUp / Inkscape group-vs-loose-geometry export threads; CNC forum stories of holes '
+               'cut in the old position after a part was moved for nesting; Opendesk making guide (check the file '
+               'against the assembly drawing before cutting)'),
+]
