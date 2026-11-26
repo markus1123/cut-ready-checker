@@ -1065,3 +1065,87 @@ FAULTS += [
                'instructions (minimum edge distance for housings and bores in panel material); ShopBot / Vectric '
                'forum reports of thin pocket walls breaking out during cutting'),
 ]
+
+
+def _g_twins(g, pred):
+    """Parts (area > 5000) that have an identical twin in the file (_congruent) and satisfy pred(part)."""
+    big = [p for p in g.parts if p.outer.area > 5000 and pred(p)]
+    return [a for a in big if any(a is not b and _congruent(a, b) for b in big)]
+
+
+def _g_pocket_into_opening(g, rng):
+    """A pocket / housing moved so it overlaps a through slot / cut-out of the same part by half its width."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)
+            and not any(f.geom.intersects(i) for i in p.inner)]
+    rng.shuffle(cand)
+    for p, f in cand:
+        ops = [i for i in p.inner if i.area > 200 and not any(h.geom is i for h in p.features)]
+        if not ops: continue
+        o = min(ops, key=lambda i: i.distance(f.geom))
+        a, b = nearest_points(f.geom, o)
+        d = a.distance(b)
+        if d < 1e-6 or d > 200: continue
+        r, w, L, ang = _rect_axes(f.geom)
+        k = (d + w / 2) / d
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 2: continue
+        ov = m.intersection(o).area
+        if ov < 0.15 * m.area or ov > 0.85 * m.area or o.within(m): continue
+        f.geom = m
+        return g
+    return None
+
+
+def _g_pocket_dropped(g, rng):
+    """One pocket / housing missing on one of two (or more) identical parts (its twin still has it)."""
+    g = clone(g)
+    pk = lambda p: [f for f in p.features if f.op == 'pocket' and f.geom is not None and f.geom.area > 100]
+    cand = _g_twins(g, lambda p: len(pk(p)) >= 1)
+    rng.shuffle(cand)
+    for p in cand:
+        p.features.remove(rng.choice(pk(p)))
+        return g
+    return None
+
+
+def _g_slot_dropped(g, rng):
+    """One through slot (for a mating sheet) missing on one of two (or more) identical parts."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = _g_twins(g, lambda p: len(_slots(p, g.thickness)) >= 1)
+    rng.shuffle(cand)
+    for p in cand:
+        i, w, ang = rng.choice(_slots(p, g.thickness))
+        p.inner.remove(i)
+        for f in list(p.features):
+            if f.geom is i: p.features.remove(f)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm56', 'A pocket / housing overlapping a through slot or cut-out by half its width',
+        'Where a housing runs into a through opening it has no floor and no side wall: the shelf / back / fitting that '
+        'should sit in the housing falls into the opening, the thin sheet left between the two cuts breaks out, and '
+        'the slot loses the edge its mating part bears on',
+        _g_pocket_into_opening,
+        source='Opendesk design guidelines (keep material between pockets and through cuts); Vectric / Fusion CAM '
+               'notes (check pocket and profile toolpaths do not overlap unintentionally); cabinet-making practice '
+               '(housings and through mortises laid out from the same datum, never crossing)'),
+    Mut('gm57', 'One pocket / housing missing on one of two identical parts (its twin still has it)',
+        'Copies of a part carry the same housings and rebates; when one pocket is lost on export (hidden layer, '
+        'deleted with a duplicate) that copy has no housing for its shelf / back / fitting, and the piece cannot be '
+        'assembled square without recutting',
+        _g_pocket_dropped,
+        source='Opendesk making guide (check every part against the assembly drawing before cutting); Vectric "find '
+               'duplicate vectors" clean-up deleting needed geometry; CNC forum stories of pockets missing on one '
+               'copy after a layer was turned off for export'),
+    Mut('gm58', 'One through slot missing on one of two identical parts (its twin still has it)',
+        'In slot-together furniture every slot receives a part: a copy without one of its slots has nowhere for the '
+        'mating sheet or tab to go, so the kit does not assemble and the part is recut',
+        _g_slot_dropped,
+        source='Opendesk / AtFAB slot-together assembly guides (each slot takes a named part); WikiHouse design guide; '
+               'CNC forum stories of geometry lost on export (frozen layers, deleted duplicates)'),
+]
