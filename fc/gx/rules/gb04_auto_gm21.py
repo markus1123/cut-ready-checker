@@ -1,3 +1,4 @@
+import re
 from fc.core import Finding
 from fc.gx.core import gx_rule
 from shapely.ops import unary_union
@@ -8,6 +9,7 @@ MIN_PIECE_MM2 = 3000.0  # ... and >= ~55 x 55 mm: a real lobe of the part, not a
 MIN_PART = 20000.0  # mm2: furniture panels; small parts are trim / decoration
 TOUCH = 0.5         # mm: a neck zone this close to a boundary is bounded by it
 PATTERN = 3         # a thin zone running past this many openings is the web of a pattern of cut-outs
+POCKET_WORD = re.compile(r'(?i)tasche|poche|tasca|cajead|vaciad')   # 'pocket' in German / French / Italian / Spanish CAM
 
 
 def neck(p):
@@ -53,9 +55,16 @@ def check(g):
         the web of a designed pattern of cut-outs - kerf-bend / living-hinge slots, lattice and grille panels,
         slatted fronts - not a notch cutting a panel nearly in two; how close neighbouring openings may sit is
         judged by the opening-spacing rules (GC08), and the pattern bends or carries load as designed.
-        Necks that reach the part outline (a notch, a concave pinch) are still flagged."""
+        Necks that reach the part outline (a notch, a concave pinch) are still flagged.
+      * drawings at unknown scale (g.scale_uncertain: unitless, biggest part under 300 mm - 1:10 / cm drawings of whole
+        chairs and desks): a '6 mm' neck there is really 60 mm, so the absolute 8 mm limit does not apply.
+      * loops on a layer named 'pocket' in another language (German 'Taschen', French 'poche', Italian 'tasca',
+        Spanish 'cajeado' / 'vaciado'): a pocket outline is a recess in a part, not a through-cut part, so a thin
+        stretch of it is no neck of material (the reader does not know these words and calls the layer a cut)."""
+    if g.scale_uncertain:
+        return
     for p in g.parts:
-        if p.outer.area < MIN_PART or not p.outer.is_valid:
+        if p.outer.area < MIN_PART or not p.outer.is_valid or POCKET_WORD.search(p.layer or ''):
             continue
         b = neck(p)
         if b and not between_openings(p):
