@@ -7,6 +7,7 @@ MAX_SHARED = 0.2   # mm: thinner overlap = a shared cut line / snapping (common-
 SNAP = 0.5         # mm: ... and up to this on furniture-sized drawings (largest part >= 300 mm across)
 SNAP_L = 300.0     # mm
 INSIDE = 0.95      # a loop lying this much inside another part's outline is drawn ON that part, not beside it
+VIEW = 10          # this many overlapping pairs in one file = an assembly / elevation view, not a nesting slip
 
 
 @gx_rule('G02', 'Parts overlap on the sheet')
@@ -20,12 +21,16 @@ def check(g):
       * a loop that lies >= 95 % inside another part's outline and pokes past its edge by a sliver is drawn ON that
         part - a cut-out / notch drawn a little past the edge, or the same part stacked twice / a second version
         overlaid - not a second part nested beside it (the reader only treats fully contained loops as openings and
-        merges edge notches only into a host 6x bigger). Nesting two parts too close shows as a partial overlap."""
+        merges edge notches only into a host 6x bigger). Nesting two parts too close shows as a partial overlap.
+      * a file in which 10 or more pairs of parts overlap is drawn as an assembly / elevation view (legs, rails and
+        slats shown in place, crossing each other - common in files from free-file sites): the overlaps are how the
+        view is drawn. A part nested onto the same material by mistake overlaps only its few neighbours."""
     outs = [p.outer for p in g.parts]
     if len(outs) < 2: return
     L = max(max(o.bounds[2] - o.bounds[0], o.bounds[3] - o.bounds[1]) for o in outs)
     shared = SNAP if L >= SNAP_L else MAX_SHARED
     t = STRtree(outs)
+    hits = []
     for i, a in enumerate(outs):
         for j in t.query(a, predicate='intersects'):
             j = int(j)
@@ -35,4 +40,6 @@ def check(g):
             x = a.intersection(b); ov = x.area
             thick = 2 * ov / x.length if x.length else 0     # mean thickness of the overlap strip
             if ov > 1.0 and thick > shared and max(ov / a.area, ov / b.area) < INSIDE:
-                yield Finding('G02', 'error', 'parts overlap by %.0f mm2 (%.1f mm deep)' % (ov, thick), g.parts[i].key)
+                hits.append(Finding('G02', 'error', 'parts overlap by %.0f mm2 (%.1f mm deep)' % (ov, thick), g.parts[i].key))
+    if len(hits) < VIEW:
+        yield from hits
