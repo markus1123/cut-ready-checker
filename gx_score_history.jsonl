@@ -32,3 +32,4 @@
 {"t": "2026-11-26T07:14:50", "note": "session: gh03_auto_gm62 for gm62", "rules": 32, "train": 0.78, "transfer": 0.766, "heldout": null, "fp": 4, "noise_flag": 0.292}
 {"t": "2026-11-26T07:46:33", "note": "session: gh04_auto_gm63 for gm63", "rules": 33, "train": 0.745, "transfer": 0.729, "heldout": null, "fp": 4, "noise_flag": 0.292}
 {"t": "2026-11-26T08:02:12", "note": "session: gh05_auto_gm64 for gm64", "rules": 34, "train": 0.771, "transfer": 0.756, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:18:10", "note": "session: gh06_auto_gm65 for gm65", "rules": 35, "train": 0.797, "transfer": 0.783, "heldout": null, "fp": 4, "noise_flag": 0.292}
