@@ -42,3 +42,4 @@
 {"step": "refine", "where": "session", "rule": "GB04", "file": "fc/gx/rules/gb04_auto_gm21.py", "accepted": true, "noise_rule": [16, 11], "noise_flag": [0.267, 0.26], "t": "2026-11-26T08:16:29"}
 {"step": "refine", "where": "session", "rule": "GB03", "file": "fc/gx/rules/gb03_auto_gm22.py", "accepted": true, "noise_rule": [10, 4], "noise_flag": [0.26, 0.253], "t": "2026-11-26T08:36:14"}
 {"step": "refine", "where": "session", "rule": "GC04", "file": "fc/gx/rules/gc04_auto_gm31.py", "accepted": true, "noise_rule": [7, 2], "noise_flag": [0.253, 0.246], "t": "2026-11-26T08:55:03"}
+{"step": "refine", "where": "session", "rule": "GA03", "file": "fc/gx/rules/ga03_auto_gm10.py", "accepted": true, "noise_rule": [7, 4], "noise_flag": [0.246, 0.243], "t": "2026-11-26T09:11:25"}
