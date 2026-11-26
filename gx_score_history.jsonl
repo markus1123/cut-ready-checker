@@ -39,3 +39,13 @@
 {"t": "2026-11-26T07:32:55", "note": "session: refine G01", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 4, "noise_flag": 0.253}
 {"t": "2026-11-26T07:47:34", "note": "session: refine GA01", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 4, "noise_flag": 0.243}
 {"t": "2026-11-26T08:13:14", "note": "session: refine GC08", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 4, "noise_flag": 0.234}
+{"t": "2026-11-26T06:59:43", "note": "session: gf01_auto_gm11 for gm11", "rules": 30, "train": 0.801, "transfer": 0.776, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:13:48", "note": "session: gf02_auto_gm13 for gm13", "rules": 31, "train": 0.808, "transfer": 0.807, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:28:25", "note": "session: gf03_auto_gm20 for gm20", "rules": 32, "train": 0.816, "transfer": 0.82, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:57:11", "note": "session: gf04_auto_gm31 for gm31", "rules": 33, "train": 0.78, "transfer": 0.779, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:11:23", "note": "session: gf05_auto_gm40 for gm40", "rules": 34, "train": 0.808, "transfer": 0.807, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:25:58", "note": "session: gf07_auto_gm42 for gm42", "rules": 35, "train": 0.822, "transfer": 0.826, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T08:56:03", "note": "session: gf06_auto_gm45 for gm45", "rules": 36, "train": 0.788, "transfer": 0.792, "heldout": null, "fp": 4, "noise_flag": 0.292}
+{"t": "2026-11-26T09:11:00", "note": "session: gf09_auto_gm43 for gm43", "rules": 37, "train": 0.814, "transfer": 0.818, "heldout": null, "fp": 4, "noise_flag": 0.296}
+{"t": "2026-11-26T09:26:14", "note": "session: gf08_auto_gm44 for gm44", "rules": 38, "train": 0.823, "transfer": 0.825, "heldout": null, "fp": 4, "noise_flag": 0.296}
+{"t": "2026-11-26T09:58:25", "note": "session: gf10_auto_gm48 for gm48", "rules": 39, "train": 0.799, "transfer": 0.807, "heldout": null, "fp": 4, "noise_flag": 0.304}

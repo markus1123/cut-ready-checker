@@ -49,3 +49,16 @@
 {"step": "refine", "where": "session", "rule": "G01", "file": "fc/gx/rules/g01_open_outline.py", "accepted": true, "noise_rule": [12, 5], "noise_flag": [0.267, 0.253], "t": "2026-11-26T07:32:55"}
 {"step": "refine", "where": "session", "rule": "GA01", "file": "fc/gx/rules/ga01_auto_gt05.py", "accepted": true, "noise_rule": [9, 5], "noise_flag": [0.253, 0.243], "t": "2026-11-26T07:47:34"}
 {"step": "refine", "where": "session", "rule": "GC08", "file": "fc/gx/rules/gc08_auto_gm35.py", "accepted": true, "noise_rule": [7, 2], "noise_flag": [0.243, 0.234], "t": "2026-11-26T08:13:14"}
+{"step": "write", "where": "session", "target": "gm11", "rule": "gf01_auto_gm11", "accepted": true, "train": 0.801, "transfer": 0.776, "t": "2026-11-26T06:59:43"}
+{"step": "write", "where": "session", "target": "gm13", "rule": "gf02_auto_gm13", "accepted": true, "train": 0.808, "transfer": 0.807, "t": "2026-11-26T07:13:48"}
+{"step": "write", "where": "session", "target": "gm20", "rule": "gf03_auto_gm20", "accepted": true, "train": 0.816, "transfer": 0.82, "t": "2026-11-26T07:28:25"}
+{"step": "mine", "where": "session", "ok": true, "types": 36, "t": "2026-11-26T07:42:47"}
+{"step": "write", "where": "session", "target": "gm31", "rule": "gf04_auto_gm31", "accepted": true, "train": 0.78, "transfer": 0.779, "t": "2026-11-26T07:57:11"}
+{"step": "write", "where": "session", "target": "gm40", "rule": "gf05_auto_gm40", "accepted": true, "train": 0.808, "transfer": 0.807, "t": "2026-11-26T08:11:23"}
+{"step": "write", "where": "session", "target": "gm42", "rule": "gf07_auto_gm42", "accepted": true, "train": 0.822, "transfer": 0.826, "t": "2026-11-26T08:25:58"}
+{"step": "mine", "where": "session", "ok": true, "types": 39, "t": "2026-11-26T08:40:39"}
+{"step": "write", "where": "session", "target": "gm45", "rule": "gf06_auto_gm45", "accepted": true, "train": 0.788, "transfer": 0.792, "t": "2026-11-26T08:56:03"}
+{"step": "write", "where": "session", "target": "gm43", "rule": "gf09_auto_gm43", "accepted": true, "train": 0.814, "transfer": 0.818, "t": "2026-11-26T09:11:00"}
+{"step": "write", "where": "session", "target": "gm44", "rule": "gf08_auto_gm44", "accepted": true, "train": 0.823, "transfer": 0.825, "t": "2026-11-26T09:26:14"}
+{"step": "mine", "where": "session", "ok": true, "types": 42, "t": "2026-11-26T09:42:34"}
+{"step": "write", "where": "session", "target": "gm48", "rule": "gf10_auto_gm48", "accepted": true, "train": 0.799, "transfer": 0.807, "t": "2026-11-26T09:58:25"}

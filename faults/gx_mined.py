@@ -874,3 +874,247 @@ FAULTS += [
                '(thin bridges between slots break during cutting); ShopBot forum threads on webs snapping between '
                'closely spaced slots'),
 ]
+
+
+# ---- shard f, round 2 ----------------------------------------------------------------------------------------------
+
+def _f_outline_inside(g, rng):
+    """A part's outline put on the INSIDE-cut layer (Opendesk TOP-CUT-OUTSIDE -> TOP-CUT-INSIDE): the profile side is
+    swapped, so CAM offsets the cutter into the part instead of away from it."""
+    import re
+    g = clone(g)
+    cand = [p for p in g.parts if re.search(r'(?i)OUTSIDE', p.layer or '') and p.outer.area > 5000]
+    if not cand: return None
+    p = rng.choice(cand)
+    p.layer = re.sub(r'(?i)OUTSIDE', 'INSIDE', p.layer)
+    return g
+
+
+def _f_thin_floor(g, rng):
+    """All pockets of one part cut to sheet thickness minus 1 mm (depth taken from the wrong, thinner, stock or
+    from a through-cut template): a 1 mm floor of face veneer is left under each pocket."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    cand = [p for p in g.parts if any(f.op == 'pocket' and f.depth and f.depth < th - 2.0 for f in p.features)]
+    if not cand: return None
+    p = rng.choice(cand)
+    for f in p.features:
+        if f.op == 'pocket' and f.depth and f.depth < th - 2.0:
+            f.depth = th - 1.0
+    return g
+
+
+def _f_openings_left_behind(g, rng):
+    """One of two identical parts moved without its openings (holes / slots on a locked or hidden layer stay put):
+    all its openings and holes end up 8 mm off, relative to its outline, while the twin part is right."""
+    g = clone(g)
+    big = [p for p in g.parts if p.outer.area > 10000 and len([i for i in p.inner if i.area > 20]) >= 2]
+    pairs = [a for a in big for b in big if a is not b and _congruent(a, b)]
+    rng.shuffle(pairs)
+    for p in pairs:
+        for dx, dy in rng.sample([(8, 0), (-8, 0), (0, 8), (0, -8)], 4):
+            moved = [affinity.translate(i, dx, dy) for i in p.inner]
+            if not all(m.within(p.outer) and p.outer.exterior.distance(m) >= 2.0 for m in moved): continue
+            ok = True
+            for f in p.features:
+                if f.op != 'hole' and not any(f.geom is i for i in p.inner):
+                    if not affinity.translate(f.geom, dx, dy).within(p.outer): ok = False
+            if not ok: continue
+            old = list(p.inner)
+            p.inner = moved
+            for f in p.features:
+                k = [j for j, i in enumerate(old) if f.geom is i]
+                f.geom = moved[k[0]] if k else affinity.translate(f.geom, dx, dy)
+            return g
+    return None
+
+
+FAULTS += [
+    Mut('gm40', 'A part outline on the INSIDE-cut layer (profile side swapped: CUT-OUTSIDE -> CUT-INSIDE)',
+        'Layer-driven CAM offsets the cutter by the layer: an outline on the inside-profile layer is cut with the '
+        'tool inside the line, so the part comes out one bit diameter (6-12 mm) undersize all round - every tab, '
+        'slot position and edge distance on it is wrong and it does not fit its neighbours',
+        _f_outline_inside,
+        source='Opendesk CAM layer convention (TOP-CUT-OUTSIDE for part profiles, TOP-CUT-INSIDE for openings; tool '
+               'side taken from the layer); Vectric VCarve/Aspire profile toolpath "Machine Vectors: Outside / Inside" '
+               'and toolpath templates per layer; ShopBot / Vectric forum threads on parts cut a bit-width undersize '
+               'because the profile was set to inside'),
+    Mut('gm41', 'Pockets of one part cut to sheet thickness minus 1 mm (a 1 mm floor left under each pocket)',
+        'A 1 mm floor is only the face veneer: it tears out or breaks through under the cutter, the part loses '
+        'vacuum hold as the floor flexes, and in use the hardware / mating part pushes straight through it',
+        _f_thin_floor,
+        source='Vectric / ShopBot pocketing guidance (leave enough floor; thin floors flex and break through, '
+               'especially on vacuum tables); Häfele Minifix housing depths (13.5-14.5 mm in 18-19 mm board, leaving '
+               '4.5-5 mm); Opendesk pocket depths (9 mm in 18 mm, half the sheet); EN 315 ply thickness tolerance '
+               '(+/-0.74 mm at 18 mm, so a 1 mm planned floor can be 0.3 mm or a hole)'),
+    Mut('gm42', 'One of two identical parts moved without its openings: all its holes and slots 8 mm off',
+        'Holes and slots on a locked / hidden / separate layer do not move when the outline is nested or moved: '
+        'the part is cut with every opening 8 mm out of place, so screws, dowels and the mating parts in its slots '
+        'do not line up with the other parts (its twin is right, so the assembly will not go together)',
+        _f_openings_left_behind,
+        source='Vectric VCarve / Aspire nesting and layer locking (locked or hidden layers are not moved with the '
+               'selection); SketchUp / Inkscape group-vs-loose-geometry export threads; CNC forum stories of holes '
+               'cut in the old position after a part was moved for nesting; Opendesk making guide (check the file '
+               'against the assembly drawing before cutting)'),
+]
+
+
+def _f_outline_spur(g, rng):
+    """A zero-width spur on a part outline: a 0.3 mm wide, 15 mm long spike sticking out of a straight edge, left by
+    a failed offset / fillet / join in CAD (the contour runs out to a point and back)."""
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 20000]
+    rng.shuffle(cand)
+    for p in cand:
+        pts = list(p.outer.exterior.coords)
+        segs = [i for i in range(len(pts) - 1) if math.dist(pts[i], pts[i + 1]) > 60]
+        if not segs: continue
+        i = rng.choice(segs)
+        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+        L = math.dist(pts[i], pts[i + 1]); tx, ty = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = (ty, -tx) if p.outer.exterior.is_ccw else (-ty, tx)        # outward normal
+        mx, my = x0 + tx * L / 2, y0 + ty * L / 2
+        P = lambda a, b: (mx + tx * a + nx * b, my + ty * a + ny * b)
+        spur = Polygon([P(-0.15, -0.5), P(0.15, -0.5), P(0.15, 15), P(-0.15, 15)])
+        if any(spur.buffer(5).intersects(o.outer) for o in g.parts if o is not p): continue
+        if g.sheet is not None and not spur.within(g.sheet): continue
+        new = p.outer.union(spur)
+        if new.is_empty or new.geom_type != 'Polygon' or len(new.interiors): continue
+        p.outer = Polygon(new.exterior.coords)
+        return g
+    return None
+
+
+def _f_dpi_scale(g, rng):
+    """The whole drawing scaled by 96/72 = 1.333: an SVG / PDF drawn in 72 dpi points read as 96 dpi pixels (or the
+    reverse) on the way to DXF - every part, slot and hole one third too big."""
+    g = clone(g); k = 96.0 / 72.0
+    for p in g.parts:
+        p.outer = affinity.scale(p.outer, k, k, origin=(0, 0)); p.inner = [affinity.scale(i, k, k, origin=(0, 0)) for i in p.inner]
+        for f in p.features:
+            f.geom = affinity.scale(f.geom, k, k, origin=(0, 0)); f.r = f.r * k if f.r else f.r
+    g.open_chains = [(affinity.scale(l, k, k, origin=(0, 0)), lay) for l, lay in g.open_chains]
+    if g.sheet is not None: g.sheet = affinity.scale(g.sheet, k, k, origin=(0, 0))
+    return g
+
+
+def _f_profile_short(g, rng):
+    """One part's profile layer depth set 3 mm short of the sheet (TOP-CUT-OUTSIDE_18 -> _15): the part is not cut free."""
+    import re
+    if not g.thickness or g.thickness < 6: return None
+    g = clone(g); th = g.thickness
+    cand = [p for p in g.parts if p.depth and abs(p.depth - th) < 0.05 and re.search(r'_(\d+(?:\.\d+)?)\s*MM\s*$', (p.layer or '').upper())
+            and p.outer.area > 5000]
+    if not cand: return None
+    p = rng.choice(cand)
+    d = th - 3.0
+    p.depth = d
+    p.layer = re.sub(r'(?i)_(\d+(?:\.\d+)?)(\s*MM\s*)$', lambda m: '_%.3f%s' % (d, m.group(2)), p.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm43', 'A zero-width spur on a part outline (0.3 mm wide, 15 mm long spike from a failed offset / join)',
+        'The outline runs out to a point and back: the cutter cannot enter a 0.3 mm gap, so the spur is left as a '
+        'paper-thin fin of sheet sticking out of the edge (it splinters off, leaves a ragged edge and stops the edge '
+        'sitting flush against its neighbour), or CAM rejects / mangles the self-touching contour',
+        _f_outline_spur,
+        source='Vectric VCarve "Find duplicate / overlapping vectors" and node-editing clean-up of offset artefacts; '
+               'Fusion 360 / Inkscape "offset path" and "stroke to path" artefacts (spikes at sharp corners); '
+               'SendCutSend file guidelines (no zero-width features, features at least the material thickness / '
+               'tool size); ShopBot forum threads on spikes in imported DXF outlines'),
+    Mut('gm44', 'Whole drawing 1.333x too large (72 dpi points read as 96 dpi pixels on SVG / PDF -> DXF)',
+        'Every part, slot and hole is one third too big: 18 mm slots come out 24 mm and rattle, 8 mm dowel holes come '
+        'out 10.7 mm, and parts may not fit the sheet - the whole cut is scrap',
+        _f_dpi_scale,
+        source='Inkscape 0.92 release notes (user unit changed 90 -> 96 dpi; files scale on import); Adobe Illustrator '
+               'DXF export (72 pt per inch artboard units); laser / CNC forum threads on parts cut 1.25x / 1.33x / '
+               '0.75x size after SVG -> DXF; SendCutSend "check your scale" upload guidance'),
+    Mut('gm45', 'One part\'s profile cut depth 3 mm short of the sheet (cut layer _18MM -> _15MM): not cut free',
+        'The profile stops 3 mm above the spoilboard: the part stays attached to the sheet by a 3 mm skin all round. '
+        'Onion skins are 0.25-0.76 mm; 3 mm cannot be snapped or trimmed off - the part is torn out with ragged, '
+        'splintered edges, or has to be recut',
+        _f_profile_short,
+        source='ShopBot "Holding Down Material for Cutting" p8 (onion skin 0.010-0.030 in = 0.25-0.76 mm); Opendesk '
+               'CAM layer convention (cut depth in the layer name, TOP-CUT-OUTSIDE_18.000MM = through the 18 mm '
+               'sheet); Vectric toolpath templates (cut depth taken per layer); CNC forum threads on parts not cut '
+               'through because the cut depth was set to nominal on oversize sheet or typed short'),
+]
+
+
+def _f_block_inches(g, rng):
+    """One part inserted as a block drawn in inches into the mm drawing, without unit scaling: that part (outline,
+    openings, holes) is 25.4x too small, the rest of the file is right."""
+    if len(g.parts) < 3: return None
+    g = clone(g); k = 1 / 25.4
+    cand = [p for p in g.parts if p.outer.area > 20000]
+    if not cand: return None
+    p = rng.choice(cand); c = p.outer.centroid
+    p.outer = affinity.scale(p.outer, k, k, origin=c)
+    p.inner = [affinity.scale(i, k, k, origin=c) for i in p.inner]
+    for f in p.features:
+        f.geom = affinity.scale(f.geom, k, k, origin=c); f.r = f.r * k if f.r else f.r
+    return g
+
+
+def _f_pocket_through(g, rng):
+    """A pocket (housing, recess) drawn on the through-cut layer instead of its pocket layer: it is cut out as an
+    opening through the part."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features
+            if f.op == 'pocket' and f.geom.geom_type == 'Polygon' and f.geom.area > 100 and f.geom.within(p.outer)
+            and p.outer.exterior.distance(f.geom) > 2 and not any(f.geom.intersects(i) for i in p.inner)]
+    if not cand: return None
+    p, f = rng.choice(cand)
+    p.features.remove(f)
+    p.inner.append(Polygon(f.geom.exterior.coords))
+    return g
+
+
+def _f_slot_short(g, rng):
+    """One slot of a family of identical slots (same width and length) drawn 30 % shorter: the mating part's full
+    width no longer passes through it."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    sl = [(p, i, w, ang) for p in g.parts for i, w, ang in _slots(p, th)]
+    def L(i):
+        return _rect_axes(i)[2]
+    cand = [(p, i, w, ang) for p, i, w, ang in sl
+            if sum(1 for q, j, w2, a2 in sl if j is not i and abs(w2 - w) < 0.2 and abs(L(j) - L(i)) < 0.5) >= 1
+            and L(i) >= 30]
+    rng.shuffle(cand)
+    for p, i, w, ang in cand:
+        c = i.centroid
+        m = affinity.rotate(i, -ang, origin=c)
+        m = affinity.scale(m, 0.7, 1.0, origin=c)                 # long axis is x after aligning
+        m = affinity.rotate(m, ang, origin=c)
+        if not m.is_valid or m.is_empty or not m.within(p.outer): continue
+        _replace_inner(p, i, m)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm46', 'One part is a block drawn in inches, inserted unscaled into the mm drawing (that part 25.4x too small)',
+        'The block\'s own units were ignored on insert: one part of the kit comes out at 1/25 size - a 600 mm side '
+        'becomes a 24 mm chip with slots and holes far below any bit size - and the furniture is a part short',
+        _f_block_inches,
+        source='AutoCAD INSERT / INSUNITS block scaling (blocks drawn in another unit are scaled only if both '
+               'drawings declare units); Fusion 360 / SketchUp component import unit mismatches; CNC forum threads on '
+               'one part of a DXF coming out tiny after combining files from different sources'),
+    Mut('gm47', 'A pocket (housing / recess) drawn on the through-cut layer: cut out as an opening through the part',
+        'The recess for a shelf, back panel or hardware was meant to stop part-way; on the profile layer it is cut '
+        'through the sheet: the panel gets a hole where it should have a housing, a long housing nearly cuts the '
+        'panel in two, and whatever sat in the recess has nothing to sit on',
+        _f_pocket_through,
+        source='Opendesk CAM layer convention (TOP-POCKET-INSIDE_<depth> vs TOP-CUT-INSIDE_<sheet>; depth from the '
+               'layer); Vectric toolpath templates per layer; ShopBot / Vectric forum threads on pockets cut through '
+               'because the vector sat on the profile layer'),
+    Mut('gm48', 'One slot of a set of identical slots drawn 30 % shorter (the mating part does not pass through)',
+        'Slots receive a mating part of a fixed width: a slot shortened by an edit (stretched / trimmed vector) '
+        'stops the part - it cannot be assembled without recutting or chiselling the slot, which ruins a press fit',
+        _f_slot_short,
+        source='Opendesk / WikiHouse slot-joint guidance (slot length = mating part width + clearance); Fab Academy '
+               'press-fit assignments (slots must match the mating part); CAD forum threads on stretch / trim edits '
+               'that changed one copy of an arrayed feature'),
+]
