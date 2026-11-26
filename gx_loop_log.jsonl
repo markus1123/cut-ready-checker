@@ -93,3 +93,4 @@
 {"step": "refine", "where": "session", "rule": "GB04", "file": "fc/gx/rules/gb04_auto_gm21.py", "accepted": true, "noise_rule": [12, 7], "noise_flag": [0.198, 0.186], "t": "2026-11-26T21:55:24"}
 {"step": "refine", "where": "session", "rule": "G01", "file": "fc/gx/rules/g01_open_outline.py", "accepted": false, "why": ["transfer catches lost on ['gt01']"], "t": "2026-11-26T22:16:37"}
 {"step": "refine", "where": "session", "rule": "GC07", "file": "fc/gx/rules/gc07_auto_gm34.py", "accepted": true, "noise_rule": [4, 1], "noise_flag": [0.186, 0.181], "t": "2026-11-26T22:37:05"}
+{"step": "refine", "where": "session", "rule": "GF09", "file": "fc/gx/rules/gf09_auto_gm43.py", "accepted": true, "noise_rule": [3, 0], "noise_flag": [0.181, 0.176], "t": "2026-11-26T22:56:36"}

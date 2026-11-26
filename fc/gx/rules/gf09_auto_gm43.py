@@ -8,6 +8,7 @@ MIN_LEN = 3.0    # mm: shorter is a corner artefact / rounding, not a spur
 MIN_W = 0.1      # mm: thinner, the out-and-back lines coincide; the cutter retraces them and no fin is left
 MIN_PART = 2500.0
 SLIVER = 0.02     # mm
+PARALLEL = 0.8    # a spur fills >= 80 % of its bounding rectangle: parallel sides, the out-and-back of a failed join
 
 
 def spurs(p):
@@ -28,7 +29,7 @@ def spurs(p):
             continue
         c = list(r.exterior.coords)
         w, L = sorted((math.dist(c[0], c[1]), math.dist(c[1], c[2])))
-        if MIN_W <= w <= FIN and L >= MIN_LEN and x.area >= 0.6 * r.area:
+        if MIN_W <= w <= FIN and L >= MIN_LEN and x.area >= PARALLEL * r.area:
             out.append((w, L))
     return out
 
@@ -42,7 +43,13 @@ def check(g):
     designed that thin: the finest end mill made for sheet is 1/16" and built designs have no outline feature under
     1 mm wide. Found by opening the outline with a 1 mm disc: what it removes that is under 1 mm wide, at least
     3 mm long and roughly rectangular is a spur (sharp corners and arc facets are removed as tiny triangles). Spurs under 0.1 mm are coincident lines
-    the cutter just retraces - no material is left, so they are harmless."""
+    the cutter just retraces - no material is left, so they are harmless.
+    Narrowed (misreadings on real files):
+      * tapering points (the thin piece fills only 60-70 % of its rectangle: a wedge running from ~1 mm down to
+        nothing over 5-25 mm, where two drawn curves meet at a shallow angle - a shelf edge or a decorative leg
+        drawn out to a sharp tip): that is a designed sharp point, not a CAD spur. An out-and-back spur from a
+        failed offset / join has parallel sides (fills >= 80 %); at a designed point only the last millimetre of
+        the tip is too thin to stand, a cosmetic edge, not a fin across the part edge."""
     for p in g.parts:
         s = spurs(p)
         if s:
