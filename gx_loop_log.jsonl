@@ -45,3 +45,4 @@
 {"step": "write", "where": "session", "target": "gm52", "rule": "gg04_auto_gm52", "accepted": false, "why": ["target not caught more often"], "t": "2026-11-26T07:40:16"}
 {"step": "write", "where": "session", "target": "gm51", "rule": "gg05_auto_gm51", "accepted": true, "train": 0.84, "transfer": 0.806, "t": "2026-11-26T07:52:43"}
 {"step": "mine", "where": "session", "ok": true, "types": 39, "t": "2026-11-26T08:19:28"}
+{"step": "write", "where": "session", "target": "gm53", "rule": "gg06_auto_gm53", "accepted": true, "train": 0.799, "transfer": 0.764, "t": "2026-11-26T08:43:57"}
