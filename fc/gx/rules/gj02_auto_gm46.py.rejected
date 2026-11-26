@@ -1,0 +1,55 @@
+"""GJ02: a small part whose own openings / holes / pockets are finer than any bit: drawn at the wrong scale."""
+import math
+from fc.gx import limits
+from fc.core import Finding
+from fc.gx.core import gx_rule
+
+BIT_MIN = limits.BIT_MIN   # mm (1/8"): the smallest router bit that cuts furniture sheet (Amana 46180)
+SMALL = 100.0       # mm: the part's longest side; a furniture part with machined features is bigger than this
+RATIO = 8.0         # ... and the file's biggest part is at least this many times longer (the rest of the file is right)
+MIN_FEAT = 2        # features in the part (openings + holes + pockets): one dot inside a mark is not a pattern
+
+
+def _width(geom, r=None):
+    """Width of a feature: diameter for a round hole, short side of the minimum rotated rectangle otherwise."""
+    if r: return 2 * r
+    if geom is None or geom.is_empty: return None
+    m = geom.minimum_rotated_rectangle
+    if m.geom_type != 'Polygon': return 0.0
+    c = list(m.exterior.coords)
+    return min(math.dist(c[0], c[1]), math.dist(c[1], c[2]))
+
+
+def _long(poly):
+    x0, y0, x1, y1 = poly.bounds
+    return max(x1 - x0, y1 - y0)
+
+
+@gx_rule('GJ02', 'A part drawn at the wrong scale: its openings and holes are finer than any bit')
+def check(g):
+    """A part combined into a drawing from another file or block with different units (an inch block inserted into a
+    mm drawing without unit scaling: AutoCAD INSERT / INSUNITS, Fusion / SketchUp component import) comes out 25.4x
+    too small while the rest of the file is right: a 600 mm side with slots and bores becomes a 24 mm chip whose
+    'slots' and 'holes' are a fraction of a millimetre. No bit can cut a feature narrower than itself, and the
+    smallest bit that cuts furniture sheet is 1/8" (3.175 mm, docs/rules-from-manuals.md section 5): a part under
+    100 mm long, 8x shorter than the file's biggest part, that carries two or more through openings, holes or
+    pockets which are ALL narrower than that bit
+    is not a furniture part that can be machined - the kit comes out a part short. Plain small loops without
+    features (registration dots, offcut marks) are not judged; whole drawings at a tiny scale are (unitless files
+    whose biggest part is under 300 mm are skipped: a scale model or a cm drawing, judged by the unit rules)."""
+    if not g.parts or g.scale_uncertain:
+        return
+    L = max(_long(p.outer) for p in g.parts)
+    for p in g.parts:
+        l = _long(p.outer)
+        if l >= SMALL or l * RATIO > L:
+            continue
+        ws = [_width(i) for i in p.inner if not any(f.geom is i for f in p.features)]
+        ws += [_width(f.geom, f.r) for f in p.features if f.op == 'hole']
+        ws += [_width(f.geom.intersection(p.outer)) for f in p.features if f.op == 'pocket' and f.geom is not None
+               and f.geom.is_valid and f.geom.intersects(p.outer)]     # an edge rebate counts as far as it is on the part
+        ws = [w for w in ws if w is not None]
+        if len(ws) >= MIN_FEAT and max(ws) < BIT_MIN:
+            yield Finding('GJ02', 'error', 'part only %.0f mm long carries %d openings / holes all under %.1f mm wide '
+                          '(widest %.2f mm): finer than any bit - drawn at the wrong scale (an inch block in a mm '
+                          'drawing?), the real part is missing' % (l, len(ws), BIT_MIN, max(ws)), p.key)

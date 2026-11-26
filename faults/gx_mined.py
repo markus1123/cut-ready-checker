@@ -1723,3 +1723,107 @@ FAULTS += [
                '(all holes of a line drilled to one depth for the pins); forum threads on single holes left short '
                'after a circle landed on the wrong layer'),
 ]
+
+
+def _j_diameter_as_radius(g, rng):
+    """All drilled holes of one size in one part drawn at twice their diameter (the diameter typed into the radius
+    field, or a circle drawn by radius from a diameter dimension)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        hs = [f for f in holes(p, 8.0) if f.r >= 1.5 and f.geom is not None]
+        for r in sorted({round(f.r, 2) for f in hs}):
+            grp = [f for f in hs if abs(f.r - r) < 0.01]
+            if len(grp) >= 2: cand.append((p, grp))
+    rng.shuffle(cand)
+    for p, grp in cand:
+        new = []
+        for f in grp:
+            c = f.geom.centroid
+            m = Point(c.x, c.y).buffer(2 * f.r, 32)
+            if not m.within(p.outer): break
+            new.append((f, m))
+        else:
+            for f, m in new:
+                if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+                f.geom = m; f.r = 2 * f.r
+            return g
+    return None
+
+
+def _j_twin_scaled(g, rng):
+    """One of two (or more) identical parts redrawn 96/90 = 6.7 % larger, openings and holes with it (imported from
+    an SVG / PDF at 90 dpi into a 96 dpi drawing, the Inkscape 0.91 change)."""
+    g = clone(g); k = 96.0 / 90.0
+    big = [p for p in g.parts if p.outer.area > 5000]
+    cand = [a for a in big if any(a is not b and _congruent(a, b) for b in big)]
+    rng.shuffle(cand)
+    for p in cand:
+        c = p.outer.centroid
+        o = affinity.scale(p.outer, k, k, origin=c)
+        if any(o.intersects(q.outer) for q in g.parts if q is not p and not q.outer.within(p.outer)): continue
+        olds = list(p.inner)
+        p.outer = o
+        p.inner = [affinity.scale(i, k, k, origin=c) for i in olds]
+        for f in p.features:
+            hit = [n for n, i in enumerate(olds) if f.geom is i]
+            f.geom = p.inner[hit[0]] if hit else affinity.scale(f.geom, k, k, origin=c)
+            if f.r: f.r *= k
+        return g
+    return None
+
+
+def _j_counterbore_swapped(g, rng):
+    """A through hole and its counterbore with their sizes swapped: the wide bore goes through the part, the narrow
+    one is only drilled to the counterbore depth (bore sizes / layers mixed up on export)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        cs = [f for f in p.features if f.r and f.op in ('hole', 'pocket') and f.geom is not None]
+        for a in cs:
+            for b in cs:
+                if b is a or b.r < a.r + 1.5: continue
+                if a.geom.centroid.distance(b.geom.centroid) < 0.2 and \
+                        (a.depth is None or b.depth is None or a.depth > b.depth):
+                    cand.append((p, a, b))
+    rng.shuffle(cand)
+    for p, a, b in cand:
+        ga, gb = a.geom, b.geom
+        if ga in p.inner: p.inner[p.inner.index(ga)] = gb
+        a.geom, b.geom = gb, ga
+        a.r, b.r = b.r, a.r
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm80', 'Drilled holes of one size in a part drawn at twice their diameter (diameter typed as the radius)',
+        'CAD circle commands ask for a radius by default: typing the bore size (8 mm dowel, 5 mm shelf pin, 6 mm '
+        'bolt) into it draws every such hole twice too big. The CAM drills / pockets what is drawn, so dowels and '
+        'pins fall through, screws and bolts have nothing to bite into, and the hardware it was drilled for will '
+        'not hold - the part is scrap',
+        _j_diameter_as_radius,
+        source='AutoCAD CIRCLE command (Center, Radius is the default; Diameter needs the D option) and LibreCAD / '
+               'QCAD circle tools; Hettich System 32 (5 mm pin holes), Häfele dowel and Minifix drilling data '
+               '(docs/rules-from-manuals.md); CNC / woodworking forum threads on holes cut at double size after a '
+               'radius / diameter mix-up'),
+    Mut('gm81', 'One of two identical parts 6.7 % too large (imported at 90 dpi into a 96 dpi drawing)',
+        'Inkscape (before 0.92: 90 px/in) and most other SVG tools (96 px/in) disagree on pixel size, so a part '
+        'brought in from an older SVG / PDF comes out 96/90 = 1.067x too large while the rest of the file is right: '
+        'that copy is longer than its twin and its mating parts, its slots and holes are off their partners by up to '
+        'tens of millimetres, and the piece does not assemble square',
+        _j_twin_scaled,
+        source='Inkscape 0.92 release notes (user unit changed from 90 to 96 dpi; files from 0.91 scale by 1.0667); '
+               'Ponoko / SendCutSend file preparation guides (check scale after import, 72/90/96 dpi); laser / CNC '
+               'forum threads on one part of a kit cut about 6 % oversize'),
+    Mut('gm82', 'Counterbore and through hole sizes swapped (the wide bore goes through, the narrow one stops short)',
+        'A counterbored fixing is a narrow through hole for the shank plus a wide shallow bore for the head. With the '
+        'two swapped (circles on the wrong drill layers, or the depths exchanged) the wide bore is drilled right '
+        'through, so the screw or bolt head pulls straight through the part, and the narrow bore that should have '
+        'taken the shank is lost inside the big one: the joint cannot be fastened',
+        _j_counterbore_swapped,
+        source='Opendesk layer conventions (separate HOLE / POCKET layers per diameter and depth); Häfele / Hettich '
+               'connector drilling data (bolt hole + head bore diameters and depths, docs/rules-from-manuals.md); '
+               'Vectric / Fusion 360 drilling + counterbore templates; CNC forum threads on counterbore and through '
+               'hole depths swapped by a layer mix-up'),
+]
