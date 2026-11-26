@@ -10,6 +10,8 @@ MIN_GLYPHS = 3      # a label has several glyphs; one or two narrow slivers are 
 MAX_FILE = 20       # a file with more sub-bit openings than this is a laser job throughout (the beam cuts them):
                     # wrong machine for the whole file, not a label slipped onto the cut layer
 MIN_PART = 2500.0   # mm2: smaller loops are not furniture parts
+MODEL_L = 250.0     # mm: a drawing whose largest part is shorter than this is a scale model / tabletop craft piece
+ROUTER_T = 9.0      # mm: sheet at least this thick is router sheet whatever the drawing's size
 
 
 def _glyph(i):
@@ -49,7 +51,18 @@ def check(g):
     Ponoko / SendCutSend file preparation and Opendesk's layer conventions all say: text on an engrave layer, never
     on the cut layer. Recognised as a cluster of >= 3 small (<= 25 mm), non-round closed openings close together
     in one part, none wide enough for a 1/8" bit. Files full of such openings (> 20) are laser jobs throughout and
-    are left alone; round ones are holes (G05)."""
+    are left alone; round ones are holes (G05).
+    Narrowed after reading real files from other designers:
+      * drawings whose largest part is under 250 mm (and no stated / slot-derived sheet of 9 mm or more) are scale
+        models, doll's-house furniture, cake toppers and 3 mm desk toys from laser-file sites: cut on a laser, which
+        cuts (or vector-engraves) 1-2 mm strokes as drawn - the router-bit premise of this rule does not apply.
+        Full-size furniture always has a part (seat, leg, side) longer than that."""
+    if not g.parts:
+        return
+    L = max(max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts)
+    t = g.thickness or g.thickness_est
+    if L < MODEL_L and not (t and t >= ROUTER_T):
+        return
     per_part = []
     total = 0
     for p in g.parts:

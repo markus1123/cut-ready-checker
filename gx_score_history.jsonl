@@ -30,3 +30,4 @@
 {"t": "2026-11-26T07:27:58", "note": "session: refine G02", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 3, "noise_flag": 0.28}
 {"t": "2026-11-26T07:57:37", "note": "session: refine G05", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 3, "noise_flag": 0.267}
 {"t": "2026-11-26T08:16:29", "note": "session: refine GB04", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 3, "noise_flag": 0.26}
+{"t": "2026-11-26T08:36:14", "note": "session: refine GB03", "rules": 29, "train": 0.75, "transfer": 0.749, "heldout": null, "fp": 3, "noise_flag": 0.253}
