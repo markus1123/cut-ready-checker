@@ -922,7 +922,8 @@ def _g_thin_finger(g, rng):
 
 
 def _g_hole_into_opening(g, rng):
-    """A drilled hole moved so it breaks into the edge of a slot / cut-out of the same part (centre 1 mm inside it)."""
+    """A drilled hole moved so it breaks into the edge of a slot / cut-out of the same part (centre in solid sheet,
+    r/2 from the opening: the bore bites half a radius into the opening)."""
     g = clone(g)
     cand = []
     for p in g.parts:
@@ -937,7 +938,7 @@ def _g_hole_into_opening(g, rng):
         a, b = nearest_points(o.exterior, c)
         d = a.distance(b)
         if d < 1e-6 or d > 150: continue
-        k = (d + f.r - 1.0) / d                     # hole edge ends up r - 1 mm ... i.e. the bore overlaps the opening
+        k = (d - f.r / 2) / d                       # centre ends r/2 from the opening: the bore overlaps it
         dx, dy = (a.x - b.x) * k, (a.y - b.y) * k
         m = affinity.translate(f.geom, dx, dy)
         if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
