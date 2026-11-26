@@ -1040,3 +1040,81 @@ FAULTS += [
                'sheet); Vectric toolpath templates (cut depth taken per layer); CNC forum threads on parts not cut '
                'through because the cut depth was set to nominal on oversize sheet or typed short'),
 ]
+
+
+def _f_block_inches(g, rng):
+    """One part inserted as a block drawn in inches into the mm drawing, without unit scaling: that part (outline,
+    openings, holes) is 25.4x too small, the rest of the file is right."""
+    if len(g.parts) < 3: return None
+    g = clone(g); k = 1 / 25.4
+    cand = [p for p in g.parts if p.outer.area > 20000]
+    if not cand: return None
+    p = rng.choice(cand); c = p.outer.centroid
+    p.outer = affinity.scale(p.outer, k, k, origin=c)
+    p.inner = [affinity.scale(i, k, k, origin=c) for i in p.inner]
+    for f in p.features:
+        f.geom = affinity.scale(f.geom, k, k, origin=c); f.r = f.r * k if f.r else f.r
+    return g
+
+
+def _f_pocket_through(g, rng):
+    """A pocket (housing, recess) drawn on the through-cut layer instead of its pocket layer: it is cut out as an
+    opening through the part."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features
+            if f.op == 'pocket' and f.geom.geom_type == 'Polygon' and f.geom.area > 100 and f.geom.within(p.outer)
+            and p.outer.exterior.distance(f.geom) > 2 and not any(f.geom.intersects(i) for i in p.inner)]
+    if not cand: return None
+    p, f = rng.choice(cand)
+    p.features.remove(f)
+    p.inner.append(Polygon(f.geom.exterior.coords))
+    return g
+
+
+def _f_slot_short(g, rng):
+    """One slot of a family of identical slots (same width and length) drawn 30 % shorter: the mating part's full
+    width no longer passes through it."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    sl = [(p, i, w, ang) for p in g.parts for i, w, ang in _slots(p, th)]
+    def L(i):
+        return _rect_axes(i)[2]
+    cand = [(p, i, w, ang) for p, i, w, ang in sl
+            if sum(1 for q, j, w2, a2 in sl if j is not i and abs(w2 - w) < 0.2 and abs(L(j) - L(i)) < 0.5) >= 1
+            and L(i) >= 30]
+    rng.shuffle(cand)
+    for p, i, w, ang in cand:
+        c = i.centroid
+        m = affinity.rotate(i, -ang, origin=c)
+        m = affinity.scale(m, 0.7, 1.0, origin=c)                 # long axis is x after aligning
+        m = affinity.rotate(m, ang, origin=c)
+        if not m.is_valid or m.is_empty or not m.within(p.outer): continue
+        _replace_inner(p, i, m)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm46', 'One part is a block drawn in inches, inserted unscaled into the mm drawing (that part 25.4x too small)',
+        'The block\'s own units were ignored on insert: one part of the kit comes out at 1/25 size - a 600 mm side '
+        'becomes a 24 mm chip with slots and holes far below any bit size - and the furniture is a part short',
+        _f_block_inches,
+        source='AutoCAD INSERT / INSUNITS block scaling (blocks drawn in another unit are scaled only if both '
+               'drawings declare units); Fusion 360 / SketchUp component import unit mismatches; CNC forum threads on '
+               'one part of a DXF coming out tiny after combining files from different sources'),
+    Mut('gm47', 'A pocket (housing / recess) drawn on the through-cut layer: cut out as an opening through the part',
+        'The recess for a shelf, back panel or hardware was meant to stop part-way; on the profile layer it is cut '
+        'through the sheet: the panel gets a hole where it should have a housing, a long housing nearly cuts the '
+        'panel in two, and whatever sat in the recess has nothing to sit on',
+        _f_pocket_through,
+        source='Opendesk CAM layer convention (TOP-POCKET-INSIDE_<depth> vs TOP-CUT-INSIDE_<sheet>; depth from the '
+               'layer); Vectric toolpath templates per layer; ShopBot / Vectric forum threads on pockets cut through '
+               'because the vector sat on the profile layer'),
+    Mut('gm48', 'One slot of a set of identical slots drawn 30 % shorter (the mating part does not pass through)',
+        'Slots receive a mating part of a fixed width: a slot shortened by an edit (stretched / trimmed vector) '
+        'stops the part - it cannot be assembled without recutting or chiselling the slot, which ruins a press fit',
+        _f_slot_short,
+        source='Opendesk / WikiHouse slot-joint guidance (slot length = mating part width + clearance); Fab Academy '
+               'press-fit assignments (slots must match the mating part); CAD forum threads on stretch / trim edits '
+               'that changed one copy of an arrayed feature'),
+]
