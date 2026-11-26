@@ -957,3 +957,86 @@ FAULTS += [
                'cut in the old position after a part was moved for nesting; Opendesk making guide (check the file '
                'against the assembly drawing before cutting)'),
 ]
+
+
+def _f_outline_spur(g, rng):
+    """A zero-width spur on a part outline: a 0.3 mm wide, 15 mm long spike sticking out of a straight edge, left by
+    a failed offset / fillet / join in CAD (the contour runs out to a point and back)."""
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 20000]
+    rng.shuffle(cand)
+    for p in cand:
+        pts = list(p.outer.exterior.coords)
+        segs = [i for i in range(len(pts) - 1) if math.dist(pts[i], pts[i + 1]) > 60]
+        if not segs: continue
+        i = rng.choice(segs)
+        (x0, y0), (x1, y1) = pts[i], pts[i + 1]
+        L = math.dist(pts[i], pts[i + 1]); tx, ty = (x1 - x0) / L, (y1 - y0) / L
+        nx, ny = (ty, -tx) if p.outer.exterior.is_ccw else (-ty, tx)        # outward normal
+        mx, my = x0 + tx * L / 2, y0 + ty * L / 2
+        P = lambda a, b: (mx + tx * a + nx * b, my + ty * a + ny * b)
+        spur = Polygon([P(-0.15, -0.5), P(0.15, -0.5), P(0.15, 15), P(-0.15, 15)])
+        if any(spur.buffer(5).intersects(o.outer) for o in g.parts if o is not p): continue
+        if g.sheet is not None and not spur.within(g.sheet): continue
+        new = p.outer.union(spur)
+        if new.is_empty or new.geom_type != 'Polygon' or len(new.interiors): continue
+        p.outer = Polygon(new.exterior.coords)
+        return g
+    return None
+
+
+def _f_dpi_scale(g, rng):
+    """The whole drawing scaled by 96/72 = 1.333: an SVG / PDF drawn in 72 dpi points read as 96 dpi pixels (or the
+    reverse) on the way to DXF - every part, slot and hole one third too big."""
+    g = clone(g); k = 96.0 / 72.0
+    for p in g.parts:
+        p.outer = affinity.scale(p.outer, k, k, origin=(0, 0)); p.inner = [affinity.scale(i, k, k, origin=(0, 0)) for i in p.inner]
+        for f in p.features:
+            f.geom = affinity.scale(f.geom, k, k, origin=(0, 0)); f.r = f.r * k if f.r else f.r
+    g.open_chains = [(affinity.scale(l, k, k, origin=(0, 0)), lay) for l, lay in g.open_chains]
+    if g.sheet is not None: g.sheet = affinity.scale(g.sheet, k, k, origin=(0, 0))
+    return g
+
+
+def _f_profile_short(g, rng):
+    """One part's profile layer depth set 3 mm short of the sheet (TOP-CUT-OUTSIDE_18 -> _15): the part is not cut free."""
+    import re
+    if not g.thickness or g.thickness < 6: return None
+    g = clone(g); th = g.thickness
+    cand = [p for p in g.parts if p.depth and abs(p.depth - th) < 0.05 and re.search(r'_(\d+(?:\.\d+)?)\s*MM\s*$', (p.layer or '').upper())
+            and p.outer.area > 5000]
+    if not cand: return None
+    p = rng.choice(cand)
+    d = th - 3.0
+    p.depth = d
+    p.layer = re.sub(r'(?i)_(\d+(?:\.\d+)?)(\s*MM\s*)$', lambda m: '_%.3f%s' % (d, m.group(2)), p.layer)
+    return g
+
+
+FAULTS += [
+    Mut('gm43', 'A zero-width spur on a part outline (0.3 mm wide, 15 mm long spike from a failed offset / join)',
+        'The outline runs out to a point and back: the cutter cannot enter a 0.3 mm gap, so the spur is left as a '
+        'paper-thin fin of sheet sticking out of the edge (it splinters off, leaves a ragged edge and stops the edge '
+        'sitting flush against its neighbour), or CAM rejects / mangles the self-touching contour',
+        _f_outline_spur,
+        source='Vectric VCarve "Find duplicate / overlapping vectors" and node-editing clean-up of offset artefacts; '
+               'Fusion 360 / Inkscape "offset path" and "stroke to path" artefacts (spikes at sharp corners); '
+               'SendCutSend file guidelines (no zero-width features, features at least the material thickness / '
+               'tool size); ShopBot forum threads on spikes in imported DXF outlines'),
+    Mut('gm44', 'Whole drawing 1.333x too large (72 dpi points read as 96 dpi pixels on SVG / PDF -> DXF)',
+        'Every part, slot and hole is one third too big: 18 mm slots come out 24 mm and rattle, 8 mm dowel holes come '
+        'out 10.7 mm, and parts may not fit the sheet - the whole cut is scrap',
+        _f_dpi_scale,
+        source='Inkscape 0.92 release notes (user unit changed 90 -> 96 dpi; files scale on import); Adobe Illustrator '
+               'DXF export (72 pt per inch artboard units); laser / CNC forum threads on parts cut 1.25x / 1.33x / '
+               '0.75x size after SVG -> DXF; SendCutSend "check your scale" upload guidance'),
+    Mut('gm45', 'One part\'s profile cut depth 3 mm short of the sheet (cut layer _18MM -> _15MM): not cut free',
+        'The profile stops 3 mm above the spoilboard: the part stays attached to the sheet by a 3 mm skin all round. '
+        'Onion skins are 0.25-0.76 mm; 3 mm cannot be snapped or trimmed off - the part is torn out with ragged, '
+        'splintered edges, or has to be recut',
+        _f_profile_short,
+        source='ShopBot "Holding Down Material for Cutting" p8 (onion skin 0.010-0.030 in = 0.25-0.76 mm); Opendesk '
+               'CAM layer convention (cut depth in the layer name, TOP-CUT-OUTSIDE_18.000MM = through the 18 mm '
+               'sheet); Vectric toolpath templates (cut depth taken per layer); CNC forum threads on parts not cut '
+               'through because the cut depth was set to nominal on oversize sheet or typed short'),
+]
