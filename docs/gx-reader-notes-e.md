@@ -39,3 +39,8 @@ in the reader would let the rules drop the workarounds. model.py was not edited 
 
 8. **Logos read as parts.** The 29 mm Creative Commons mark (disc + two 'C' openings) on Kadushin sheets is a
    closed loop on the cut layer and becomes a part; GC08 now ignores parts under 2500 mm2 like GB01 / G10 do.
+
+**Fixed in reader v9 (2026-11-26):** 1 (inch vs cm: the reading nearest 300-1500 mm wins), 3 (a plain rectangle with
+20+ loops inside is a border), 4 (ends within ~0.1 mm join), 5 (`info` layers skipped); 2 partly: `g.scale_uncertain`
+is set on unitless files whose biggest part is under 300 mm (rules can use it instead of their own 250/300 mm tests).
+Still open: 6 (several sheets), 7 (process hint), 8 (logos).

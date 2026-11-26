@@ -27,3 +27,7 @@ for whoever owns the reader. Each line: what the reader does, what it should pro
    them; the reader turns the view's outlines into parts that overlap everything (G02 now ignores files with 10+
    overlapping pairs). A reader-level "view cluster" detector (many mutually overlapping outlines away from the
    nested parts) would also stop G01/G03/GB01 reading those views as parts.
+
+**Fixed in reader v9 (2026-11-26):** 3 (open chains lying within 0.5 mm of a closed outline are dropped), 5 partly
+(`g.scale_uncertain`). Not done on purpose: 2 (dropping tiny closed loops would also hide tiny loose parts, a real
+fault). Still open: 1, 4, 6.

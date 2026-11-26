@@ -15,13 +15,14 @@ import ezdxf
 from ezdxf import disassemble, path as zpath
 from shapely.geometry import Polygon, LineString, Point
 from shapely.strtree import STRtree
+from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 HERE = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 CACHE = os.environ.get('FC_CACHE') or os.path.join(HERE, 'corpus', 'cache')
-VERSION = 8   # bump to invalidate the cache when parsing changes
+VERSION = 9   # bump to invalidate the cache when parsing changes
 
-SKIP = re.compile(r'(?i)noprint|note|text|dim|board|border|defpoints|tolerance|title|frame|label|annot|hatch|center')
+SKIP = re.compile(r'(?i)noprint|note|text|dim|board|border|defpoints|tolerance|title|frame|label|annot|hatch|center|\binfo')
 STOCK = [(2440, 1220), (2500, 1250), (3050, 1525), (2800, 2070), (2400, 1200)]   # common sheet formats, mm
 SCALE = {'mm': 1.0, 'mm?': 1.0, 'in': 25.4, 'in?': 25.4, 'cm?': 10.0, 'm': 1000.0}
 
@@ -85,6 +86,8 @@ class GDesign:
                                              # fool it): fine for warnings / choosing what to look at, not for errors
     notes: List[str] = field(default_factory=list)
     units_declared: Optional[str] = None     # set when the header's units were overridden as implausible (see load)
+    scale_uncertain: bool = False            # unitless file whose biggest part is under 300 mm: maybe a model, a 1:10 or
+                                             # a cm drawing; absolute mm limits are unreliable on it (see load)
 
 
 def _loops(fn, tol):
@@ -147,7 +150,7 @@ def parse(fn, units='mm', meta=None, did=None):
     """DXF -> GDesign (mm). Raises on unreadable files."""
     s = SCALE.get(units, 1.0)
     segs, circles = _loops(fn, 0.05 / s)
-    loops, opens = _chain(segs, 0.02 / s)
+    loops, opens = _chain(segs, 0.07 / s)   # ends within ~0.1 mm join (export rounding; far below any kerf)
     polys = []
     for pts, layer in loops:
         try:
@@ -193,7 +196,8 @@ def parse(fn, units='mm', meta=None, did=None):
     for i, (p, layer) in enumerate(polys):
         minx, miny, maxx, maxy = p.bounds
         if p.area > 0.99 * (maxx - minx) * (maxy - miny) and min(maxx - minx, maxy - miny) > 500 and \
-                len([k for k in kids.get(i, []) if geoms[k].area > 0.003 * p.area]) >= 3 and parent[i] is None:
+                (len([k for k in kids.get(i, []) if geoms[k].area > 0.003 * p.area]) >= 3 or
+                 (len(p.exterior.coords) <= 6 and len(kids.get(i, [])) >= 20)) and parent[i] is None:
             sheet = p; notes.append('sheet border on layer %s' % layer)
             for k in kids.get(i, []): parent[k] = None
             parent[i] = -1
@@ -268,6 +272,14 @@ def parse(fn, units='mm', meta=None, did=None):
             part.inner.append(c); part.features.append(Feature('hole', c, None, layer, r))
     opens_mm = [(LineString([(x * s, y * s) for x, y in pts]), layer) for pts, layer in opens
                 if layer_op(layer)[0] in ('cut', 'cut_outside', 'cut_inside')]
+    if opens_mm and geoms:      # an open copy traced over a closed outline is not a missing side
+        rings = [q.exterior for q in geoms]; rtree = STRtree(rings); keep = []
+        for ln, layer in opens_mm:
+            near = [rings[int(j)] for j in rtree.query(ln.buffer(0.5))]
+            if near and ln.length > 0 and ln.difference(unary_union([r.buffer(0.5) for r in near])).length <= 0.05 * ln.length:
+                notes.append('open chain over a closed outline ignored (%s)' % layer); continue
+            keep.append((ln, layer))
+        opens_mm = keep
     g = GDesign(id=did or os.path.basename(fn), path=fn, units=units, meta=meta, parts=parts,
                 open_chains=opens_mm, thickness=th, sheet=sheet, notes=notes, thickness_source=th_src)
     g.thickness_est = g.thickness or slot_thickness(g)
@@ -320,17 +332,25 @@ def load(fn, units='mm', meta=None, did=None):
     # a declared header is only overridden when it makes the drawing absurdly LARGE (m or in on mm geometry):
     # small declared sizes are real (joint test pieces are 50-100 mm)
     if not _plausible(g) and (guessed or _longest(g) > 3200):
+        cands = []
         for u in ('mm?', 'in?', 'cm?'):
             if u.rstrip('?') == units.rstrip('?'): continue
             if not guessed and SCALE[u] >= SCALE.get(units, 1.0): continue
             g2 = _load(fn, u, meta, did)
-            if _plausible(g2):
-                if guessed:
-                    g2.notes.append('unitless file read as %s (guess %s gave implausible sizes)' % (u, units))
-                else:
-                    g2.units_declared = units
-                    g2.notes.append('header says %s but sizes only make sense in %s' % (units, u.rstrip('?')))
-                return g2
+            if _plausible(g2): cands.append((u, g2))
+        if cands:
+            # several readings plausible (inch AND cm): keep the one whose biggest part is nearest typical furniture
+            # sizes (300-1500 mm); a 2.3 m 'table top' in inches is usually a 0.9 m one drawn in cm
+            dist = lambda g2: 0 if 300 <= _longest(g2) <= 1500 else abs(math.log(_longest(g2) / (300 if _longest(g2) < 300 else 1500)))
+            u, g2 = min(cands, key=lambda t: dist(t[1]))
+            if guessed:
+                g2.notes.append('unitless file read as %s (guess %s gave implausible sizes)' % (u, units))
+            else:
+                g2.units_declared = units
+                g2.notes.append('header says %s but sizes only make sense in %s' % (units, u.rstrip('?')))
+            g = g2
+    if g.units.endswith('?') and g.parts and _longest(g) < 300:
+        g.scale_uncertain = True
     return g
 
 
