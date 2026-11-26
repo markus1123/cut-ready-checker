@@ -8,6 +8,8 @@ TOUCH = 0.3       # mm: closer than this the two openings share a cut line (one 
 MIN_OPEN = 50.0   # mm2: smaller loops are marks / lettering
 LASER = 1.5       # mm: an opening that a 3 mm disc does not fit in = a laser / waterjet file, not a router file
 MAX_PAIRS = 2     # more tight pairs = a deliberate lattice / laser pattern
+SCALE_MODEL = 300.0   # mm: a unit-less furniture file whose BIGGEST part is shorter than this is a 1:10 / cm drawing
+FRAME_OPENINGS, FRAME_HOLDS = 20, 5   # a plain rectangle with 20+ 'openings' and 5+ parts inside them = layout border
 
 
 @gx_rule('GC08', 'Sheet web between two through openings thinner than any cutter')
@@ -17,10 +19,24 @@ def check(g):
     or snaps as soon as the parts sitting in the two slots are loaded: the openings merge and both joints go loose
     (Opendesk / WikiHouse guides keep about a sheet thickness between slots; built designs in the corpus keep 7.4 mm
     or more). Openings closer than 0.3 mm share a cut line and are one opening. Laser files (openings a 1/8" bit
-    cannot enter) and lattices with many tight pairs are deliberate patterns for another process and are left alone."""
+    cannot enter) and lattices with many tight pairs are deliberate patterns for another process and are left alone.
+    Narrowed (misreadings on real files):
+      * drawing frame / layout border: a plain 4-corner rectangle drawn around a whole nest (Kadushin files) is read
+        as one big part whose 'openings' are the real parts, so the gap between two nested PARTS looks like a web
+        between two openings; part spacing is G10's job.
+      * scale drawings: no unit header and the biggest part under 300 mm - furniture drawn at 1:10 or in cm, so a
+        '1 mm' web is really 10 mm; an absolute mm limit does not apply at unknown scale."""
+    spans = [max(p.outer.bounds[2] - p.outer.bounds[0], p.outer.bounds[3] - p.outer.bounds[1]) for p in g.parts]
+    if str(g.units).endswith('?') and spans and max(spans) < SCALE_MODEL:
+        return
     for p in g.parts:
         ii = [i for i in p.inner if i.geom_type == 'Polygon' and i.is_valid and i.area > MIN_OPEN]
         if len(ii) < 2 or len(ii) > 400:
+            continue
+        x0, y0, x1, y1 = p.outer.bounds
+        if len(p.outer.exterior.coords) <= 5 and p.outer.area > 0.99 * (x1 - x0) * (y1 - y0) and \
+                len(p.inner) >= FRAME_OPENINGS and sum(1 for q in g.parts if q is not p and
+                                                       any(q.outer.within(i) for i in p.inner)) >= FRAME_HOLDS:
             continue
         if any(i.is_valid and i.area > 1 and i.buffer(-LASER).is_empty for i in p.inner):
             continue
