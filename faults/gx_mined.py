@@ -1723,3 +1723,114 @@ FAULTS += [
                '(all holes of a line drilled to one depth for the pins); forum threads on single holes left short '
                'after a circle landed on the wrong layer'),
 ]
+
+
+# ---- shard k, round 3 ----------------------------------------------------------------------------------------------
+
+def _k_feats_ok(p, outer, gap=2.0):
+    """Every opening and feature of p still inside `outer` with >= gap mm of material to its edge."""
+    for i in p.inner:
+        if not i.within(outer) or outer.exterior.distance(i) < gap: return False
+    for f in p.features:
+        if f.geom is None or f.geom in p.inner: continue
+        if f.op == 'pocket' and f.geom.intersects(p.outer.exterior): continue      # edge rebates stay edge rebates
+        if not f.geom.within(outer) or outer.exterior.distance(f.geom) < gap: return False
+    return True
+
+
+def _k_twin_short(g, rng):
+    """One of two identical parts drawn 3 mm shorter at one end (the copy was edited / trimmed, its twin was not)."""
+    g = clone(g)
+    cand = _g_twins(g, lambda p: True)
+    rng.shuffle(cand)
+    for p in cand:
+        r, w, L, ang = _rect_axes(p.outer)
+        if L < 150: continue
+        c = p.outer.centroid
+        o = affinity.rotate(p.outer, -ang, origin=c)
+        minx, miny, maxx, maxy = o.bounds
+        ends = [(minx + 3.0, maxx), (minx, maxx - 3.0)]
+        rng.shuffle(ends)
+        for x0, x1 in ends:
+            box = Polygon([(x0, miny - 1), (x1, miny - 1), (x1, maxy + 1), (x0, maxy + 1)])
+            m = o.intersection(box)
+            if m.is_empty or m.geom_type != 'Polygon' or not m.is_valid: continue
+            m = affinity.rotate(m, ang, origin=c)
+            if not _k_feats_ok(p, m): continue
+            p.outer = Polygon(m.exterior.coords)
+            return g
+    return None
+
+
+def _k_row_pitch(g, rng):
+    """One hole of a regular drilled row (shelf pins / System 32 / fitting screws) moved 3 mm ALONG the row: the
+    32 mm pitch is broken, so it no longer lines up with its neighbours or the mating part."""
+    g = clone(g)
+    cand = [(p, row) for p in g.parts for row in _h_rows(p)]
+    rng.shuffle(cand)
+    for p, row in cand:
+        f = row[rng.randrange(1, len(row) - 1)]
+        a, b = row[0].geom.centroid, row[-1].geom.centroid
+        d = a.distance(b)
+        if d < 1e-6: continue
+        ux, uy = (b.x - a.x) / d, (b.y - a.y) / d
+        s = rng.choice((3.0, -3.0))
+        m = affinity.translate(f.geom, ux * s, uy * s)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 2: continue
+        if any(m.intersects(o) for o in p.inner if o is not f.geom): continue
+        if any(m.distance(o.geom) < 1 for o in p.features if o is not f and o.geom is not None and o.geom is not f.geom): continue
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+        f.geom = m
+        return g
+    return None
+
+
+def _k_twin_hole_shift(g, rng):
+    """One drilled hole (not part of a regular row) on one of two identical parts drawn 5 mm away from where its
+    twin has it: the hole no longer lines up with the fitting / mating part."""
+    g = clone(g)
+    cand = _g_twins(g, lambda p: len(holes(p)) >= 1)
+    rng.shuffle(cand)
+    for p in cand:
+        inrow = {id(f) for row, u, d in _hole_rows(p) for f in row}
+        hs = [f for f in holes(p) if id(f) not in inrow and f.geom is not None]
+        rng.shuffle(hs)
+        for f in hs:
+            for k in range(6):
+                a = rng.uniform(0, 2 * math.pi)
+                m = affinity.translate(f.geom, 5 * math.cos(a), 5 * math.sin(a))
+                if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+                if any(m.distance(o) < 2 for o in p.inner if o is not f.geom): continue
+                if any(m.distance(o.geom) < 2 for o in p.features if o is not f and o.geom is not None and o.geom is not f.geom): continue
+                if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+                f.geom = m
+                return g
+    return None
+
+
+FAULTS += [
+    Mut('gm90', 'One of two identical parts drawn 3 mm shorter at one end (copy trimmed / edited, its twin not)',
+        'Paired parts (left and right sides, front and back rails, legs) carry the same load and must match: a side 3 mm '
+        'short makes a cabinet or table rock on three feet, its shelves and top slope, slot-together joints and dowel '
+        'holes on the mating parts stop lining up, and the error is found only at assembly when both copies are cut',
+        _k_twin_short,
+        source='Opendesk making guide (check that mirrored / paired parts are identical before cutting); Fusion 360 / '
+               'SketchUp forum threads on one copy of a component edited after it was made unique; cabinet-making '
+               'practice (pairs of sides cut together or to one stop so they match)'),
+    Mut('gm91', 'One hole of a regular drilled row moved 3 mm along the row (32 mm pitch broken)',
+        'System 32 lines, shelf-pin rows and runner / hinge-plate screw rows are drilled on one pitch so pins, cams and '
+        'runners from the hardware maker fit them: one hole 3 mm off the pitch puts a shelf pin out of level (the shelf '
+        'rocks), or leaves a runner / hinge screw with no hole where the fitting has one',
+        _k_row_pitch,
+        source='Hettich Ratgeber Möbeltechnik (System 32: Ø5 holes at 32 mm pitch, first and last hole equidistant from '
+               'the edges); Häfele System 32 drilling jig (Unitool, fixed 32 mm pitch); Blum / Hettich runner mounting '
+               'instructions (screw holes at fixed 32 mm multiples)'),
+    Mut('gm92', 'One drilled hole on one of two identical parts drawn 5 mm away from where its twin has it',
+        'Paired parts are drilled for the same fitting or mating part: when one copy\'s hole is snapped or nudged off '
+        'position, its dowel, bolt or cam no longer meets the hole in the mating part, so the joint cannot be closed and '
+        'the hole has to be plugged and re-drilled by hand',
+        _k_twin_hole_shift,
+        source='Häfele Minifix / dowel mounting instructions (bores on both parts must align; Minifix absorbs only +1 / '
+               '-0.5 mm drilling error); Opendesk making guide (check paired parts match); CAD forum threads on objects '
+               'nudged by arrow keys / snap after copying'),
+]
