@@ -49,3 +49,12 @@
 {"t": "2026-11-26T09:11:00", "note": "session: gf09_auto_gm43 for gm43", "rules": 37, "train": 0.814, "transfer": 0.818, "heldout": null, "fp": 4, "noise_flag": 0.296}
 {"t": "2026-11-26T09:26:14", "note": "session: gf08_auto_gm44 for gm44", "rules": 38, "train": 0.823, "transfer": 0.825, "heldout": null, "fp": 4, "noise_flag": 0.296}
 {"t": "2026-11-26T09:58:25", "note": "session: gf10_auto_gm48 for gm48", "rules": 39, "train": 0.799, "transfer": 0.807, "heldout": null, "fp": 4, "noise_flag": 0.304}
+{"t": "2026-11-26T06:30:25", "note": "session: gg01_auto_gm12 for gm12", "rules": 30, "train": 0.78, "transfer": 0.778, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T06:51:14", "note": "session: gg02_auto_gm15 for gm15", "rules": 31, "train": 0.811, "transfer": 0.778, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:15:20", "note": "session: gg03_auto_gm14 for gm14", "rules": 32, "train": 0.826, "transfer": 0.788, "heldout": null, "fp": 4, "noise_flag": 0.287}
+{"t": "2026-11-26T07:52:43", "note": "session: gg05_auto_gm51 for gm51", "rules": 34, "train": 0.84, "transfer": 0.806, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T08:43:57", "note": "session: gg06_auto_gm53 for gm53", "rules": 35, "train": 0.799, "transfer": 0.764, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T08:56:35", "note": "session: gg07_auto_gm55 for gm55", "rules": 36, "train": 0.821, "transfer": 0.778, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T09:10:55", "note": "session: gg08_auto_gm54 for gm54", "rules": 37, "train": 0.831, "transfer": 0.789, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T09:39:02", "note": "session: gg09_auto_gm57 for gm57", "rules": 38, "train": 0.776, "transfer": 0.741, "heldout": null, "fp": 4, "noise_flag": 0.289}
+{"t": "2026-11-26T09:58:47", "note": "session: gg10_auto_gm56 for gm56", "rules": 39, "train": 0.792, "transfer": 0.759, "heldout": null, "fp": 4, "noise_flag": 0.289}

@@ -981,6 +981,76 @@ def _f_outline_spur(g, rng):
         new = p.outer.union(spur)
         if new.is_empty or new.geom_type != 'Polygon' or len(new.interiors): continue
         p.outer = Polygon(new.exterior.coords)
+# ---- shard g, round 2 ----------------------------------------------------------------------------------------------
+
+def _g_pocket_thin_floor(g, rng):
+    """One pocket / rebate deepened to leave only 1 mm of sheet under it (depth = sheet thickness - 1 mm)."""
+    if not g.thickness or g.thickness < 6: return None
+    g = clone(g)
+    cand = [f for p in g.parts for f in p.features if f.op == 'pocket' and f.depth and f.depth < g.thickness - 2.0
+            and f.geom is not None and f.geom.area > 100]
+    if not cand: return None
+    f = rng.choice(cand)
+    f.depth = round(g.thickness - 1.0, 3)
+    return g
+
+
+def _g_thin_finger(g, rng):
+    """A 4 mm wide, 40 mm long finger / tab sticking out of a part edge (a tab drawn far narrower than the sheet)."""
+    th = g.thickness or g.thickness_est
+    if not th or th < 9: return None
+    g = clone(g)
+    cand = [p for p in sorted(g.parts, key=lambda q: -q.outer.area)[:10] if p.outer.area > 20000 and p.outer.is_valid]
+    rng.shuffle(cand)
+    w, L = 4.0, 40.0
+    for p in cand:
+        ext = p.outer.exterior
+        coords = list(ext.coords)
+        segs = [(coords[i], coords[i + 1]) for i in range(len(coords) - 1) if math.dist(coords[i], coords[i + 1]) > 60]
+        rng.shuffle(segs)
+        for (x0, y0), (x1, y1) in segs[:6]:
+            d = math.dist((x0, y0), (x1, y1)); ux, uy = (x1 - x0) / d, (y1 - y0) / d
+            mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+            for nx, ny in ((-uy, ux), (uy, -ux)):
+                if p.outer.contains(Point(mx + nx * 2, my + ny * 2)): continue     # (nx, ny) must point outward
+                fin = Polygon([(mx - ux * w / 2 - nx * 0.5, my - uy * w / 2 - ny * 0.5),
+                               (mx + ux * w / 2 - nx * 0.5, my + uy * w / 2 - ny * 0.5),
+                               (mx + ux * w / 2 + nx * L, my + uy * w / 2 + ny * L),
+                               (mx - ux * w / 2 + nx * L, my - uy * w / 2 + ny * L)])
+                if any(fin.buffer(5).intersects(o.outer) for o in g.parts if o is not p): continue
+                if g.sheet is not None and not fin.within(g.sheet): continue
+                new = p.outer.union(fin)
+                if new.geom_type != 'Polygon' or len(new.interiors): continue
+                p.outer = Polygon(new.exterior.coords)
+                return g
+    return None
+
+
+def _g_hole_into_opening(g, rng):
+    """A drilled hole moved so it breaks into the edge of a slot / cut-out of the same part (centre in solid sheet,
+    r/2 from the opening: the bore bites half a radius into the opening)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        ops = [i for i in p.inner if i.area > 200 and not any(f.geom is i for f in p.features)]
+        hs = [f for f in holes(p) if f.r >= 1.5]
+        if ops and hs: cand.append((p, ops, hs))
+    rng.shuffle(cand)
+    for p, ops, hs in cand:
+        f = rng.choice(hs)
+        c = f.geom.centroid
+        o = min(ops, key=lambda i: i.distance(c))
+        a, b = nearest_points(o.exterior, c)
+        d = a.distance(b)
+        if d < 1e-6 or d > 150: continue
+        k = (d - f.r / 2) / d                       # centre ends r/2 from the opening: the bore overlaps it
+        dx, dy = (a.x - b.x) * k, (a.y - b.y) * k
+        m = affinity.translate(f.geom, dx, dy)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+        if any(m.intersects(h.geom) for h in p.features if h is not f and h.op == 'hole'): continue
+        if m.intersection(o).area < 1.0: continue
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+        f.geom = m
         return g
     return None
 
@@ -1089,6 +1159,68 @@ def _f_slot_short(g, rng):
         m = affinity.scale(m, 0.7, 1.0, origin=c)                 # long axis is x after aligning
         m = affinity.rotate(m, ang, origin=c)
         if not m.is_valid or m.is_empty or not m.within(p.outer): continue
+FAULTS += [
+    Mut('gm50', 'Pocket / rebate drawn 1 mm short of the sheet thickness (1 mm floor left)',
+        'Sheet goods are not as thick as their name: plywood is allowed several tenths of a mm either way and varies '
+        'across one sheet, and the spoilboard is never perfectly flat. A pocket that leaves 1 mm of floor either breaks '
+        'through where the sheet is thin (a hole in a visible face) or leaves a floor so weak it cracks as soon as a '
+        'fitting or shelf loads it',
+        _g_pocket_thin_floor,
+        source='EN 315 plywood dimensional tolerances (thickness tolerance grows with nominal thickness, about ±0.7 mm '
+               'for 18 mm); ShopBot "Holding Down Material for Cutting" (onion skin 0.25-0.76 mm is the deliberate '
+               'cut-through margin, so a 1 mm floor is within the machine\'s own Z error); Vectric / Fusion pocketing '
+               'guides (leave a minimum floor, zero Z to the spoilboard for through cuts)'),
+    Mut('gm51', 'A 4 mm wide finger / tab sticking 40 mm out of a part edge',
+        'A strip of ply or MDF much narrower than the sheet is thick has almost no cross-grain strength: it breaks '
+        'off while the part is cut (the cutter deflects it, the vacuum cannot hold it) or the first time the part is '
+        'handled or assembled, so the tab or locating finger it was meant to be is missing',
+        _g_thin_finger,
+        source='Opendesk design guidelines (minimum feature / tab width about the sheet thickness); Fab Academy CNC '
+               'week notes (thin features snap off during milling, keep features wider than the bit and the sheet); '
+               'ShopBot hold-down guide (small, narrow pieces are thrown or break when not held)'),
+    Mut('gm52', 'A drilled hole breaking into the edge of a slot / cut-out in the same part',
+        'A bore that overlaps an opening has no full wall: the drill wanders into the gap and tears out the slot edge, '
+        'and the screw, dowel or cam it was drilled for has nothing to grip on one side, so the fitting pulls out and '
+        'the slot loses its clean edge for the mating part',
+        _g_hole_into_opening,
+        source='Häfele / Hettich fitting instructions (bores in solid material, minimum distance to panel edges and '
+               'other machining); Opendesk making guide (check hole positions against slots and cut-outs); woodworking '
+               'forum reports of dowel / cam bores breaking into adjacent cut-outs'),
+]
+
+
+def _g_pocket_too_narrow(g, rng):
+    """A pocket / groove redrawn 2 mm wide (narrower than any bit that cuts furniture sheet), same length and place."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)]
+    rng.shuffle(cand)
+    for p, f in cand:
+        r, w, L, ang = _rect_axes(f.geom)
+        if L < 20 or w < 6: continue
+        c = f.geom.centroid
+        a = math.radians(ang); ux, uy = math.cos(a), math.sin(a); nx, ny = -uy, ux
+        hw, hl = 1.0, L / 2
+        m = Polygon([(c.x - ux * hl - nx * hw, c.y - uy * hl - ny * hw), (c.x + ux * hl - nx * hw, c.y + uy * hl - ny * hw),
+                     (c.x + ux * hl + nx * hw, c.y + uy * hl + ny * hw), (c.x - ux * hl + nx * hw, c.y - uy * hl + ny * hw)])
+        if not m.within(p.outer): continue
+        f.geom = m
+        return g
+    return None
+
+
+def _g_mortise_short(g, rng):
+    """One through slot (mortise for a mating sheet's tab) drawn 30 % shorter along its length."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = [(p, i, ang) for p in g.parts for i, w, ang in _slots(p, g.thickness)]
+    rng.shuffle(cand)
+    for p, i, ang in cand:
+        c = i.centroid
+        m = affinity.rotate(i, -ang, origin=c)
+        m = affinity.scale(m, 0.7, 1.0, origin=c)
+        m = affinity.rotate(m, ang, origin=c)
+        if m.is_empty or not m.is_valid or m.area < 30: continue
         _replace_inner(p, i, m)
         return g
     return None
@@ -1117,4 +1249,135 @@ FAULTS += [
         source='Opendesk / WikiHouse slot-joint guidance (slot length = mating part width + clearance); Fab Academy '
                'press-fit assignments (slots must match the mating part); CAD forum threads on stretch / trim edits '
                'that changed one copy of an arrayed feature'),
+def _g_pocket_thin_wall(g, rng):
+    """A pocket / housing moved toward the nearest part edge so only a 1 mm wall of sheet is left beside it."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)
+            and p.outer.exterior.distance(f.geom) > 6]
+    rng.shuffle(cand)
+    for p, f in cand:
+        a, b = nearest_points(f.geom.boundary, p.outer.exterior)
+        d = a.distance(b)
+        if d < 1e-6: continue
+        k = (d - 1.0) / d
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 0.8: continue
+        if any(m.intersects(i) for i in p.inner): continue
+        if any(m.intersects(h.geom) for h in p.features if h is not f and h.op == 'pocket'): continue
+        f.geom = m
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm53', 'A pocket / groove drawn 2 mm wide (narrower than any bit that cuts furniture sheet)',
+        'A pocket is cleared with a round bit, so it can be no narrower than the bit: 2 mm is under the 1/8" '
+        '(3.175 mm) bit that is the smallest used on furniture sheet, and far under the 6 mm bits pockets are '
+        'normally cleared with. CAM leaves the groove out (VCarve: tool too large for the vector) or cuts it with a '
+        'bigger bit, so the panel, back or hardware that should sit in it does not fit',
+        _g_pocket_too_narrow,
+        source='Vectric VCarve/Aspire pocket toolpath ("tool too large": no toolpath for vectors narrower than the '
+               'tool); Amana compression bit range (smallest through-cutting bit 1/8"); Opendesk design guidelines '
+               '(design every feature for the 6 mm tool); Fab Academy CNC week (no feature narrower than the bit)'),
+    Mut('gm54', 'A mortise (through slot for a tab) drawn 30 % shorter than the tab it takes',
+        'Slot-and-tab furniture locates parts by tabs that pass through matching mortises: a mortise drawn short '
+        '(an edit applied to one copy, or scaled with the part) stops the tab, the parts cannot be assembled without '
+        'recutting or chiselling, and forcing it splits the ply',
+        _g_mortise_short,
+        source='Opendesk / AtFAB slot-and-tab joint libraries (mortise length = tab width + clearance); Digital Wood '
+               'Joints library (tab and slot drawn as a pair); Fab Academy press-fit assignments (mismatched tab and '
+               'slot sizes keep kits from assembling); CNC forum reports of a single slot left at an old size'),
+    Mut('gm55', 'A pocket / housing placed 1 mm from the part edge (1 mm wall of sheet left beside it)',
+        'The wall between a housing and the panel edge carries the shelf / back / hardware in the pocket: 1 mm of ply '
+        'or MDF beside a pocket is torn off by the cutter or splits as soon as the part in the housing is loaded, '
+        'leaving the housing open on the edge and the joint loose',
+        _g_pocket_thin_wall,
+        source='Opendesk design guidelines (minimum material around pockets and housings); Hettich / Häfele fitting '
+               'instructions (minimum edge distance for housings and bores in panel material); ShopBot / Vectric '
+               'forum reports of thin pocket walls breaking out during cutting'),
+]
+
+
+def _g_twins(g, pred):
+    """Parts (area > 5000) that have an identical twin in the file (_congruent) and satisfy pred(part)."""
+    big = [p for p in g.parts if p.outer.area > 5000 and pred(p)]
+    return [a for a in big if any(a is not b and _congruent(a, b) for b in big)]
+
+
+def _g_pocket_into_opening(g, rng):
+    """A pocket / housing moved so it overlaps a through slot / cut-out of the same part by half its width."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 150 and f.geom.within(p.outer)
+            and not any(f.geom.intersects(i) for i in p.inner)]
+    rng.shuffle(cand)
+    for p, f in cand:
+        ops = [i for i in p.inner if i.area > 200 and not any(h.geom is i for h in p.features)]
+        if not ops: continue
+        o = min(ops, key=lambda i: i.distance(f.geom))
+        a, b = nearest_points(f.geom, o)
+        d = a.distance(b)
+        if d < 1e-6 or d > 200: continue
+        r, w, L, ang = _rect_axes(f.geom)
+        k = (d + w / 2) / d
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 2: continue
+        ov = m.intersection(o).area
+        if ov < 0.15 * m.area or ov > 0.85 * m.area or o.within(m): continue
+        f.geom = m
+        return g
+    return None
+
+
+def _g_pocket_dropped(g, rng):
+    """One pocket / housing missing on one of two (or more) identical parts (its twin still has it)."""
+    g = clone(g)
+    pk = lambda p: [f for f in p.features if f.op == 'pocket' and f.geom is not None and f.geom.area > 100]
+    cand = _g_twins(g, lambda p: len(pk(p)) >= 1)
+    rng.shuffle(cand)
+    for p in cand:
+        p.features.remove(rng.choice(pk(p)))
+        return g
+    return None
+
+
+def _g_slot_dropped(g, rng):
+    """One through slot (for a mating sheet) missing on one of two (or more) identical parts."""
+    if not g.thickness: return None
+    g = clone(g)
+    cand = _g_twins(g, lambda p: len(_slots(p, g.thickness)) >= 1)
+    rng.shuffle(cand)
+    for p in cand:
+        i, w, ang = rng.choice(_slots(p, g.thickness))
+        p.inner.remove(i)
+        for f in list(p.features):
+            if f.geom is i: p.features.remove(f)
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm56', 'A pocket / housing overlapping a through slot or cut-out by half its width',
+        'Where a housing runs into a through opening it has no floor and no side wall: the shelf / back / fitting that '
+        'should sit in the housing falls into the opening, the thin sheet left between the two cuts breaks out, and '
+        'the slot loses the edge its mating part bears on',
+        _g_pocket_into_opening,
+        source='Opendesk design guidelines (keep material between pockets and through cuts); Vectric / Fusion CAM '
+               'notes (check pocket and profile toolpaths do not overlap unintentionally); cabinet-making practice '
+               '(housings and through mortises laid out from the same datum, never crossing)'),
+    Mut('gm57', 'One pocket / housing missing on one of two identical parts (its twin still has it)',
+        'Copies of a part carry the same housings and rebates; when one pocket is lost on export (hidden layer, '
+        'deleted with a duplicate) that copy has no housing for its shelf / back / fitting, and the piece cannot be '
+        'assembled square without recutting',
+        _g_pocket_dropped,
+        source='Opendesk making guide (check every part against the assembly drawing before cutting); Vectric "find '
+               'duplicate vectors" clean-up deleting needed geometry; CNC forum stories of pockets missing on one '
+               'copy after a layer was turned off for export'),
+    Mut('gm58', 'One through slot missing on one of two identical parts (its twin still has it)',
+        'In slot-together furniture every slot receives a part: a copy without one of its slots has nowhere for the '
+        'mating sheet or tab to go, so the kit does not assemble and the part is recut',
+        _g_slot_dropped,
+        source='Opendesk / AtFAB slot-together assembly guides (each slot takes a named part); WikiHouse design guide; '
+               'CNC forum stories of geometry lost on export (frozen layers, deleted duplicates)'),
 ]
