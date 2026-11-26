@@ -958,3 +958,124 @@ FAULTS += [
                'thickness (14.0 in 19 mm, 13.5 in 18 mm); ShopBot / Vectric forum threads on pockets breaking through '
                'because of sheet thickness variation'),
 ]
+
+
+def _h_bore_into_opening(g, rng):
+    """One drilled hole moved so it breaks 1 mm into the wall of a neighbouring through opening (slot / cut-out)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        ops = [i for i in p.inner if i.area > 100]
+        if not ops: continue
+        for f in holes(p):
+            others = [i for i in ops if i is not f.geom]
+            if not others: continue
+            j = min(others, key=lambda i: i.distance(f.geom))
+            if f.geom.distance(j) > 3: cand.append((p, f, j))
+    rng.shuffle(cand)
+    for p, f, j in cand:
+        a, b = nearest_points(f.geom, j)
+        d = a.distance(b)
+        if d < 1e-6: continue
+        k = (d + 1.0) / d                                      # past the wall by 1 mm: the bore cuts into the opening
+        m = affinity.translate(f.geom, (b.x - a.x) * k, (b.y - a.y) * k)
+        if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+        if m.within(j) or m.intersection(j).area < 1: continue
+        if any(m.intersects(o) for o in p.inner if o is not f.geom and o is not j): continue
+        if any(m.intersects(o.geom) for o in p.features if o is not f and o.geom is not j and o.geom is not f.geom): continue
+        if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+        f.geom = m
+        return g
+    return None
+
+
+def _h_rows(p, rmax=12.0):
+    """Regular rows in p: lists of >= 4 same-size drilled holes on one line at one pitch (sorted along the line)."""
+    hs = [f for f in p.features if f.op == 'hole' and f.r and f.r <= rmax and f.geom is not None]
+    byr = {}
+    for f in hs: byr.setdefault(round(f.r, 1), []).append(f)
+    rows = []
+    for r, fs in byr.items():
+        if len(fs) < 4 or len(fs) > 200: continue
+        cs = [(f, f.geom.centroid) for f in fs]
+        for f0, c0 in cs:
+            for f1, c1 in cs:
+                if f1 is f0: continue
+                d = c0.distance(c1)
+                if d < 8: continue
+                ux, uy = (c1.x - c0.x) / d, (c1.y - c0.y) / d
+                on = [(((c.x - c0.x) * ux + (c.y - c0.y) * uy), f) for f, c in cs
+                      if abs((c.x - c0.x) * -uy + (c.y - c0.y) * ux) < 0.3]
+                on.sort(key=lambda t: t[0])
+                ts = [t for t, _ in on]
+                if len(on) >= 4 and all(abs((ts[i + 1] - ts[i]) - d) < 0.5 for i in range(len(ts) - 1)) and ts[0] == 0:
+                    rows.append([f for _, f in on])
+    return rows
+
+
+def _h_row_wrong_size(g, rng):
+    """One hole of a regular drilled row (shelf pins / System 32 / fitting screws) drawn 3 mm larger in diameter."""
+    g = clone(g)
+    cand = [(p, row) for p in g.parts for row in _h_rows(p)]
+    if not cand: return None
+    p, row = rng.choice(cand)
+    f = row[rng.randrange(1, len(row) - 1)]
+    c = f.geom.centroid; nr = f.r + 1.5
+    m = Point(c.x, c.y).buffer(nr, 32)
+    if not m.within(p.outer) or p.outer.exterior.distance(m) < 1: return None
+    if any(m.intersects(o) for o in p.inner if o is not f.geom): return None
+    if any(m.intersects(o.geom) for o in p.features if o is not f and o.geom is not f.geom): return None
+    if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+    f.geom = m; f.r = nr
+    return g
+
+
+def _h_counterbore_offset(g, rng):
+    """A counterbore (larger concentric bore / pocket round a through hole) drawn 2 mm off its hole's centre."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        cs = [f for f in p.features if f.r and f.op in ('hole', 'pocket') and f.geom is not None]
+        for a in cs:
+            for b in cs:
+                if b is a or b.r < a.r + 2.5: continue
+                if a.geom.centroid.distance(b.geom.centroid) < 0.2 and b.geom not in p.inner:
+                    cand.append((p, a, b))
+    rng.shuffle(cand)
+    for p, a, b in cand:
+        ang = rng.uniform(0, 2 * math.pi)
+        dx, dy = 2.0 * math.cos(ang), 2.0 * math.sin(ang)
+        m = affinity.translate(b.geom, dx, dy)
+        if not m.within(p.outer): continue
+        if any(m.intersects(o.geom) for o in p.features if o is not a and o is not b and o.geom is not a.geom): continue
+        b.geom = m
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm63', 'Drilled hole breaks 1 mm into the wall of a neighbouring slot / cut-out',
+        'A bore that cuts into an opening\'s wall leaves a half-moon bite in the slot: the screw or dowel has no '
+        'wall to bite on that side, the drill wanders into the void and tears the edge, and the mating sheet in the '
+        'slot now has a gap at that point - the fixing pulls out and the joint goes loose',
+        _h_bore_into_opening,
+        source='Häfele / Hettich drilling guides (screw and dowel bores need full material round them; '
+               'Minifix bolt hole fully in solid board); Opendesk design guidelines (keep fixings clear of slots by '
+               'at least the sheet thickness); woodworking forum threads on pilot holes breaking into mortises'),
+    Mut('gm64', 'One hole of a regular drilled row drawn 3 mm larger in diameter than the others',
+        'The holes of a shelf-pin / System 32 / fitting row take identical pins or screws: one hole 3 mm oversize '
+        '(a block swapped or a circle resized by mistake) leaves its pin or screw loose, so that shelf rocks or that '
+        'hinge / runner screw spins out',
+        _h_row_wrong_size,
+        source='Hettich "Ratgeber Möbeltechnik" (System 32: Ø5 holes at 32 mm pitch, one drill for the whole row); '
+               'Häfele shelf support catalogue (Ø5 pins in Ø5 holes); CNC forum threads on one wrong hole in a row '
+               'after a block was replaced'),
+    Mut('gm65', 'Counterbore drawn 2 mm off the centre of its through hole',
+        'A counterbore must be concentric with its bolt hole: offset by 2 mm, the bolt or barrel-nut head no longer '
+        'sits flat in it - it is pushed to one side, binds on the wall and stands proud, and the through hole is '
+        'half blocked so the bolt will not line up with its nut',
+        _h_counterbore_offset,
+        source='Opendesk / AtFAB bolt counterbore details (counterbore and clearance hole on one centre); '
+               'Häfele connector fittings (head bore concentric with the shank bore); machinists\' drawing standards '
+               '(counterbore called out on the hole axis)'),
+]
