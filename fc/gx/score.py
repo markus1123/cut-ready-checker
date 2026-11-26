@@ -105,7 +105,10 @@ def evaluate(show=None):
     res['fp'] = dict(n=len(fp), train=sum(1 for g, k, f, c in gtr if k), heldout=sum(1 for g, k, f, c in gho if k),
                      train_ids=sorted(g.id for g, k, f, c in gtr if k))
     res['noise'] = dict(flag_rate=round(sum(1 for b in noise if b[1]) / max(1, len(noise)), 3),
-                        crashes={r: sum(1 for b in gtr + gho + noise if r in b[3]) for r in res['rules']})
+                        crashes={r: sum(1 for b in gtr + gho + noise if r in b[3]) for r in res['rules']},
+                        # noise designs each rule raises an error on (a design flagged by 2 rules counts for both)
+                        by_rule={r: sum(1 for b in noise if any(x.rule == r and x.severity == 'error' for x in b[2]))
+                                 for r in res['rules']})
     res['crashes_good'] = sum(1 for b in gtr + gho if b[3])
     res['secs'] = round(time.time() - t0, 1)
     return res, rows, gtr + gho
@@ -122,6 +125,16 @@ def history(res, note):
 def main():
     a = sys.argv[1:]
     show = a[a.index('--show') + 1] if '--show' in a else None
+    if '--noise' in a:
+        # what one rule flags on the anonymous noise corpus (design ids are hashes; messages only, no file contents)
+        r = a[a.index('--noise') + 1]
+        core.load_rules()
+        n = 0
+        for g, keys, f, cr in _base(corpus.designs('noise')):
+            m = [x for x in f if x.rule == r and x.severity == 'error']
+            if m:
+                n += 1; print(g.id); [print('    %s' % x.msg) for x in m[:3]]
+        print('%s raises an error on %d noise designs' % (r, n)); return
     res, rows, goods = evaluate(show)
     if '--json' in a:
         print(json.dumps(res)); return
@@ -145,6 +158,8 @@ def main():
                 print('   %-5s %2d/%-2d  %s' % (k, v['caught'], v['n'], v['title']))
     print('\nfalse alarms on built designs: %d (train %d, heldout %d)' % (res['fp']['n'], res['fp']['train'], res['fp']['heldout']))
     print('noise flag rate %.0f%%, rule crashes %s' % (100 * res['noise']['flag_rate'], {k: v for k, v in res['noise']['crashes'].items() if v}))
+    print('noise designs flagged per rule: %s' % ', '.join('%s %d' % kv for kv in sorted(
+        res['noise']['by_rule'].items(), key=lambda kv: -kv[1]) if kv[1]))
     if '--log' in a:
         history(res, a[a.index('--log') + 1])
 
