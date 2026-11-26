@@ -1,0 +1,33 @@
+You are shard p (of 5: p, q, i, j, k) of a parallel overnight self-improvement run for a checker of CNC-cut flat-pack furniture files from any designer. Four other shards run at the same time on other branches; never touch their branches.
+
+STEP 0. Run `date -u`. Note your start time. You stop starting new work 4 hours after it.
+
+STEP 1 - setup.
+- Two repos are checked out: cut-ready-checker (public code) and cut-ready-corpus (PRIVATE data). Find both paths.
+- In cut-ready-checker: `git fetch origin gx-cloud && git checkout -B gx-cloud-p origin/gx-cloud`. All work goes on branch gx-cloud-p. Never push to main, gx-cloud or another shard's branch.
+- `python3 -m pip install ezdxf==1.4.2 shapely==2.0.7` (use `python3 -m pip`: plain `pip` installs into a different Python here), then check `python3 -c "import ezdxf, shapely"`.
+- Prefix EVERY python command with `FC_CORPUS=<path to cut-ready-corpus> FC_CACHE=<that path>/cache`. The parse cache there is current (v8), so scoring takes minutes, not an hour. This is round 3: round 2 already narrowed many rules and added rules GD..GH; read gx_loop_log.jsonl and docs/gx-reader-notes-*.md first so you do not repeat rejected attempts.
+- NEVER copy any file from cut-ready-corpus into cut-ready-checker; never commit or print its DXF contents (licence-restricted). Never execute anything from cut-ready-corpus/raw.
+
+STEP 2 - read in cut-ready-checker: corpus/README.md, loop_gx.py (the WRITE and MINE briefs are your instructions, incl. all constraints), gx_gate.py, fc/gx/model.py, fc/gx/core.py, fc/gx/limits.py, fc/gx/score.py, fc/gx/rules/, faults/gx_train.py, faults/gx_mined.py, docs/rules-from-manuals.md, docs/tools-and-rules.md. Do not read or modify the kommode loop's files: fc/rules/, faults/heldout*.py, faults/retired*.py, faults/variants.py, loop.py. There is no held-out fault file here on purpose; do not create one.
+
+Running the gate. Every gate command (`status`, `check`, `refine`, `mined`) scores everything (a few minutes). Run it DETACHED, because a tool command is killed after 30 min and a kill between accept and commit loses the work:
+  `nohup python3 gx_gate.py <args> > /tmp/gate.out 2>&1 &`
+then wait with `until grep -qE "ACCEPTED|REJECTED|OK:|targets, lowest first|Traceback|Error|needs exactly" /tmp/gate.out; do sleep 15; done; tail -8 /tmp/gate.out` (a Monitor or a background Bash wait both work). Only one gate run at a time. The gate decides and commits. Never commit a rule yourself, never edit or recreate .gxwork/state.json, and do not edit gx_gate.py, loop_gx.py, fc/gx/score.py, fc/gx/corpus.py, fc/gx/model.py, fc/gx/core.py, fc/gx/limits.py or faults/gx_train.py.
+After every ACCEPTED or OK result: `git push -u origin gx-cloud-p` immediately, so the work survives if the session ends.
+
+YOUR JOB: make existing rules more precise on real files (shard p = precision). The checker flags 19.6% of the anonymous real-world 'noise' corpus. Some of those flags are real faults, many are rules that misread how other designers draw. Your targets, in this order: G02, GF04, GH01, G10, GB03, GF10, GC03, GA03. Work through them in order; when you reach the end, continue with any rule still flagging 5 or more noise designs that the other precision shard (whose list is: GB04, G01, GA01, GC07, G05, GF09, GB01) does not own.
+
+STEP 3. Run `python3 gx_gate.py status --refresh` once (detached). It ends with 'noise designs flagged per rule'.
+
+STEP 4 - loop until 4 hours after your start time:
+- Pick your next target rule R. Run `python3 -m fc.gx.score --noise R` to see the designs it flags and its messages (ids are anonymous hashes). To look at one design's parsed geometry, load it through fc.gx.corpus / fc.gx.model in a short python snippet (parts, features, sizes, layers); never print raw DXF text.
+- For each flag decide: is this a real manufacturing fault (keep flagging it), or a misreading (e.g. a dimension, frame, label, engraving, sheet outline, a drawing convention, a tolerance that real shops accept)? Only narrow the rule for misreadings you can name. If the cause is in the reader (model.py), you may not fix it there: write it down instead in docs/gx-reader-notes-p.md (commit that file yourself, it is the only file you commit yourself).
+- Edit ONLY that one rule file. In its docstring, add one line per narrowing: what was misread and why it is not a fault. Keep every train and transfer catch: check with `python3 -m fc.gx.score` (catch table) before running the gate.
+- Run the gate: `python3 gx_gate.py refine fc/gx/rules/<file>.py` (detached). It accepts when the rule flags at least 3 fewer noise designs, the overall noise flag rate does not rise, no train or transfer fault type loses a catch, and there are no new false alarms or crashes. On reject the file is restored and your attempt is kept as <file>.refine-rejected; read the reason in gx_loop_log.jsonl.
+- The reader now sets `g.scale_uncertain` (unitless file, biggest part under 300 mm). Where a rule has its own 250/300 mm scale test, you may switch it to this flag in the same edit.
+- Known false alarm worth fixing: GB04 flags the narrow fold lines of a sheet-metal fold table (Kadushin 'Fold Table base'); fold/bend lines are intentional necks in sheet-metal designs, not a weak spot in wood.
+- At most 2 rejected attempts per rule, then move on.
+- Do not start a new attempt after the 4-hour mark.
+
+STEP 5 - final `git push origin gx-cloud-p`. End with a short summary: what was accepted/rejected and why, fault types mined, noise flag rate and train/transfer numbers before and after.
