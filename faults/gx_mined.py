@@ -1723,3 +1723,88 @@ FAULTS += [
                '(all holes of a line drilled to one depth for the pins); forum threads on single holes left short '
                'after a circle landed on the wrong layer'),
 ]
+
+
+def _i_pocket_depth_lost(g, rng):
+    """One pocket put on a pocket layer that names no depth, while the file's other pockets name theirs (the depth
+    suffix lost when the layer was renamed / merged): layer-driven CAM has no depth for it."""
+    import re
+    g = clone(g)
+    pk = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None and f.geom.area > 100]
+    dep = [(p, f) for p, f in pk if f.depth]
+    if len(dep) < 2 or len(dep) < len(pk): return None
+    p, f = rng.choice(dep)
+    f.depth = None
+    f.layer = re.sub(r'(?i)_\d+(?:\.\d+)?\s*MM\s*$', '', f.layer)
+    if f.layer.upper().find('POCKET') < 0: f.layer = 'POCKET'
+    return g
+
+
+def _i_counterbore_small(g, rng):
+    """A counterbore (round pocket around a smaller through / drilled hole) drawn only 1 mm larger in diameter than
+    its hole: no seat for the bolt head, barrel nut or washer."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        hs = [h for h in p.features if h.op == 'hole' and h.r]
+        for f in p.features:
+            if f.op != 'pocket' or not f.r or f.geom is None: continue
+            h = [h for h in hs if h.geom.centroid.distance(f.geom.centroid) < 0.5 and h.r + 2.0 <= f.r]
+            if h: cand.append((p, f, max(h, key=lambda h: h.r)))
+    if not cand: return None
+    p, f, h = rng.choice(cand)
+    c = f.geom.centroid
+    f.r = h.r + 0.5
+    f.geom = Point(c.x, c.y).buffer(f.r, 32)
+    return g
+
+
+def _i_twin_opening_moved(g, rng):
+    """One shaped opening (slot / cut-out) of one of two identical parts drawn 10 mm out of place along its length;
+    the twin and every other opening are right."""
+    g = clone(g)
+    big = [p for p in g.parts if p.outer.area > 10000]
+    twins = [a for a in big if any(a is not b and _congruent(a, b) for b in big)]
+    rng.shuffle(twins)
+    for p in twins:
+        ops = [i for i in p.inner if i.area > 100 and not any(f.geom is i and f.op == 'hole' for f in p.features)]
+        rng.shuffle(ops)
+        for i in ops:
+            r, w, L, ang = _rect_axes(i)
+            for s in (10.0, -10.0):
+                dx, dy = s * math.cos(math.radians(ang)), s * math.sin(math.radians(ang))
+                m = affinity.translate(i, dx, dy)
+                if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+                if any(m.distance(o) < 3 for o in p.inner if o is not i): continue
+                if any(m.intersects(f.geom) for f in p.features if f.geom is not i and f.geom is not None): continue
+                _replace_inner(p, i, m)
+                return g
+    return None
+
+
+FAULTS += [
+    Mut('gm70', 'One pocket on a pocket layer with no depth, while the file\'s other pockets name theirs',
+        'Layer-driven CAM takes each pocket\'s depth from its layer name: a housing whose layer lost its depth suffix '
+        '(renamed / merged layer) gets no toolpath, or the template default (often full sheet depth) - the housing is '
+        'missing or cut through, found only at assembly',
+        _i_pocket_depth_lost,
+        source='Opendesk CAM layer convention (TOP-POCKET-INSIDE_<depth>MM: depth in the layer name); Vectric '
+               'toolpath templates and Fusion 360 / SheetCAM layer-to-operation mapping (an unmapped layer is skipped '
+               'or gets the default depth); CNC forum threads on pockets left uncut after a layer rename'),
+    Mut('gm71', 'Counterbore drawn only 1 mm larger in diameter than its hole (no seat for the bolt head / nut)',
+        'A counterbore seats a bolt head, barrel nut or washer below the face: M6 / M8 socket heads are 10 / 13 mm, '
+        'washers 12-17 mm, so the counterbore is drawn at head + 1-2 mm. Drawn at hole + 1 mm the head does not go '
+        'in, stands proud of the face (or of a table top) and the joint cannot be pulled tight',
+        _i_counterbore_small,
+        source='ISO 4762 / DIN 912 socket head dimensions and DIN 974-1 counterbore diameters (M6: 11 mm, M8: 15 mm); '
+               'Opendesk assembly hardware (M6/M8 connector bolts and barrel nuts in counterbores); CNC forum threads on '
+               'counterbores drawn to the bolt instead of its head'),
+    Mut('gm72', 'One slot / cut-out of one of two identical parts drawn 10 mm out of place (its twin is right)',
+        'Copies of a part are machined alike because their slots receive the same mating parts at the same place: '
+        'one slot moved by an edit (dragged, snapped to the wrong point) no longer lines up with its tab or the '
+        'part that passes through it, and the kit cannot be assembled square without recutting',
+        _i_twin_opening_moved,
+        source='Opendesk / AtFAB slot-together assembly guides (each slot takes a named part at a fixed place); '
+               'Vectric / Inkscape snapping and nudge errors; Opendesk making guide (check every part against the '
+               'assembly drawing before cutting)'),
+]
