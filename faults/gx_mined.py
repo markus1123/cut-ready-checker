@@ -1834,3 +1834,107 @@ FAULTS += [
                '-0.5 mm drilling error); Opendesk making guide (check paired parts match); CAD forum threads on objects '
                'nudged by arrow keys / snap after copying'),
 ]
+
+
+def _k_twin_fat(g, rng):
+    """One of two identical parts drawn 0.75 mm fat all round (tool compensation baked into that copy's geometry,
+    then applied again by CAM): its outline grows, its openings shrink, its twin is right."""
+    g = clone(g)
+    cand = _g_twins(g, lambda p: True)
+    rng.shuffle(cand)
+    for p in cand:
+        o = p.outer.buffer(0.75, join_style=2)
+        if o.geom_type != 'Polygon': continue
+        inner = [i.buffer(-0.75, join_style=2) for i in p.inner]
+        if any(i.is_empty or i.geom_type != 'Polygon' for i in inner): continue
+        for old, new in zip(list(p.inner), inner):
+            for f in p.features:
+                if f.geom is old:
+                    f.geom = new
+                    if f.r: f.r = max(0.1, f.r - 0.75)
+        p.outer = Polygon(o.exterior.coords); p.inner = inner
+        return g
+    return None
+
+
+def _k_twin_slot_shift(g, rng):
+    """One through slot / cut-out (not a drilled hole) on one of two identical parts drawn 5 mm to one side of where
+    its twin has it: the tab or mating sheet that goes through it no longer lines up."""
+    g = clone(g)
+    isopen = lambda p, i: i.area > 150 and not any(f.geom is i and f.op == 'hole' and f.r and f.r <= 12 for f in p.features)
+    cand = _g_twins(g, lambda p: any(isopen(p, i) for i in p.inner))
+    rng.shuffle(cand)
+    for p in cand:
+        ins = [i for i in p.inner if isopen(p, i)]
+        rng.shuffle(ins)
+        for i in ins:
+            r, w, L, ang = _rect_axes(i)
+            for a in (ang, ang + 90, ang + 180, ang + 270):
+                t = math.radians(a)
+                m = affinity.translate(i, 5 * math.cos(t), 5 * math.sin(t))
+                if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+                if any(m.distance(o) < 3 for o in p.inner if o is not i): continue
+                if any(m.distance(o.geom) < 2 for o in p.features if o.geom is not None and o.geom is not i): continue
+                _replace_inner(p, i, m)
+                return g
+    return None
+
+
+def _k_part_in_hole_tight(g, rng):
+    """A small part nested inside another part's big cut-out, 1.5 mm from the cut-out's edge (part-in-part nesting
+    with less clearance than the cutter: the two cuts merge and the small part's edge is cut away)."""
+    g = clone(g)
+    hosts = [(p, i) for p in g.parts for i in p.inner if i.area > 20000]
+    rng.shuffle(hosts)
+    for p, i in hosts:
+        smalls = [q for q in g.parts if q is not p and q.outer.area < 0.5 * i.area and q.outer.area > 1500]
+        rng.shuffle(smalls)
+        for q in smalls[:10]:
+            ci, cq = i.centroid, q.outer.centroid
+            dx, dy = ci.x - cq.x, ci.y - cq.y
+            o = affinity.translate(q.outer, dx, dy)
+            if not o.within(i): continue
+            # slide toward the cut-out edge until 1.5 mm is left
+            a, b = nearest_points(o.exterior, i.exterior)
+            d = a.distance(b)
+            if d < 1.5: continue
+            k = (d - 1.5) / d
+            ddx, ddy = dx + (b.x - a.x) * k, dy + (b.y - a.y) * k
+            o2 = affinity.translate(q.outer, ddx, ddy)
+            if not o2.within(i) or i.exterior.distance(o2) < 1.3: continue
+            if any(o2.intersects(r.outer) for r in g.parts if r is not q and r is not p): continue
+            q.outer = o2
+            moved = {id(x): affinity.translate(x, ddx, ddy) for x in q.inner}
+            for f in q.features:
+                if f.geom is None: continue
+                f.geom = moved[id(f.geom)] if id(f.geom) in moved else affinity.translate(f.geom, ddx, ddy)
+            q.inner = [moved[id(x)] for x in q.inner]
+            return g
+    return None
+
+
+FAULTS += [
+    Mut('gm93', 'One of two identical parts drawn 0.75 mm fat all round (tool offset baked into that copy only)',
+        'CAM offsets every outline by the cutter radius; a copy whose geometry already carries an offset (an offset '
+        'command applied to the wrong copy, or a part re-exported from a toolpath) is cut 1.5 mm too wide and long, '
+        'with slots and holes 1.5 mm too small: its joints do not go together while its twin\'s do',
+        _k_twin_fat,
+        source='Vectric / Fusion 360 CAM docs (tool compensation is applied by the toolpath; geometry must be drawn at '
+               'finished size); ShopBot forum threads on parts cut oversize after an offset was drawn into the file; '
+               'Opendesk making guide (cut a test piece and check the fit of every part type)'),
+    Mut('gm94', 'One through slot / cut-out on one of two identical parts drawn 5 mm to one side of where its twin has it',
+        'Paired parts take the same tabs, rails or mating sheets: a slot nudged 5 mm on one copy no longer lines up with '
+        'the tab that goes through it, so the frame cannot be assembled square, or the joint is forced and splits',
+        _k_twin_slot_shift,
+        source='Opendesk / WikiHouse making notes (paired parts must match; test-assemble a pair); CAD forum threads on '
+               'objects nudged by arrow keys / snap after copying; Fab Academy press-fit assignments (misplaced slots '
+               'the commonest assembly failure)'),
+    Mut('gm95', 'A small part nested inside another part\'s cut-out only 1.5 mm from the cut-out edge (part-in-part)',
+        'Nesting small parts in the waste of a big cut-out saves sheet, but the gap must exceed the cutter diameter: '
+        'with 1.5 mm left, the 6 mm bit cutting the cut-out also cuts away the small part\'s edge (or the two cuts merge '
+        'and the small part comes loose unheld and is thrown)',
+        _k_part_in_hole_tight,
+        source='Vectric / Fusion 360 nesting settings (part gap at least the tool diameter, part-in-part nesting option); '
+               'ShopBot "Holding Down Material for Cutting" (small parts loose in the cut are thrown); CNC forum '
+               'threads on nested parts damaged by a neighbouring cut'),
+]
