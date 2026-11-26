@@ -40,3 +40,4 @@
 {"step": "write", "where": "session", "target": "gm11", "rule": "gf01_auto_gm11", "accepted": true, "train": 0.801, "transfer": 0.776, "t": "2026-11-26T06:59:43"}
 {"step": "write", "where": "session", "target": "gm13", "rule": "gf02_auto_gm13", "accepted": true, "train": 0.808, "transfer": 0.807, "t": "2026-11-26T07:13:48"}
 {"step": "write", "where": "session", "target": "gm20", "rule": "gf03_auto_gm20", "accepted": true, "train": 0.816, "transfer": 0.82, "t": "2026-11-26T07:28:25"}
+{"step": "mine", "where": "session", "ok": true, "types": 36, "t": "2026-11-26T07:42:47"}
