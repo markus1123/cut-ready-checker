@@ -1938,3 +1938,105 @@ FAULTS += [
                'ShopBot "Holding Down Material for Cutting" (small parts loose in the cut are thrown); CNC forum '
                'threads on nested parts damaged by a neighbouring cut'),
 ]
+
+
+def _k_xy_stretch(g, rng):
+    """Whole drawing stretched 3 % along X only (non-uniform scale: SVG / PDF viewBox or DPI mismatch, a scale with
+    'uniform' unticked): every part is 3 % long one way and every round hole is an ellipse - exported as ELLIPSE /
+    spline loops, so the reader sees oval openings instead of drilled circles."""
+    if sum(1 for p in g.parts for f in p.features if f.op == 'hole' and f.r and f.r >= 1.5) < 4: return None
+    g = clone(g); k = 1.03
+    sc = lambda geom: affinity.scale(geom, k, 1.0, origin=(0, 0))
+    for p in g.parts:
+        moved = {id(i): sc(i) for i in p.inner}
+        p.outer = sc(p.outer)
+        feats = []
+        for f in p.features:
+            if f.geom is None: feats.append(f); continue
+            through = id(f.geom) in moved
+            f.geom = moved[id(f.geom)] if through else sc(f.geom)
+            if f.r:
+                if through and f.op == 'hole': continue        # a through ellipse is just an opening loop
+                f.r = None
+            feats.append(f)
+        p.features = feats
+        p.inner = [moved[id(i)] for i in p.inner]
+    if g.sheet is not None: g.sheet = sc(g.sheet)
+    g.open_chains = [(sc(l), lay) for l, lay in g.open_chains]
+    return g
+
+
+def _k_twin_row_shift(g, rng):
+    """A whole row of drilled holes (>= 3, same size, one line) on one of two identical parts drawn 3 mm along the row
+    from where its twin has it (the row block was moved on one copy only)."""
+    g = clone(g)
+    cand = _g_twins(g, lambda p: bool(_hole_rows(p)))
+    rng.shuffle(cand)
+    for p in cand:
+        rows = _hole_rows(p)
+        rng.shuffle(rows)
+        for row, (ux, uy), d in rows:
+            s = rng.choice((3.0, -3.0))
+            for s in (s, -s):
+                ms = [affinity.translate(f.geom, ux * s, uy * s) for f in row]
+                if any(not m.within(p.outer) or p.outer.exterior.distance(m) < 2 for m in ms): continue
+                ids = {id(f) for f in row}
+                gs = {id(f.geom) for f in row}
+                if any(m.distance(o) < 1 for m in ms for o in p.inner if id(o) not in gs): continue
+                if any(m.distance(o.geom) < 1 for m in ms for o in p.features
+                       if id(o) not in ids and o.geom is not None and id(o.geom) not in gs): continue
+                for f, m in zip(row, ms):
+                    if f.geom in p.inner: p.inner[p.inner.index(f.geom)] = m
+                    f.geom = m
+                return g
+    return None
+
+
+def _k_twin_pocket_shift(g, rng):
+    """One pocket / housing on one of two identical parts drawn 5 mm to one side of where its twin has it."""
+    g = clone(g)
+    pk = lambda p: [f for f in p.features if f.op == 'pocket' and not f.r and f.geom is not None and f.geom.area > 100
+                    and f.geom.within(p.outer)]
+    cand = _g_twins(g, lambda p: bool(pk(p)))
+    rng.shuffle(cand)
+    for p in cand:
+        fs = pk(p)
+        rng.shuffle(fs)
+        for f in fs:
+            r, w, L, ang = _rect_axes(f.geom)
+            for a in (ang, ang + 180, ang + 90, ang + 270):
+                t = math.radians(a)
+                m = affinity.translate(f.geom, 5 * math.cos(t), 5 * math.sin(t))
+                if not m.within(p.outer) or p.outer.exterior.distance(m) < 3: continue
+                if any(m.distance(o) < 2 for o in p.inner): continue
+                if any(m.distance(o.geom) < 2 for o in p.features if o is not f and o.geom is not None): continue
+                f.geom = m
+                return g
+    return None
+
+
+FAULTS += [
+    Mut('gm96', 'Whole drawing stretched 3 % along X only (non-uniform scale: round holes become ellipses)',
+        'An SVG / PDF -> DXF conversion with a viewBox / DPI mismatch on one axis, or a scale command with "uniform" off, '
+        'stretches every part 3 % one way: a 600 mm side comes out 618 mm, slots no longer meet their tabs, and every '
+        'drilled hole is an oval exported as an ellipse / spline - dowels and bolts do not fit and CAM cannot drill it',
+        _k_xy_stretch,
+        source='Inkscape / Illustrator DXF export notes (document scale and viewBox must match, 90 vs 96 dpi per axis); '
+               'Fusion 360 / Vectric import scaling options (non-uniform scale on import); CNC forum threads on '
+               'circles imported as ellipses after a non-uniform scale'),
+    Mut('gm97', 'A whole row of drilled holes on one of two identical parts drawn 3 mm along the row from its twin\'s',
+        'Paired sides carry the same shelf-pin / runner / System 32 rows; a row block moved on one copy puts its shelf '
+        'pins or runner 3 mm higher than on the other side, so shelves and drawers sit crooked or bind',
+        _k_twin_row_shift,
+        source='Hettich Ratgeber Möbeltechnik (System 32 lines on both sides at the same height, measured from the same '
+               'edge); Blum / Hettich runner mounting instructions (runners on both sides at one height); CAD forum '
+               'threads on a group / block moved on one copy only'),
+    Mut('gm98', 'One pocket / housing on one of two identical parts drawn 5 mm to one side of where its twin has it',
+        'A housing (dado) or hardware recess on paired parts receives the same shelf, divider or fitting: moved 5 mm on '
+        'one copy, the shelf sits out of level, a divider is not square, or the hinge cup / cam housing misses its '
+        'mating part',
+        _k_twin_pocket_shift,
+        source='Opendesk making guide (paired parts must match; check against the assembly drawing); Häfele / Blum '
+               'mounting instructions (hinge cups and cam housings at fixed positions on both sides); CAD forum '
+               'threads on objects nudged after copying'),
+]
