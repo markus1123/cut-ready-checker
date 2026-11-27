@@ -73,3 +73,4 @@
 {"t": "2026-11-26T22:58:38", "note": "session: gi03_auto_gm42 for gm42", "rules": 62, "train": 0.879, "transfer": 0.855, "heldout": null, "fp": 3, "noise_flag": 0.198}
 {"t": "2026-11-26T23:47:45", "note": "session: gi04_auto_gm70 for gm70", "rules": 63, "train": 0.853, "transfer": 0.829, "heldout": null, "fp": 3, "noise_flag": 0.198}
 {"t": "2026-11-27T00:11:49", "note": "session: gi05_auto_gm71 for gm71", "rules": 64, "train": 0.869, "transfer": 0.845, "heldout": null, "fp": 3, "noise_flag": 0.198}
+{"t": "2026-11-27T00:36:03", "note": "session: gi06_auto_gm72 for gm72", "rules": 65, "train": 0.883, "transfer": 0.86, "heldout": null, "fp": 3, "noise_flag": 0.198}
