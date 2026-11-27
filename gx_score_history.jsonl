@@ -74,3 +74,4 @@
 {"t": "2026-11-26T23:57:07", "note": "session: gk04_auto_gm93 for gm93", "rules": 63, "train": 0.834, "transfer": 0.813, "heldout": null, "fp": 4, "noise_flag": 0.198}
 {"t": "2026-11-27T00:20:48", "note": "session: gk05_auto_gm94 for gm94", "rules": 64, "train": 0.849, "transfer": 0.828, "heldout": null, "fp": 4, "noise_flag": 0.198}
 {"t": "2026-11-27T00:44:50", "note": "session: gk06_auto_gm95 for gm95", "rules": 65, "train": 0.863, "transfer": 0.841, "heldout": null, "fp": 4, "noise_flag": 0.198}
+{"t": "2026-11-27T01:34:41", "note": "session: gk07_auto_gm96 for gm96", "rules": 66, "train": 0.841, "transfer": 0.819, "heldout": null, "fp": 4, "noise_flag": 0.202}
