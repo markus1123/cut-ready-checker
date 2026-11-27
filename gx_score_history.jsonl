@@ -72,3 +72,4 @@
 {"t": "2026-11-26T22:45:17", "note": "session: gk02_auto_gm90 for gm90", "rules": 61, "train": 0.856, "transfer": 0.835, "heldout": null, "fp": 4, "noise_flag": 0.198}
 {"t": "2026-11-26T23:09:31", "note": "session: gk03_auto_gm91 for gm91", "rules": 62, "train": 0.857, "transfer": 0.835, "heldout": null, "fp": 4, "noise_flag": 0.198}
 {"t": "2026-11-26T23:57:07", "note": "session: gk04_auto_gm93 for gm93", "rules": 63, "train": 0.834, "transfer": 0.813, "heldout": null, "fp": 4, "noise_flag": 0.198}
+{"t": "2026-11-27T00:20:48", "note": "session: gk05_auto_gm94 for gm94", "rules": 64, "train": 0.849, "transfer": 0.828, "heldout": null, "fp": 4, "noise_flag": 0.198}

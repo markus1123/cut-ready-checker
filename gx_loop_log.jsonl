@@ -96,3 +96,4 @@
 {"step": "write", "where": "session", "target": "gm91", "rule": "gk03_auto_gm91", "accepted": true, "train": 0.857, "transfer": 0.835, "t": "2026-11-26T23:09:31"}
 {"step": "mine", "where": "session", "ok": true, "types": 67, "t": "2026-11-26T23:32:43"}
 {"step": "write", "where": "session", "target": "gm93", "rule": "gk04_auto_gm93", "accepted": true, "train": 0.834, "transfer": 0.813, "t": "2026-11-26T23:57:07"}
+{"step": "write", "where": "session", "target": "gm94", "rule": "gk05_auto_gm94", "accepted": true, "train": 0.849, "transfer": 0.828, "t": "2026-11-27T00:20:48"}
