@@ -1808,3 +1808,94 @@ FAULTS += [
                'Vectric / Inkscape snapping and nudge errors; Opendesk making guide (check every part against the '
                'assembly drawing before cutting)'),
 ]
+
+
+def _i_slot_on_pocket_layer(g, rng):
+    """One through slot / cut-out (not a drilled hole) put on a pocket layer half the sheet deep: it is machined as a
+    blind recess instead of cut through."""
+    if not g.thickness: return None
+    g = clone(g); th = g.thickness
+    cand = [(p, i) for p in g.parts for i in p.inner if i.area > 100
+            and not any(f.geom is i for f in p.features) and p.outer.exterior.distance(i) > 2]
+    if not cand: return None
+    p, i = rng.choice(cand)
+    from fc.gx.model import Feature
+    p.inner.remove(i)
+    d = round(th / 2, 3)
+    p.features.append(Feature('pocket', Polygon(i.exterior.coords), d, 'TOP-POCKET-INSIDE_%.3fMM' % d))
+    return g
+
+
+def _i_dogbones_tiny(g, rng):
+    """Every dog-boned rectangular opening redrawn with dog-bones of 1 mm radius (sized for a 2 mm bit) instead of
+    ones the cutting bit fits into."""
+    g = clone(g); n = 0
+    for p in g.parts:
+        for i in list(p.inner):
+            core = _core_rect(i)
+            if core is None: continue
+            c = list(core.exterior.coords)[:4]
+            mx = sum(x for x, _ in c) / 4; my = sum(y for _, y in c) / 4
+            lobes = []
+            for x, y in c:
+                d = math.hypot(x - mx, y - my)
+                if d < 2: break
+                ux, uy = (mx - x) / d, (my - y) / d
+                lobes.append(Point(x + ux * 0.5, y + uy * 0.5).buffer(1.0, 16))
+            if len(lobes) != 4: continue
+            m = Polygon(core.exterior.coords)
+            for l in lobes: m = m.union(l)
+            if m.geom_type != 'Polygon' or not m.is_valid: continue
+            _replace_inner(p, i, Polygon(m.exterior.coords)); n += 1
+    return g if n else None
+
+
+def _i_twin_scaled(g, rng):
+    """One of two (or more) identical parts scaled by 3 % about its centre (a stray scale / stretch on an edit):
+    its outline and every opening 3 % too big."""
+    g = clone(g); k = 1.03
+    big = [p for p in g.parts if p.outer.area > 10000]
+    twins = [a for a in big if any(a is not b and _congruent(a, b) for b in big)]
+    rng.shuffle(twins)
+    for p in twins:
+        c = p.outer.centroid
+        o = affinity.scale(p.outer, k, k, origin=c)
+        if any(q is not p and o.intersects(q.outer) and not q.outer.within(p.outer) for q in g.parts): continue
+        if g.sheet is not None and not o.within(g.sheet): continue
+        old = list(p.inner)
+        p.outer = o
+        p.inner = [affinity.scale(i, k, k, origin=c) for i in old]
+        for f in p.features:
+            j = [n for n, i in enumerate(old) if f.geom is i]
+            f.geom = p.inner[j[0]] if j else affinity.scale(f.geom, k, k, origin=c)
+            if f.r: f.r = f.r * k
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm73', 'A through slot / cut-out drawn on a pocket layer half the sheet deep (machined as a blind recess)',
+        'A slot that a tab or a mating sheet must pass through, put on the pocket layer, is cut only half-way: the '
+        'mating part cannot go in, the slug of the cut-out stays in the panel, and the joint has to be chiselled '
+        'or the part recut',
+        _i_slot_on_pocket_layer,
+        source='Opendesk CAM layer convention (TOP-CUT-INSIDE_<sheet> for through openings vs TOP-POCKET-INSIDE_<depth>); '
+               'Vectric toolpath templates per layer; ShopBot / Vectric forum threads on slots left uncut because '
+               'their vectors sat on the pocket layer'),
+    Mut('gm74', 'Dog-bones drawn with 1 mm radius (for a 2 mm bit): far smaller than any bit that cuts through the sheet',
+        'Dog-bone / T-bone reliefs work only if the cutting bit fits into them: drawn for a 2 mm bit and cut with a '
+        '6 mm (or even a 3.175 mm) through-cutting bit, CAM cannot enter the lobes, the inside corners stay rounded '
+        'at the bit radius and the square-edged mating part does not seat',
+        _i_dogbones_tiny,
+        source='ShopBot / Fab Academy dog-bone guidance (relief diameter >= bit diameter); Fusion 360 and Inkscape '
+               'dog-bone add-ons (tool diameter is the input); Opendesk design guidelines (6 mm cutter, 3 mm '
+               'radius reliefs); CNC forum threads on dog-bones drawn for a 1/8" bit cut with 1/4"'),
+    Mut('gm75', 'One of two identical parts scaled 3 % (stray scale / stretch on an edit): outline and openings too big',
+        'Copies of a part mate with the same parts: one copy 3 % too big (15 mm on a 500 mm side) no longer lines up '
+        'with its twin, its slots and holes sit out of line with the parts they take, and a table top or carcass '
+        'built from it is out of square',
+        _i_twin_scaled,
+        source='Vectric / Inkscape / Illustrator scale and stretch handles (a drag on the bounding box rescales the '
+               'selection); Opendesk making guide (check every part against the assembly drawing); CNC forum '
+               'stories of one side cut oversize after a part was rescaled by accident'),
+]
