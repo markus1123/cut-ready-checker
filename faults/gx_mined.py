@@ -1827,3 +1827,98 @@ FAULTS += [
                'Vectric / Fusion 360 drilling + counterbore templates; CNC forum threads on counterbore and through '
                'hole depths swapped by a layer mix-up'),
 ]
+
+
+def _j_pocket_island(g, rng):
+    """A stray closed loop (10 x 10 mm) left inside a housing pocket on the same pocket layer and depth: the CAM
+    pockets round it as an island, leaving a pillar of sheet standing in the housing."""
+    g = clone(g)
+    cand = [(p, f) for p in g.parts for f in p.features if f.op == 'pocket' and f.geom is not None
+            and f.geom.geom_type == 'Polygon' and f.geom.area > 600 and f.geom.within(p.outer)
+            and not (f.depth is not None and f.depth <= 3.0)]
+    rng.shuffle(cand)
+    for p, f in cand:
+        c = f.geom.representative_point()
+        sq = Polygon([(c.x - 5, c.y - 5), (c.x + 5, c.y - 5), (c.x + 5, c.y + 5), (c.x - 5, c.y + 5)])
+        if not sq.within(f.geom.buffer(-2)): continue
+        if any(sq.intersects(o.geom) for o in p.features if o is not f and o.geom is not None): continue
+        p.features.append(type(f)('pocket', sq, f.depth, f.layer))
+        return g
+    return None
+
+
+def _j_twin_holes_dropped(g, rng):
+    """Every drilled hole missing on one of two (or more) identical parts (its drill layer frozen / not exported for
+    that copy): the twin still has them all."""
+    g = clone(g)
+    big = [p for p in g.parts if p.outer.area > 5000 and len(holes(p)) >= 3]
+    cand = [a for a in big if any(a is not b and len(holes(a)) == len(holes(b)) and _congruent(a, b) for b in big)]
+    rng.shuffle(cand)
+    for p in cand:
+        hs = holes(p)
+        for f in hs:
+            p.features.remove(f)
+            if f.geom in p.inner: p.inner.remove(f.geom)
+        return g
+    return None
+
+
+def _j_edge_jog(g, rng):
+    """A 2 mm step (jog) drawn into a long straight edge of a part outline: the two halves of the edge are offset
+    (a vertex snapped to the wrong point, or a stretch applied to half the edge)."""
+    g = clone(g)
+    cand = []
+    for p in g.parts:
+        if p.outer.area < 20000: continue
+        cs = list(p.outer.exterior.coords)
+        for i in range(len(cs) - 1):
+            (x0, y0), (x1, y1) = cs[i], cs[i + 1]
+            L = math.hypot(x1 - x0, y1 - y0)
+            if L >= 200: cand.append((p, i, L))
+    rng.shuffle(cand)
+    for p, i, L in cand:
+        cs = list(p.outer.exterior.coords)[:-1]
+        (x0, y0), (x1, y1) = cs[i], cs[(i + 1) % len(cs)]
+        ux, uy = (x1 - x0) / L, (y1 - y0) / L
+        sgn = rng.choice((-1, 1)); nx, ny = -uy * 2.0 * sgn, ux * 2.0 * sgn
+        mx, my = x0 + ux * L / 2, y0 + uy * L / 2
+        new = cs[:i + 1] + [(mx, my), (mx + nx, my + ny)]
+        # shift the rest of the edge: the far vertex moves with the step
+        j = (i + 1) % len(cs)
+        rest = cs[i + 1:] if j else []
+        rest = [(rest[0][0] + nx, rest[0][1] + ny)] + rest[1:] if rest else []
+        poly = Polygon(new + rest + (cs[:0]))
+        if not poly.is_valid or abs(poly.area - p.outer.area) > 0.05 * p.outer.area: continue
+        if any(not i2.within(poly) for i2 in p.inner): continue
+        p.outer = poly
+        return g
+    return None
+
+
+FAULTS += [
+    Mut('gm83', 'A stray closed loop left inside a housing pocket on the pocket layer (the CAM leaves it as an island)',
+        'Pocketing toolpaths treat every closed vector inside a pocket boundary as an island and machine round it: '
+        'a leftover loop (a construction square, a label box, a hardware outline) inside a housing leaves a pillar of '
+        'full-height sheet standing in it, so the shelf / back / hinge that should sit in the housing does not go in',
+        _j_pocket_island,
+        source='Vectric VCarve / Aspire pocket toolpath (nested vectors are islands; "Pocket allowance"), Fusion 360 '
+               '2D pocket (inner closed contours become islands unless deselected); CNC forum threads on housings cut '
+               'with an unwanted island from a stray rectangle on the pocket layer'),
+    Mut('gm84', 'Every drilled hole missing on one of two identical parts (its drill layer was not exported for it)',
+        'Copies of a part carry the same bores for the same hardware. When the drill layer of one copy is frozen, or '
+        'the copy was exploded from a block without its drill geometry, that copy comes off the machine with no '
+        'holes at all: shelf pins, cams and dowels have nowhere to go and the part is drilled by hand or recut',
+        _j_twin_holes_dropped,
+        source='Opendesk making guide (check every part against the assembly drawing before cutting); AutoCAD layer '
+               'freeze / DXF export of visible layers only; Hettich System 32 and Häfele Minifix drilling (both panels '
+               'of a pair carry the same bores, docs/rules-from-manuals.md); CNC forum threads on a drill layer left '
+               'off one part'),
+    Mut('gm85', 'A 2 mm step (jog) in a long straight edge of a part outline',
+        'A vertex snapped to the wrong point, or a stretch applied to half an edge, leaves a step in what should be one '
+        'straight edge: the part is cut with it, so that edge does not sit flush with its neighbour, a long joint '
+        'opens by the step and an edge-banded or visible edge shows a notch',
+        _j_edge_jog,
+        source='Vectric / Fusion "join vectors" and node-editing clean-up notes (mis-snapped nodes leave small steps); '
+               'Opendesk design guidelines (clean, continuous outlines); woodworking / CNC forum threads on parts with a '
+               'small step from a mis-snapped polyline vertex'),
+]
